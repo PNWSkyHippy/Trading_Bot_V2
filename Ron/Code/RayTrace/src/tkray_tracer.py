@@ -129,8 +129,8 @@ import sys
 quick_tk_dir = r"C:\Users\Linda\Trading_Bot_V2\Ron\Code"
 if quick_tk_dir not in sys.path:
     sys.path.insert(0, quick_tk_dir)
-import os
 import copy
+import os
 import re
 import subprocess
 import threading
@@ -141,11 +141,10 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any, cast
 
-import rayincludes as ri
 import camera_path as director
+import rayincludes as ri
 from camera_path_editor import CameraPathEditor
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageTk
-
 from quick_tk import FormPanel, QuickApp, ToolView
 
 # This file is in Code/RayTrace/src, while quick_tk is in Code/quick_tk.
@@ -610,6 +609,10 @@ class LiveRayTraceViewer(ToolView):
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
+
+        self.form = self.add_form("Ray-Tracer Settings", parent=self)
+        self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+
         self.debug_win: tk.Toplevel | None = None
         self.debug_console = None
         self.filepath = ""  # H for output file
@@ -666,8 +669,7 @@ class LiveRayTraceViewer(ToolView):
         # We keep the snapshot pending until another control/action starts.
         self.pending_control = None
         self.pending_snapshot = None
-        self.form = self.add_form("Ray-Tracer Settings", parent=self)
-        self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+
         self.last_rotation_value = self.rotation
         self.rotation_timer_id = None
         self.contrast_timer_id = None
@@ -838,8 +840,13 @@ class LiveRayTraceViewer(ToolView):
         #        view_menu = self.menu("View")
 
         tools_menu = self.menu("Edit")
-        tools_menu.add_command(label="Camera Director…", command=self.open_camera_director)
-        tools_menu.add_command(label="Use original rayincludes camera path", command=self.use_original_camera_path)
+        tools_menu.add_command(
+            label="Camera Director…", command=self.open_camera_director
+        )
+        tools_menu.add_command(
+            label="Use original rayincludes camera path",
+            command=self.use_original_camera_path,
+        )
         tools_menu.add_command(
             label="Image Adjustments 🎨 <Ctrl-a>", command=self.open_adjustments_window
         )
@@ -1157,7 +1164,7 @@ class LiveRayTraceViewer(ToolView):
             row=0,
             col=1,
             default=self.contour,
-            fg_color="#2563eb",  #
+            fg_color="#2563eb",
             text_color="white",
             border_width=2,
             checkmark_color="white",
@@ -1170,7 +1177,7 @@ class LiveRayTraceViewer(ToolView):
             row=1,
             col=0,
             default=self.smooth,
-            fg_color="#2563eb",  #
+            fg_color="#2563eb",
             text_color="white",
             border_width=2,
             checkmark_color="white",
@@ -1183,7 +1190,7 @@ class LiveRayTraceViewer(ToolView):
             row=1,
             col=1,
             default=self.sharpen,
-            fg_color="#2563eb",  #
+            fg_color="#2563eb",
             text_color="white",
             border_width=2,
             checkmark_color="white",
@@ -2039,7 +2046,11 @@ class LiveRayTraceViewer(ToolView):
                 ]
             )
         )
-        if frames is None and getattr(self, "director_pov", False) and getattr(self, "director_shot", None):
+        if (
+            frames is None
+            and getattr(self, "director_pov", False)
+            and getattr(self, "director_shot", None)
+        ):
             # A Director still uses its first pose and lights, but keeps the
             # existing still-render behavior (no movie output folder).
             render_jobs[0]["frame"] = self._requested_scene1_frames()[0]
@@ -2080,14 +2091,21 @@ class LiveRayTraceViewer(ToolView):
             window.lift()
             return
         self.director_window = CameraPathEditor(
-            self.app.root, RAYTRACE_SRC_DIR / "rayincludes.py", self.use_director_shot,
-            shot=getattr(self, "director_shot", None), template_path=self.pov_scene_path,
+            self.app.root,
+            RAYTRACE_SRC_DIR / "rayincludes.py",
+            self.use_director_shot,
+            shot=getattr(self, "director_shot", None),
+            template_path=self.pov_scene_path,
         )
 
-    def use_director_shot(self, shot, use_pov, template_path=None, include_object=False):
+    def use_director_shot(
+        self, shot, use_pov, template_path=None, include_object=False
+    ):
         """Prepare a path; rendering still starts from the existing render buttons."""
         if self.is_rendering:
-            raise ValueError("Finish or stop the current render before selecting another shot.")
+            raise ValueError(
+                "Finish or stop the current render before selecting another shot."
+            )
         frames = director.sample_shot(shot)
         source = None
         if use_pov:
@@ -2100,7 +2118,9 @@ class LiveRayTraceViewer(ToolView):
             else:
                 output = RAYTRACE_SRC_DIR / "scene_data" / "director"
                 output.mkdir(parents=True, exist_ok=True)
-                scene_path = output / ("shot_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f") + ".pov")
+                scene_path = output / (
+                    "shot_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f") + ".pov"
+                )
                 scene_path.write_text(director.pov_scene_text(shot), encoding="utf-8")
             self.pov_scene_path = scene_path
         self.director_shot = copy.deepcopy(shot)
@@ -2108,16 +2128,22 @@ class LiveRayTraceViewer(ToolView):
         self.director_source = source
         self.director_include_object = include_object
         self.form.set_values({"movie_frames": len(frames)})
-        self.set_status(f"Camera Director: {shot['name']} · {len(frames)} exact frames. Ready for "
-                        + ("POV Camera Strip." if use_pov else "Homemade Render."))
+        self.set_status(
+            f"Camera Director: {shot['name']} · {len(frames)} exact frames. Ready for "
+            + ("POV Camera Strip." if use_pov else "Homemade Render.")
+        )
 
     def use_original_camera_path(self):
         if self.is_rendering:
-            messagebox.showinfo("Camera path", "Finish or stop the current render first.")
+            messagebox.showinfo(
+                "Camera path", "Finish or stop the current render first."
+            )
             return
         self.director_shot = None
         self.director_pov = False
-        self.set_status("Original rayincludes.py camera path selected; Movie Frames controls its length.")
+        self.set_status(
+            "Original rayincludes.py camera path selected; Movie Frames controls its length."
+        )
 
     def on_click_povray_still(self, argument=None):
         self._start_pov_render(frames=None, output_suffix="still")
@@ -2276,8 +2302,13 @@ class LiveRayTraceViewer(ToolView):
             # source is a snapshot; all original geometry/includes stay intact.
             shot = frame["director_shot"]
             source = frame.get("director_source")
-            text = (director.pov_scene_text(shot, frame) if source is None else
-                    director.overlay_pov_scene(source, shot, frame, frame.get("director_include_object", False)))
+            text = (
+                director.pov_scene_text(shot, frame)
+                if source is None
+                else director.overlay_pov_scene(
+                    source, shot, frame, frame.get("director_include_object", False)
+                )
+            )
             output_path.write_text(text, encoding="utf-8")
             return
         scene_text = template_path.read_text(encoding="utf-8")

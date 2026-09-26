@@ -10,23 +10,20 @@ import contextlib
 import copy
 import csv
 import io
-import os
-import re
-import sqlite3
-import sys
-import tkinter as tk
 import json
+import os
+import queue
+import re
 import shlex
+import sqlite3
 import subprocess
+import sys
+import threading
+import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from quick_tk import QuickApp, ToolView
-from quick_tk.core.forms import (
-    MultiSelectDropdown,
-)
-from tkcalendar import DateEntry
 from local_functions import (
     STAT_LABEL_VALUE_RE,
     Timed,
@@ -35,15 +32,63 @@ from local_functions import (
     colorize,
     date_check,
 )
+from quick_tk import QuickApp, ToolView
+from quick_tk.core.forms import (
+    MultiSelectDropdown,
+)
+from tkcalendar import DateEntry
+from trade_report_table import TradeReportTable
 
 # Constants stay global; report settings and results belong to each tool instance.
-DB_PATH = str(
-    Path(__file__).resolve().parents[2]
-    / "data"
-    / "trading_bot.db"
-)
+DB_PATH = str(Path(__file__).resolve().parents[2] / "data" / "trading_bot.db")
 EQUALSTR = "=" * 175 + "\n"
 BL_EQUALSTR = colorize(EQUALSTR, "blue")
+GUI_SSH_DEFAULTS = {
+    "ssh_host": "187.127.248.52",
+    "ssh_user": "ronh",
+    "ssh_db": "/opt/trading_bot_v2/data/trading_bot.db",
+}
+
+
+def insert_colored_report(widget, content):
+    """Translate terminal color codes into Tk tags; never display escape bytes."""
+    palette = [
+        "#181825",
+        "#f38ba8",
+        "#a6e3a1",
+        "#f9e2af",
+        "#89b4fa",
+        "#cba6f7",
+        "#94e2d5",
+        "#cdd6f4",
+    ]
+    foreground = background = None
+    bold = False
+    for part in re.split(r"(\x1b\[[0-9;]*m)", content):
+        if part.startswith("\x1b["):
+            for code in (int(value or 0) for value in part[2:-1].split(";")):
+                if code == 0:
+                    foreground = background = None
+                    bold = False
+                elif code in (1, 22):
+                    bold = code == 1
+                elif code == 39:
+                    foreground = None
+                elif code == 49:
+                    background = None
+                elif 30 <= code <= 37 or 90 <= code <= 97:
+                    foreground = palette[code % 10]
+                elif 40 <= code <= 47 or 100 <= code <= 107:
+                    background = palette[code % 10]
+            continue
+        tag = f"ansi_{foreground}_{background}_{bold}"
+        options = {"font": ("Consolas", 10, "bold" if bold else "normal")}
+        if foreground:
+            options["foreground"] = foreground
+        if background:
+            options["background"] = background
+        widget.tag_configure(tag, **options)
+        widget.insert("end", clean_ansi(part), (tag,))
 
 
 class TradeAnalyzerTool(ToolView):
@@ -65,12 +110,12 @@ class TradeAnalyzerTool(ToolView):
         self.run_number = 0
         self.hdr_list = []
         self.trades_list = []
+        self.available_trades = []
+        self.table_names = []
 
     def build_ui(self):
         """Build controls only; opening the GUI does not run a report."""
-        self.initialize_report_state(
-            self.app.report_args
-        )
+        self.initialize_report_state(self.app.report_args)
         self.option_vars = {}
         self.key_vars = []
         self.value_vars = []
@@ -103,18 +148,14 @@ class TradeAnalyzerTool(ToolView):
             left,
             text="Choose a field to see its values.",
         ).grid(sticky="w")
-        self.inspect_var = tk.StringVar(
-            value="strategy_name"
-        )
+        self.inspect_var = tk.StringVar(value="strategy_name")
         self.inspect_box = ttk.Combobox(
             left,
             textvariable=self.inspect_var,
             state="readonly",
             width=27,
         )
-        self.inspect_box.grid(
-            row=1, column=0, sticky="ew", pady=6
-        )
+        self.inspect_box.grid(row=1, column=0, sticky="ew", pady=6)
         self.inspect_box.bind(
             "<<ComboboxSelected>>",
             self.refresh_values,
@@ -124,9 +165,7 @@ class TradeAnalyzerTool(ToolView):
             text="Select values, then add them to a filter.",
         ).grid(row=2, column=0, sticky="w")
         value_frame = ttk.Frame(left)
-        value_frame.grid(
-            row=3, column=0, sticky="nsew"
-        )
+        value_frame.grid(row=3, column=0, sticky="nsew")
         value_frame.rowconfigure(0, weight=1)
         value_frame.columnconfigure(0, weight=1)
         self.available_values = tk.Listbox(
@@ -134,30 +173,22 @@ class TradeAnalyzerTool(ToolView):
             selectmode="extended",
             exportselection=False,
         )
-        self.available_values.grid(
-            row=0, column=0, sticky="nsew"
-        )
+        self.available_values.grid(row=0, column=0, sticky="nsew")
         scroll = ttk.Scrollbar(
             value_frame,
             orient="vertical",
             command=self.available_values.yview,
         )
         scroll.grid(row=0, column=1, sticky="ns")
-        self.available_values.configure(
-            yscrollcommand=scroll.set
-        )
-        self.target_filter = tk.StringVar(
-            value="1"
-        )
+        self.available_values.configure(yscrollcommand=scroll.set)
+        self.target_filter = tk.StringVar(value="1")
         ttk.Combobox(
             left,
             textvariable=self.target_filter,
             values=["1", "2", "3", "4", "5"],
             state="readonly",
             width=5,
-        ).grid(
-            row=4, column=0, sticky="w", pady=6
-        )
+        ).grid(row=4, column=0, sticky="w", pady=6)
         ttk.Button(
             left,
             text="Use selected values in filter",
@@ -170,12 +201,8 @@ class TradeAnalyzerTool(ToolView):
         right.rowconfigure(0, weight=1)
         # Tabs keep all five filters usable on a normal-height laptop screen.
         options_pages = ttk.Notebook(right)
-        options_pages.grid(
-            row=0, column=0, sticky="nsew"
-        )
-        settings = ttk.Frame(
-            options_pages, padding=10
-        )
+        options_pages.grid(row=0, column=0, sticky="nsew")
+        settings = ttk.Frame(options_pages, padding=10)
         options_pages.add(
             settings,
             text="Database, dates and output",
@@ -187,12 +214,8 @@ class TradeAnalyzerTool(ToolView):
             padx=(0, 8),
             pady=4,
         )
-        self.table_box = ttk.Combobox(
-            settings, state="readonly", width=32
-        )
-        self.table_box.grid(
-            row=0, column=1, sticky="ew", pady=4
-        )
+        self.table_box = ttk.Combobox(settings, state="readonly", width=32)
+        self.table_box.grid(row=0, column=1, sticky="ew", pady=4)
         self.table_box.bind(
             "<<ComboboxSelected>>",
             lambda _event: self.load_database_fields(),
@@ -227,9 +250,7 @@ class TradeAnalyzerTool(ToolView):
             )
             var = tk.StringVar()
             self.option_vars[name] = var
-            ttk.Entry(
-                settings, textvariable=var
-            ).grid(
+            ttk.Entry(settings, textvariable=var).grid(
                 row=row,
                 column=1,
                 sticky="ew",
@@ -252,9 +273,7 @@ class TradeAnalyzerTool(ToolView):
                 )
             elif name in ("start", "end"):
                 command, label = (
-                    lambda n=name: self.choose_date(
-                        n
-                    ),
+                    lambda n=name: self.choose_date(n),
                     "Calendar...",
                 )
             elif name == "outfields":
@@ -272,15 +291,13 @@ class TradeAnalyzerTool(ToolView):
                     settings,
                     text=label,
                     command=command,
-                ).grid(
-                    row=row, column=2, padx=(8, 0)
-                )
+                ).grid(row=row, column=2, padx=(8, 0))
         ttk.Label(
             settings,
             text="Leave SSH host blank for local. For VPS mode, enter host/user/remote DB path. The program runs one read-only SSH query per report; it does not copy the DB.",
             wraplength=630,
         ).grid(
-            row=row + 1,  # Keep the help below all fields, including dates.
+            row=row + 4,  # Keep the help below all fields, including dates.
             column=0,
             columnspan=3,
             sticky="w",
@@ -297,9 +314,7 @@ class TradeAnalyzerTool(ToolView):
             sticky="w",
         )
 
-        filters = ttk.Frame(
-            options_pages, padding=10
-        )
+        filters = ttk.Frame(options_pages, padding=10)
         options_pages.insert(
             0,
             filters,
@@ -337,9 +352,7 @@ class TradeAnalyzerTool(ToolView):
                 padx=4,
             )
         for i in range(5):
-            ttk.Label(
-                filters, text=str(i + 1)
-            ).grid(row=i + 2, column=0, padx=4)
+            ttk.Label(filters, text=str(i + 1)).grid(row=i + 2, column=0, padx=4)
             key_var, value_var, sort_var = (
                 tk.StringVar(),
                 tk.StringVar(),
@@ -363,9 +376,7 @@ class TradeAnalyzerTool(ToolView):
             )
             key_box.bind(
                 "<<ComboboxSelected>>",
-                lambda event, n=i: self.inspect_filter(
-                    n
-                ),
+                lambda event, n=i: self.inspect_filter(n),
             )
             self.key_boxes.append(key_box)
             value_frame = ttk.Frame(filters)
@@ -376,28 +387,20 @@ class TradeAnalyzerTool(ToolView):
                 pady=3,
                 sticky="ew",
             )
-            value_frame.columnconfigure(
-                0, weight=1
-            )
+            value_frame.columnconfigure(0, weight=1)
             value_box = MultiSelectDropdown(
                 value_frame,
                 options=["ALL"],
                 default=["ALL"],
                 theme=self.theme,
                 placeholder="Choose values...",
-                on_change=lambda values, n=i: self.select_filter_values(
-                    n, values
-                ),
+                on_change=lambda values, n=i: self.select_filter_values(n, values),
             )
-            value_box.grid(
-                row=0, column=0, sticky="ew"
-            )
+            value_box.grid(row=0, column=0, sticky="ew")
             self.value_boxes.append(value_box)
             value_var.trace_add(
                 "write",
-                lambda *args, n=i: self.sync_value_checks(
-                    n
-                ),
+                lambda *args, n=i: self.sync_value_checks(n),
             )
             ttk.Entry(
                 value_frame,
@@ -434,15 +437,9 @@ class TradeAnalyzerTool(ToolView):
         )
 
         switches = ttk.Frame(right)
-        switches.grid(
-            row=1, column=0, sticky="ew"
-        )
-        view_menu = tk.Menu(
-            self.app._menu_bar, tearoff=False
-        )
-        self.app._menu_bar.add_cascade(
-            label="View", menu=view_menu
-        )
+        switches.grid(row=1, column=0, sticky="ew")
+        view_menu = tk.Menu(self.app._menu_bar, tearoff=False)
+        self.app._menu_bar.add_cascade(label="View", menu=view_menu)
         for i, (name, label) in enumerate(
             [
                 ("open", "Open trades"),
@@ -458,27 +455,27 @@ class TradeAnalyzerTool(ToolView):
         ):
             var = tk.BooleanVar()
             self.option_vars[name] = var
-            ttk.Checkbutton(
-                switches, text=label, variable=var
-            ).grid(
+            ttk.Checkbutton(switches, text=label, variable=var).grid(
                 row=i // 3,
                 column=i % 3,
                 sticky="w",
                 padx=6,
                 pady=4,
             )
-            view_menu.add_checkbutton(
-                label=label, variable=var
-            )
+            view_menu.add_checkbutton(label=label, variable=var)
         actions = ttk.Frame(right)
-        actions.grid(
-            row=2, column=0, sticky="ew", pady=10
+        actions.grid(row=2, column=0, sticky="ew", pady=10)
+        self.run_button = ttk.Button(
+            actions, text="Run report", command=self.on_analyze
         )
-        ttk.Button(
+        self.run_button.pack(side="left")
+        self.report_running = False
+        self.report_progress = ttk.Progressbar(
             actions,
-            text="Run report",
-            command=self.on_analyze,
-        ).pack(side="left")
+            mode="indeterminate",
+            length=140,
+        )
+        self.report_progress.pack(side="right", padx=8)
         ttk.Button(
             actions,
             text="Reset filters",
@@ -489,9 +486,7 @@ class TradeAnalyzerTool(ToolView):
             text="Show field names",
             command=self.show_field_names,
         ).pack(side="left")
-        self.status_var = tk.StringVar(
-            value="Ready. Choose options, then Run report."
-        )
+        self.status_var = tk.StringVar(value="Ready. Choose options, then Run report.")
         ttk.Label(
             right,
             textvariable=self.status_var,
@@ -504,12 +499,15 @@ class TradeAnalyzerTool(ToolView):
         """Use startup arguments (or defaults on Reset) to fill the widgets."""
         for name, var in self.option_vars.items():
             value = getattr(args, name)
-            var.set(
-                value if value is not None else ""
-            )
-        keys = (
-            args.key or "strategy_name"
-        ).split(",")
+            # GUI convenience only: explicit CLI values and local DB paths win.
+            if value is None and name in GUI_SSH_DEFAULTS:
+                value = (
+                    GUI_SSH_DEFAULTS[name]
+                    if name != "ssh_host" or args.db == DB_PATH
+                    else ""
+                )
+            var.set(value if value is not None else "")
+        keys = (args.key or "strategy_name").split(",")
         if keys == ["ALL"]:
             keys = [
                 "strategy_name",
@@ -520,47 +518,26 @@ class TradeAnalyzerTool(ToolView):
             ]
         sorts = (args.sort_keys or "").split(",")
         for i in range(5):
-            self.key_vars[i].set(
-                keys[i].strip()
-                if i < len(keys)
-                else ""
-            )
+            self.key_vars[i].set(keys[i].strip() if i < len(keys) else "")
             self.value_vars[i].set(
-                getattr(args, f"list{i+1}")
-                or (
-                    "ALL" if i < len(keys) else ""
-                )
+                getattr(args, f"list{i + 1}") or ("ALL" if i < len(keys) else "")
             )
-            self.sort_vars[i].set(
-                sorts[i].strip()
-                if i < len(sorts)
-                else ""
-            )
+            self.sort_vars[i].set(sorts[i].strip() if i < len(sorts) else "")
 
     def on_reset(self):
         """Reset the next report's options; existing windows keep their results."""
-        args = self.make_parser().parse_args(
-            ["--gui"]
-        )
+        args = self.make_parser().parse_args(["--gui"])
         args.db = self.option_vars["db"].get()
         self.apply_options_to_controls(args)
         self.populate_filter_choices()
-        self.status_var.set(
-            "Filters reset. Existing reports are unchanged."
-        )
+        self.status_var.set("Filters reset. Existing reports are unchanged.")
 
     @staticmethod
     def quote_identifier(name):
         """Quote a table or column name selected from sqlite metadata."""
         if not name:
-            raise ValueError(
-                "Choose a database table first."
-            )
-        return (
-            '"'
-            + str(name).replace('"', '""')
-            + '"'
-        )
+            raise ValueError("Choose a database table first.")
+        return '"' + str(name).replace('"', '""') + '"'
 
     def choose_database(self):
         path = filedialog.askopenfilename(
@@ -595,167 +572,144 @@ class TradeAnalyzerTool(ToolView):
         """Calendar fills a date; the entry still lets you edit hours/minutes."""
         win = tk.Toplevel(self)
         win.title("Choose " + name + " date")
-        calendar = DateEntry(
-            win, date_pattern="yyyy-mm-dd"
-        )
+        calendar = DateEntry(win, date_pattern="yyyy-mm-dd")
         calendar.pack(padx=15, pady=15)
         old = self.option_vars[name].get()
         if old:
             try:
-                calendar.set_date(
-                    datetime.fromisoformat(
-                        old
-                    ).date()
-                )
+                calendar.set_date(datetime.fromisoformat(old).date())
             except ValueError:
                 pass
 
         def use_date():
-            time = (
-                "00:00"
-                if name == "start"
-                else "23:59"
-            )
-            self.option_vars[name].set(
-                calendar.get_date().isoformat()
-                + "T"
-                + time
-            )
+            time = "00:00" if name == "start" else "23:59"
+            self.option_vars[name].set(calendar.get_date().isoformat() + "T" + time)
             win.destroy()
 
-        ttk.Button(
-            win, text="Use date", command=use_date
-        ).pack(pady=(0, 15))
+        ttk.Button(win, text="Use date", command=use_date).pack(pady=(0, 15))
 
-    def load_database_fields(self):
-        """Read column names even when the trades table has no rows."""
-        self.args.db = self.option_vars[
-            "db"
-        ].get()
+    def database_control_values(self):
+        """Snapshot visible source settings on Tk's thread."""
+        return tuple(self.option_vars[name].get().strip() for name in
+                     ("db", "ssh_host", "ssh_user", "ssh_port", "ssh_db")) + (self.table_box.get(),)
+
+    def load_database_fields(self, show_names=False):
+        """Keep SSH work off Tk's thread so startup and refresh stay responsive."""
+        self.database_load_id = getattr(self, "database_load_id", 0) + 1
+        load_id = self.database_load_id
+        self.database_loading = False
         try:
-            conn = self.connect()
+            self.read_database_controls()
+        except (ValueError, TypeError) as exc:
+            self.database_load_error(str(exc))
+            return
+        if not self.args.ssh_host:
             try:
-                self.table_names = getattr(
-                    self,
-                    "remote_table_names",
-                    None,
-                ) or [
-                    row[0]
-                    for row in conn.execute(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-                    )
-                ]
-                selected_table = (
-                    self.option_vars.get("table")
+                self.apply_database_fields(self.read_database_fields(), show_names)
+            except (sqlite3.Error, OSError, ValueError) as exc:
+                self.database_load_error(str(exc))
+            return
+
+        # This instance owns its connection and arguments; it never touches Tk.
+        worker = TradeAnalyzerTool.__new__(TradeAnalyzerTool)
+        worker.initialize_report_state(copy.deepcopy(self.args))
+        controls = self.database_control_values()
+        results = queue.Queue()
+        self.database_loading = True
+        self.status_var.set(f"Loading database from {self.args.ssh_host} via SSH… You can keep editing settings.")
+
+        def read_remote():
+            try:
+                results.put((worker.read_database_fields(), None))
+            except Exception as exc:
+                detail = ("SSH database query timed out after 60 seconds."
+                          if isinstance(exc, subprocess.TimeoutExpired) else str(exc))
+                results.put((None, detail))
+
+        threading.Thread(target=read_remote, daemon=True).start()
+        self.after(75, self.poll_database_fields, results, load_id, controls, show_names)
+
+    def poll_database_fields(self, results, load_id, controls, show_names):
+        """Only the latest requested source may populate the GUI."""
+        if load_id != self.database_load_id:
+            return
+        if controls != self.database_control_values():
+            self.database_loading = False
+            self.status_var.set("Database settings changed. Click Load database to load the new source.")
+            return
+        try:
+            fields, error = results.get_nowait()
+        except queue.Empty:
+            self.after(75, self.poll_database_fields, results, load_id, controls, show_names)
+            return
+        self.database_loading = False
+        if error:
+            self.database_load_error(error)
+        else:
+            self.apply_database_fields(fields, show_names)
+
+    def read_database_fields(self):
+        """Return plain data and close SQLite on the same thread that opened it."""
+        conn = self.connect()
+        try:
+            tables = getattr(self, "remote_table_names", None) or [
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
                 )
-                selected_table = (
-                    selected_table.get()
-                    if selected_table
-                    else self.args.table
-                )
-                if (
-                    selected_table
-                    not in self.table_names
-                ):
-                    selected_table = (
-                        "trades"
-                        if "trades"
-                        in self.table_names
-                        else (
-                            self.table_names[0]
-                            if self.table_names
-                            else ""
-                        )
-                    )
-                self.args.table = selected_table
-                self.table_box.configure(
-                    values=self.table_names
-                )
-                self.table_box.set(selected_table)
-                self.hdr_list = [
-                    col[1]
-                    for col in conn.execute(
-                        f"PRAGMA table_info({self.quote_identifier(selected_table)})"
-                    )
-                ]
-                # These are choices only. main_loop rereads trades for each report.
-                self.available_trades = [
-                    dict(row)
-                    for row in conn.execute(
-                        f"SELECT * FROM {self.quote_identifier(selected_table)}"
-                    )
-                ]
-            finally:
-                conn.close()
-            for box in (
-                self.key_boxes + self.sort_boxes
-            ):
-                box.configure(
-                    values=[""] + self.hdr_list
-                )
-            self.inspect_box.configure(
-                values=self.hdr_list
-            )
-            if (
-                self.inspect_var.get()
-                not in self.hdr_list
-            ):
-                self.inspect_var.set(
-                    self.hdr_list[0]
-                    if self.hdr_list
-                    else ""
-                )
-            self.populate_filter_choices()
-            self.refresh_values()
-        except (
-            sqlite3.Error,
-            OSError,
-            ValueError,
-        ) as exc:
-            self.hdr_list = []
-            self.available_trades = []
-            self.table_names = []
-            self.populate_filter_choices()
-            for box in (
-                self.key_boxes
-                + self.sort_boxes
-                + [self.inspect_box]
-            ):
-                box.configure(values=[])
-            self.available_values.delete(0, "end")
-            self.status_var.set(
-                f"Could not read database: {exc}. Choose a database to continue."
-            )
+            ]
+            selected = self.args.table
+            if selected not in tables:
+                selected = "trades" if "trades" in tables else (tables[0] if tables else "")
+            quoted = self.quote_identifier(selected)
+            columns = [col[1] for col in conn.execute(f"PRAGMA table_info({quoted})")]
+            rows = [dict(row) for row in conn.execute(f"SELECT * FROM {quoted}")]
+            return tables, selected, columns, rows
+        finally:
+            conn.close()
+
+    def apply_database_fields(self, fields, show_names=False):
+        """Apply completed query results on Tk's thread."""
+        self.table_names, self.args.table, self.hdr_list, self.available_trades = fields
+        self.table_box.configure(values=self.table_names)
+        self.table_box.set(self.args.table)
+        for box in self.key_boxes + self.sort_boxes:
+            box.configure(values=[""] + self.hdr_list)
+        self.inspect_box.configure(values=self.hdr_list)
+        if self.inspect_var.get() not in self.hdr_list:
+            self.inspect_var.set(self.hdr_list[0] if self.hdr_list else "")
+        self.populate_filter_choices()
+        self.refresh_values()
+        if show_names:
+            messagebox.showinfo("Available trade fields",
+                                "\n".join(self.hdr_list) or "No database fields available.", parent=self)
+
+    def database_load_error(self, detail):
+        self.hdr_list = []
+        self.available_trades = []
+        self.table_names = []
+        self.populate_filter_choices()
+        for box in self.key_boxes + self.sort_boxes + [self.inspect_box]:
+            box.configure(values=[])
+        self.available_values.delete(0, "end")
+        self.status_var.set(f"Could not read database: {detail}. Choose a database to continue.")
 
     def values_for_field(self, field):
         """Build dropdown choices from the loaded trade dictionaries in memory."""
         return sorted(
-            {
-                str(trade.get(field))
-                for trade in self.available_trades
-            },
+            {str(trade.get(field)) for trade in self.available_trades},
             key=str.casefold,
         )
 
     def populate_filter_choices(self):
         """Each of the five value dropdowns follows its own selected field."""
-        if (
-            self.keys_selector.options
-            != self.hdr_list
-        ):
-            self.keys_selector.set_options(
-                self.hdr_list
-            )
+        if self.keys_selector.options != self.hdr_list:
+            self.keys_selector.set_options(self.hdr_list)
         # Keep the key popup open so several fields can be checked in one visit.
-        active = [
-            var.get() for var in self.key_vars
-        ]
+        active = [var.get() for var in self.key_vars]
         for (
             key,
             var,
-        ) in (
-            self.keys_selector.selected_vars.items()
-        ):
+        ) in self.keys_selector.selected_vars.items():
             var.set(key in active)
         self.keys_selector._update_summary()
         for key, value, box in zip(
@@ -765,34 +719,18 @@ class TradeAnalyzerTool(ToolView):
         ):
             options = (
                 ["ALL"]
-                + [
-                    item
-                    for item in self.values_for_field(
-                        key.get()
-                    )
-                    if item != "ALL"
-                ]
+                + [item for item in self.values_for_field(key.get()) if item != "ALL"]
                 if key.get() in self.hdr_list
                 else ["ALL"]
             )
             box.set_options(
                 options,
-                default=[
-                    item.strip()
-                    for item in value.get().split(
-                        ","
-                    )
-                ],
+                default=[item.strip() for item in value.get().split(",")],
             )
 
     def sync_value_checks(self, index):
         """Typing a comparison also clears any old ALL checkmark in the popup."""
-        selected = [
-            item.strip()
-            for item in self.value_vars[index]
-            .get()
-            .split(",")
-        ]
+        selected = [item.strip() for item in self.value_vars[index].get().split(",")]
         box = self.value_boxes[index]
         for (
             value,
@@ -819,31 +757,18 @@ class TradeAnalyzerTool(ToolView):
         if len(selected) > 5:
             self.keys_selector.set_options(
                 self.hdr_list,
-                default=[
-                    k for k, v, s in previous
-                ],
+                default=[k for k, v, s in previous],
             )
-            self.status_var.set(
-                "Choose no more than five search keys."
-            )
+            self.status_var.set("Choose no more than five search keys.")
             return
-        ordered = [
-            item
-            for item in previous
-            if item[0] in selected
-        ]
+        ordered = [item for item in previous if item[0] in selected]
         ordered += [
             (key, "ALL", "")
             for key in selected
-            if key
-            not in [item[0] for item in ordered]
+            if key not in [item[0] for item in ordered]
         ]
         for i in range(5):
-            key, value, sort = (
-                ordered[i]
-                if i < len(ordered)
-                else ("", "", "")
-            )
+            key, value, sort = ordered[i] if i < len(ordered) else ("", "", "")
             self.key_vars[i].set(key)
             self.value_vars[i].set(value)
             self.sort_vars[i].set(sort)
@@ -852,24 +777,14 @@ class TradeAnalyzerTool(ToolView):
     def select_filter_values(self, index, values):
         # If a specific value is checked while ALL was selected, use specifics.
         # Checking ALL after specific values switches back to the whole field.
-        previous = (
-            self.value_vars[index]
-            .get()
-            .split(",")
-        )
+        previous = self.value_vars[index].get().split(",")
         if "ALL" in values and len(values) > 1:
             values = (
-                [
-                    item
-                    for item in values
-                    if item != "ALL"
-                ]
+                [item for item in values if item != "ALL"]
                 if "ALL" in previous
                 else ["ALL"]
             )
-        self.value_vars[index].set(
-            ",".join(values) or "ALL"
-        )
+        self.value_vars[index].set(",".join(values) or "ALL")
         box = self.value_boxes[index]
         for (
             value,
@@ -885,9 +800,7 @@ class TradeAnalyzerTool(ToolView):
             return
         values = self.values_for_field(field)
         for value in values:
-            self.available_values.insert(
-                "end", value
-            )
+            self.available_values.insert("end", value)
         self.status_var.set(
             f"Loaded {len(self.hdr_list)} fields. {len(values)} distinct values for {field} (all trades)."
         )
@@ -906,23 +819,16 @@ class TradeAnalyzerTool(ToolView):
     def use_selected_values(self):
         index = int(self.target_filter.get()) - 1
         values = [
-            self.available_values.get(i)
-            for i in self.available_values.curselection()
+            self.available_values.get(i) for i in self.available_values.curselection()
         ]
         if values:
-            self.key_vars[index].set(
-                self.inspect_var.get()
-            )
-            self.value_vars[index].set(
-                ",".join(values)
-            )
+            self.key_vars[index].set(self.inspect_var.get())
+            self.value_vars[index].set(",".join(values))
             self.populate_filter_choices()
 
     def choose_output_fields(self):
         win = tk.Toplevel(self)
-        win.title(
-            "Select output columns (Ctrl-click for more than one)"
-        )
+        win.title("Select output columns (Ctrl-click for more than one)")
         choices = tk.Listbox(
             win,
             selectmode="extended",
@@ -936,24 +842,15 @@ class TradeAnalyzerTool(ToolView):
             padx=10,
             pady=10,
         )
-        selected = (
-            self.option_vars["outfields"]
-            .get()
-            .split(",")
-        )
+        selected = self.option_vars["outfields"].get().split(",")
         for i, field in enumerate(self.hdr_list):
             choices.insert("end", field)
-            if field in selected or selected == [
-                "ALL"
-            ]:
+            if field in selected or selected == ["ALL"]:
                 choices.selection_set(i)
 
         def use_fields():
             self.option_vars["outfields"].set(
-                ",".join(
-                    choices.get(i)
-                    for i in choices.curselection()
-                )
+                ",".join(choices.get(i) for i in choices.curselection())
             )
             win.destroy()
 
@@ -964,13 +861,7 @@ class TradeAnalyzerTool(ToolView):
         ).pack(pady=10)
 
     def show_field_names(self):
-        self.load_database_fields()
-        messagebox.showinfo(
-            "Available trade fields",
-            "\n".join(self.hdr_list)
-            or "No database fields available.",
-            parent=self,
-        )
+        self.load_database_fields(show_names=True)
 
     def read_controls(self):
         """Copy widgets into the same option object the CLI supplies.
@@ -983,18 +874,11 @@ class TradeAnalyzerTool(ToolView):
             setattr(
                 self.args,
                 name,
-                (
-                    value.strip() or None
-                    if isinstance(value, str)
-                    else value
-                ),
+                (value.strip() or None if isinstance(value, str) else value),
             )
         if hasattr(self, "table_box"):
             self.args.table = self.table_box.get()
-        if not self.args.db:
-            raise ValueError(
-                "Choose a trades database first."
-            )
+        self.read_database_controls()
         active = [
             (k.get(), v.get(), s.get())
             for k, v, s in zip(
@@ -1005,12 +889,8 @@ class TradeAnalyzerTool(ToolView):
             if k.get()
         ]
         if not active and not self.args.Names:
-            raise ValueError(
-                "Choose at least one search key."
-            )
-        self.args.key = ",".join(
-            k for k, v, s in active
-        )
+            raise ValueError("Choose at least one search key.")
+        self.args.key = ",".join(k for k, v, s in active)
         self.args.sort_keys = (
             ",".join(s or k for k, v, s in active)
             if any(s for k, v, s in active)
@@ -1019,102 +899,111 @@ class TradeAnalyzerTool(ToolView):
         for i in range(5):
             setattr(
                 self.args,
-                f"list{i+1}",
-                (
-                    (
-                        active[i][1].strip()
-                        or "ALL"
-                    )
-                    if i < len(active)
-                    else None
-                ),
+                f"list{i + 1}",
+                ((active[i][1].strip() or "ALL") if i < len(active) else None),
             )
 
-    def on_analyze(self):
-        """Run repeatedly without reparsing argv or letting sys.exit close Tk.
+    def read_database_controls(self):
+        """Use the visible connection fields for both Load and Run, including blanks."""
+        for name in ("db", "ssh_host", "ssh_user", "ssh_port", "ssh_db"):
+            value = self.option_vars[name].get()
+            setattr(self.args, name, value.strip() or None)
+        self.args.table = self.table_box.get().strip() or self.args.table or "trades"
+        if self.args.ssh_host:
+            if not self.args.ssh_db:
+                raise ValueError("Enter the Remote SQLite path for the SSH host.")
+            self.args.ssh_port = int(self.args.ssh_port or 22)
+            if not 1 <= self.args.ssh_port <= 65535:
+                raise ValueError("SSH port must be between 1 and 65535.")
+        elif not self.args.db:
+            raise ValueError("Choose a trades database first.")
 
-        The old validation prints a message before exiting. Catch that exit here
-        and show its message in a dialog. The CLI keeps its original exit behavior.
-        """
-        messages = io.StringIO()
+    def on_analyze(self):
+        """Snapshot controls on Tk's thread, then run the report in a worker."""
+        if self.report_running:
+            return
         try:
             self.read_controls()
             if self.args.Names:
                 self.show_field_names()
                 return
-            with (
-                contextlib.redirect_stdout(
-                    messages
-                ),
-                contextlib.redirect_stderr(
-                    messages
-                ),
-            ):
-                self.main_loop()
+        except (ValueError, TypeError) as exc:
+            self._report_error(str(exc))
+            return
+        # The worker uses a separate non-widget instance, just like CLI mode.
+        # Editing controls cannot change a report that is already running.
+        worker = TradeAnalyzerTool.__new__(TradeAnalyzerTool)
+        worker.initialize_report_state(copy.deepcopy(self.args))
+        results = queue.Queue()
+        self.report_running = True
+        self.run_button.configure(state="disabled")
+        self.report_progress.start(15)
+        self.status_var.set("Running report — reading database and preparing results…")
+
+        def generate():
+            messages = io.StringIO()
+            error = None
+            try:
+                with (
+                    contextlib.redirect_stdout(messages),
+                    contextlib.redirect_stderr(messages),
+                ):
+                    worker.main_loop()
+            except (Exception, SystemExit) as exc:
+                error = (
+                    clean_ansi(messages.getvalue()).strip()
+                    or str(exc)
+                    or "Please check the report options."
+                )
+            results.put((worker, messages.getvalue(), error))
+
+        threading.Thread(target=generate, daemon=True).start()
+        self.after(75, self._poll_report, results)
+
+    def _report_error(self, detail):
+        self.status_var.set("Report could not finish. " + detail[-500:])
+        messagebox.showerror("Report options / database", detail, parent=self)
+
+    def _poll_report(self, results):
+        """Only this main-thread callback creates windows or changes widgets."""
+        try:
+            worker, messages, error = results.get_nowait()
+        except queue.Empty:
+            self.after(75, self._poll_report, results)
+            return
+        try:
+            if error:
+                self._report_error(error)
+                return
+            self.reports = worker.reports
             self.run_number += 1
             for report in self.reports:
                 self.open_report_window(report)
-            # Open all windows first, so a bad output folder cannot hide results.
             for report in self.reports:
-                # GUI files are new snapshots; CLI output keeps its append behavior.
-                if (
-                    self.args.outfile
-                    or self.args.csv
-                ):
+                if worker.args.outfile or worker.args.csv:
                     folder = (
-                        Path(self.args.outfile)
-                        .expanduser()
-                        .parent
-                        if self.args.outfile
+                        Path(worker.args.outfile).expanduser().parent
+                        if worker.args.outfile
                         else Path.cwd()
                     )
                     stem = (
-                        Path(
-                            self.args.outfile
-                        ).stem
-                        if self.args.outfile
+                        Path(worker.args.outfile).stem
+                        if worker.args.outfile
                         else "trades"
                     )
-                    self.write_report_file(
-                        report,
-                        folder,
-                        stem,
-                        self.args.csv,
-                    )
-            count = sum(
-                len(report["rows"])
-                for report in self.reports
-            )
+                    self.write_report_file(report, folder, stem, worker.args.csv)
+            count = sum(len(report["rows"]) for report in self.reports)
             self.status_var.set(
                 f"Run {self.run_number}: opened {len(self.reports)} report window(s), {count} report rows. "
-                + clean_ansi(
-                    messages.getvalue()
-                ).strip()
+                + clean_ansi(messages).strip()
             )
-        except (
-            SystemExit,
-            sqlite3.Error,
-            OSError,
-            ValueError,
-            KeyError,
-            TypeError,
-        ) as exc:
-            detail = (
-                clean_ansi(
-                    messages.getvalue()
-                ).strip()
-                or str(exc)
-                or "Please check the report options."
-            )
-            self.status_var.set(
-                "Report could not finish. "
-                + detail[-500:]
-            )
-            messagebox.showerror(
-                "Report options / database",
-                detail,
-                parent=self,
-            )
+        except Exception as exc:
+            self._report_error(str(exc))
+        finally:
+            self.report_progress.stop()
+            self.report_progress.configure(value=0)
+            self.run_button.configure(state="normal")
+            self.report_running = False
 
     def begin_report(self, title, columns):
         """One result bucket per key, not per strategy/symbol group.
@@ -1128,11 +1017,11 @@ class TradeAnalyzerTool(ToolView):
                 "columns": list(columns),
                 "rows": [],
                 "text": [],
+                "summaries": [],
+                "summary_rows": [],
                 "extended": self.extended,
             }
-            self.reports.append(
-                self.current_report
-            )
+            self.reports.append(self.current_report)
 
     def write_report_file(
         self,
@@ -1152,27 +1041,17 @@ class TradeAnalyzerTool(ToolView):
             "_",
             report["title"],
         )
-        stamp = datetime.now().strftime(
-            "%Y%m%d_%H%M%S_%f"
-        )
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         suffix = ".csv" if as_csv else ".txt"
         base = f"{stem}_{safe_title}_{stamp}"
         number = 0
         while True:
-            path = Path(folder) / (
-                base
-                + (f"_{number}" if number else "")
-                + suffix
-            )
+            path = Path(folder) / (base + (f"_{number}" if number else "") + suffix)
             try:
                 stream = path.open(
                     "x",
                     newline="",
-                    encoding=(
-                        "utf-8-sig"
-                        if as_csv
-                        else "utf-8"
-                    ),
+                    encoding=("utf-8-sig" if as_csv else "utf-8"),
                 )
                 break
             except FileExistsError:
@@ -1183,27 +1062,31 @@ class TradeAnalyzerTool(ToolView):
                 writer.writerow(report["columns"])
                 if rows is None:
                     rows = [
-                        [
-                            row.get(key)
-                            for key in report[
-                                "columns"
-                            ]
-                        ]
+                        [row.get(key) for key in report["columns"]]
                         for row in report["rows"]
                     ]
                 writer.writerows(rows)
+                if report.get("summary_rows"):
+                    # A separate section, so totals cannot be mistaken for trades.
+                    writer.writerow([])
+                    writer.writerow(["Report totals by group (all report rows)"])
+                    writer.writerow(["Group", "Metric", "Value"])
+                    for group, metric, value in report["summary_rows"]:
+                        writer.writerow(
+                            [
+                                clean_ansi(str(group)),
+                                metric,
+                                clean_ansi(str(value)).strip(),
+                            ]
+                        )
             else:
-                stream.write(
-                    "".join(report["text"])
-                )
+                stream.write(clean_ansi("".join(report["text"])))
         return path
 
     def open_report_window(self, report):
         """Keep this window's data in its own widgets and callback closures."""
         win = tk.Toplevel(self)
-        win.title(
-            f"Run {self.run_number} — {report['title']}"
-        )
+        win.title(f"Run {self.run_number} — {report['title']}")
         win.geometry("1150x700")
         win.columnconfigure(0, weight=1)
         win.rowconfigure(1, weight=1)
@@ -1215,29 +1098,55 @@ class TradeAnalyzerTool(ToolView):
         ).pack(side="left")
         pages = ttk.Notebook(win)
         pages.grid(row=1, column=0, sticky="nsew")
-        table = self.add_data_table(
-            columns=report["columns"],
-            parent=pages,
-            enable_search=True,
-            enable_export_csv=False,
-        )
+        trade_page = ttk.Panedwindow(pages, orient="vertical")
+        table = TradeReportTable(trade_page, report["columns"])
         table_rows = []
         for row in report["rows"]:
             cells = []
             for key in report["columns"]:
                 value = row.get(key)
-                if (
-                    key == "trade_id"
-                    and not report["extended"]
-                    and value is not None
-                ):
+                if key == "trade_id" and not report["extended"] and value is not None:
                     value = str(value)[-16:]
-                cells.append(
-                    "" if value is None else value
-                )
+                cells.append("" if value is None else value)
             table_rows.append(cells)
         table.set_data(table_rows)
-        pages.add(table, text="Sortable trades")
+        trade_page.add(table, weight=3)
+        if report.get("summaries"):
+            footer = ttk.LabelFrame(
+                trade_page, text="Report totals by group (all report rows)", padding=6
+            )
+            footer.columnconfigure(0, weight=1)
+            footer.rowconfigure(0, weight=1)
+            totals = tk.Text(
+                footer,
+                height=10,
+                wrap="none",
+                font=("Consolas", 10),
+                background="#181825",
+                foreground="#cdd6f4",
+            )
+            totals.grid(row=0, column=0, sticky="nsew")
+            for orient, row, col, command in [
+                ("vertical", 0, 1, totals.yview),
+                ("horizontal", 1, 0, totals.xview),
+            ]:
+                scroll = ttk.Scrollbar(footer, orient=orient, command=command)
+                scroll.grid(
+                    row=row, column=col, sticky="ns" if orient == "vertical" else "ew"
+                )
+                totals.configure(
+                    **{
+                        (
+                            "yscrollcommand"
+                            if orient == "vertical"
+                            else "xscrollcommand"
+                        ): scroll.set
+                    }
+                )
+            insert_colored_report(totals, "\n".join(report["summaries"]))
+            totals.configure(state="disabled")
+            trade_page.add(footer, weight=1)
+        pages.add(trade_page, text="Sortable trades")
         text_frame = ttk.Frame(pages)
         text_frame.columnconfigure(0, weight=1)
         text_frame.rowconfigure(0, weight=1)
@@ -1245,6 +1154,8 @@ class TradeAnalyzerTool(ToolView):
             text_frame,
             wrap="none",
             font=("Consolas", 10),
+            background="#181825",
+            foreground="#cdd6f4",
         )
         text.grid(row=0, column=0, sticky="nsew")
         for orient, row, col, command in [
@@ -1259,25 +1170,18 @@ class TradeAnalyzerTool(ToolView):
             scroll.grid(
                 row=row,
                 column=col,
-                sticky=(
-                    "ns"
-                    if orient == "vertical"
-                    else "ew"
-                ),
+                sticky=("ns" if orient == "vertical" else "ew"),
             )
             text.configure(
                 **{
                     (
-                        "yscrollcommand"
-                        if orient == "vertical"
-                        else "xscrollcommand"
+                        "yscrollcommand" if orient == "vertical" else "xscrollcommand"
                     ): scroll.set
                 }
             )
-        text.insert(
-            "1.0",
-            "".join(report["text"])
-            or "No trades matched these filters.",
+        insert_colored_report(
+            text,
+            "".join(report["text"]) or "No trades matched these filters.",
         )
         text.configure(state="disabled")
         pages.add(
@@ -1294,12 +1198,7 @@ class TradeAnalyzerTool(ToolView):
                 return
             try:
                 # Export what is visible, in the order the user chose by sorting.
-                visible = [
-                    table.tree.item(
-                        item, "values"
-                    )
-                    for item in table.tree.get_children()
-                ]
+                visible = table.visible_rows
                 path = self.write_report_file(
                     report,
                     folder,
@@ -1514,22 +1413,17 @@ Usage examples:
             import ctypes
 
             kernel32 = ctypes.windll.kernel32
-            stdout_handle = kernel32.GetStdHandle(
-                -11
-            )  # STD_OUTPUT_HANDLE
+            stdout_handle = kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
 
             console_mode = ctypes.c_uint()
             if kernel32.GetConsoleMode(
                 stdout_handle,
                 ctypes.byref(console_mode),
             ):
-                ENABLE_VIRTUAL_TERMINAL_PROCESSING = (
-                    0x0004
-                )
+                ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
                 kernel32.SetConsoleMode(
                     stdout_handle,
-                    console_mode.value
-                    | ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+                    console_mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING,
                 )
 
         self.DEF_OUTFIELDS = {
@@ -1592,26 +1486,12 @@ Usage examples:
 
         args = self.args
 
-        self.csv_true = (
-            args.csv if args.csv else False
-        )
-        self.extended = (
-            args.Ext if args.Ext else False
-        )
+        self.csv_true = args.csv if args.csv else False
+        self.extended = args.Ext if args.Ext else False
 
-        self.mode = (
-            "open" if args.open else "closed"
-        )
-        self.is_sorted = (
-            args.sort_keys
-            if args.sort_keys
-            else False
-        )
-        self.rev_sort = (
-            args.Reverse
-            if args.Reverse
-            else False
-        )
+        self.mode = "open" if args.open else "closed"
+        self.is_sorted = args.sort_keys if args.sort_keys else False
+        self.rev_sort = args.Reverse if args.Reverse else False
 
         conn = self.connect()
         try:
@@ -1625,32 +1505,21 @@ Usage examples:
             if not self.is_trade_table():
                 self.trades_list = []
             elif self.mode == "closed":
-                self.trades_list = (
-                    self.get_closed_trades(conn)
-                )
+                self.trades_list = self.get_closed_trades(conn)
             else:
-                self.trades_list = (
-                    self.get_open_trades(conn)
-                )
+                self.trades_list = self.get_open_trades(conn)
         finally:
             conn.close()
 
         if args.Names:
-            self.print_col_headers(
-                [dict.fromkeys(self.hdr_list)]
-            )
+            self.print_col_headers([dict.fromkeys(self.hdr_list)])
             sys.exit(2)
 
-        if (
-            not self.trades_list
-            and self.is_trade_table()
-        ):
+        if not self.trades_list and self.is_trade_table():
             (
                 print("No closed trades found.")
                 if (self.mode == "closed")
-                else print(
-                    "No open trades found."
-                )
+                else print("No open trades found.")
             )
 
             if not self.gui_mode:
@@ -1658,113 +1527,49 @@ Usage examples:
         DEF_START_DATE = "1980-01-01T00:00"
         DEF_END_DATE = "4050-01-01T00:00"
 
-        self.start_date = (
-            args.start
-            if args.start
-            else DEF_START_DATE
-        )
-        self.end_date = (
-            args.end if args.end else DEF_END_DATE
-        )
+        self.start_date = args.start if args.start else DEF_START_DATE
+        self.end_date = args.end if args.end else DEF_END_DATE
 
-        if args.start and (
-            not date_check(self.start_date)
-        ):
-            print(
-                "Invalid start date. use format YYYY-MM-DDTHH:MM"
-            )
+        if args.start and (not date_check(self.start_date)):
+            print("Invalid start date. use format YYYY-MM-DDTHH:MM")
             sys.exit(4)
 
-        if args.end and (
-            not date_check(self.end_date)
-        ):
-            print(
-                "Invalid end date. use format YYYY-MM-DDTHH:MM"
-            )
+        if args.end and (not date_check(self.end_date)):
+            print("Invalid end date. use format YYYY-MM-DDTHH:MM")
             sys.exit(4)
 
         if self.start_date > self.end_date:
-            raise ValueError(
-                "The start date must be before the end date."
-            )
+            raise ValueError("The start date must be before the end date.")
 
         self.date_range_given = (
-            self.start_date != DEF_START_DATE
-            or self.end_date != DEF_END_DATE
+            self.start_date != DEF_START_DATE or self.end_date != DEF_END_DATE
         )
 
         self.output_file = args.outfile
-        if (
-            self.csv_true
-            and not self.output_file
-            and not self.gui_mode
-        ):
-            self.output_file = (
-                "trades_"
-                + datetime.now().strftime(
-                    "%Y%m%d_%H%M%S_%f"
-                )
-            )
+        if self.csv_true and not self.output_file and not self.gui_mode:
+            self.output_file = "trades_" + datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         if self.csv_true and self.output_file:
-            self.output_file = os.path.splitext(
-                self.output_file
-            )[0]
+            self.output_file = os.path.splitext(self.output_file)[0]
 
         # Build a list of list options skipping those not given
         self.list_values = [
-            (
-                args.list1.split(",")
-                if args.list1
-                else []
-            ),
-            (
-                args.list2.split(",")
-                if args.list2
-                else []
-            ),
-            (
-                args.list3.split(",")
-                if args.list3
-                else []
-            ),
-            (
-                args.list4.split(",")
-                if args.list4
-                else []
-            ),
-            (
-                args.list5.split(",")
-                if args.list5
-                else []
-            ),
+            (args.list1.split(",") if args.list1 else []),
+            (args.list2.split(",") if args.list2 else []),
+            (args.list3.split(",") if args.list3 else []),
+            (args.list4.split(",") if args.list4 else []),
+            (args.list5.split(",") if args.list5 else []),
         ]
 
-        self.key_list = (
-            [
-                key.strip()
-                for key in args.key.split(",")
-            ]
-            if args.key
-            else []
-        )
+        self.key_list = [key.strip() for key in args.key.split(",")] if args.key else []
         if self.key_list == ["ALL"]:
-            self.key_list = self.default_key_list[
-                :
-            ]
+            self.key_list = self.default_key_list[:]
 
         if len(self.key_list) > 5:
-            print(
-                "\nError: maximum of 5 keys is supported.\n"
-            )
+            print("\nError: maximum of 5 keys is supported.\n")
             sys.exit(1)
 
         self.output_fields = (
-            [
-                key.strip()
-                for key in args.outfields.split(
-                    ","
-                )
-            ]
+            [key.strip() for key in args.outfields.split(",")]
             if args.outfields
             else False
         )
@@ -1783,45 +1588,26 @@ Usage examples:
                     )
                     sys.exit()
             for field in self.output_fields:
-                self.output_dict[field] = (
-                    self.ALL_OUTFIELDS.get(
-                        field, field
-                    )
-                )
+                self.output_dict[field] = self.ALL_OUTFIELDS.get(field, field)
 
         self.sort_list = (
-            [
-                key.strip()
-                for key in args.sort_keys.split(
-                    ","
-                )
-            ]
-            if args.sort_keys
-            else []
+            [key.strip() for key in args.sort_keys.split(",")] if args.sort_keys else []
         )
 
         if len(self.sort_list) > 5:
-            print(
-                "\nError: maximum of 5 sort keys is supported.\n"
-            )
+            print("\nError: maximum of 5 sort keys is supported.\n")
             sys.exit(1)
         # Verify every key value input is valid
-        if self.date_range_given and (
-            not any(self.list_values)
-        ):
+        if self.date_range_given and (not any(self.list_values)):
             for j in range(5):
                 self.list_values[j].append("ALL")
 
-        if (
-            self.date_range_given
-            and len(self.key_list) < 1
-        ):
+        if self.date_range_given and len(self.key_list) < 1:
             self.key_list = self.default_key_list
 
-        if (
-            (not len(self.list_values))
-            or (not len(self.key_list))
-        ) and (not self.date_range_given):
+        if ((not len(self.list_values)) or (not len(self.key_list))) and (
+            not self.date_range_given
+        ):
             self.make_parser().print_help()
             self.make_parser().exit(
                 2,
@@ -1843,9 +1629,7 @@ Usage examples:
                 sys.exit()
         ttrades_list = []
         for i in range(len(self.key_list)):
-            ttrades_list.append(
-                copy.deepcopy(self.trades_list)
-            )
+            ttrades_list.append(copy.deepcopy(self.trades_list))
         if self.is_sorted:
             for i in range(
                 min(
@@ -1855,44 +1639,10 @@ Usage examples:
             ):
                 for trade in ttrades_list[i]:
                     try:
-                        if (
-                            chkstr_isnum(
-                                trade[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ]
-                            )
-                            == "float"
-                        ):
-                            trade[
-                                self.sort_list[i]
-                            ] = float(
-                                trade[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ]
-                            )
-                        elif (
-                            chkstr_isnum(
-                                trade[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ]
-                            )
-                            == "int"
-                        ):
-                            trade[
-                                self.sort_list[i]
-                            ] = int(
-                                trade[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ]
-                            )
+                        if chkstr_isnum(trade[self.sort_list[i]]) == "float":
+                            trade[self.sort_list[i]] = float(trade[self.sort_list[i]])
+                        elif chkstr_isnum(trade[self.sort_list[i]]) == "int":
+                            trade[self.sort_list[i]] = int(trade[self.sort_list[i]])
                     except (
                         ValueError,
                         TypeError,
@@ -1902,62 +1652,32 @@ Usage examples:
                     if self.rev_sort:
                         ttrades_list[i].sort(
                             key=lambda r: (
-                                r[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ]
-                                is None,
+                                r[self.sort_list[i]] is None,
                                 isinstance(
-                                    r[
-                                        self.sort_list[
-                                            i
-                                        ]
-                                    ],
+                                    r[self.sort_list[i]],
                                     str,
                                 ),
-                                r[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ],
+                                r[self.sort_list[i]],
                             ),
                             reverse=True,
                         )
                     else:
                         ttrades_list[i].sort(
                             key=lambda r: (
-                                r[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ]
-                                is None,
+                                r[self.sort_list[i]] is None,
                                 isinstance(
-                                    r[
-                                        self.sort_list[
-                                            i
-                                        ]
-                                    ],
+                                    r[self.sort_list[i]],
                                     str,
                                 ),
-                                r[
-                                    self.sort_list[
-                                        i
-                                    ]
-                                ],
+                                r[self.sort_list[i]],
                             ),
                             reverse=False,
                         )
                 except ValueError:
                     pass
 
-        if (not args.Names) and (
-            len(self.key_list) < 1
-        ):
-            print(
-                "\nError: Please provide at least 1 key , separated by a ,   \n"
-            )
+        if (not args.Names) and (len(self.key_list) < 1):
+            print("\nError: Please provide at least 1 key , separated by a ,   \n")
             sys.exit()
 
         if not self.is_trade_table():
@@ -1977,10 +1697,7 @@ Usage examples:
         # -A/--and: one combined report where a trade must match every selected
         # key/value filter at once (symbol=MSFT AND direction=long), instead of
         # the default independent per-key breakdown below.
-        if (
-            args.and_filter
-            and len(self.key_list) > 1
-        ):
+        if args.and_filter and len(self.key_list) > 1:
             combined_list = []
             for trade in self.trades_list:
                 matches_all = True
@@ -1992,52 +1709,20 @@ Usage examples:
                         continue
                     if selected[0] == "ALL":
                         continue
-                    if not self.value_in_selected(
-                        trade[key_name], selected
-                    ):
+                    if not self.value_in_selected(trade[key_name], selected):
                         matches_all = False
                         break
                 if matches_all:
-                    combined_list.append(
-                        copy.deepcopy(trade)
-                    )
+                    combined_list.append(copy.deepcopy(trade))
 
             if self.is_sorted:
-                for sort_key in reversed(
-                    self.sort_list
-                ):
+                for sort_key in reversed(self.sort_list):
                     for trade in combined_list:
                         try:
-                            if (
-                                chkstr_isnum(
-                                    trade[
-                                        sort_key
-                                    ]
-                                )
-                                == "float"
-                            ):
-                                trade[
-                                    sort_key
-                                ] = float(
-                                    trade[
-                                        sort_key
-                                    ]
-                                )
-                            elif (
-                                chkstr_isnum(
-                                    trade[
-                                        sort_key
-                                    ]
-                                )
-                                == "int"
-                            ):
-                                trade[
-                                    sort_key
-                                ] = int(
-                                    trade[
-                                        sort_key
-                                    ]
-                                )
+                            if chkstr_isnum(trade[sort_key]) == "float":
+                                trade[sort_key] = float(trade[sort_key])
+                            elif chkstr_isnum(trade[sort_key]) == "int":
+                                trade[sort_key] = int(trade[sort_key])
                         except (
                             ValueError,
                             TypeError,
@@ -2046,8 +1731,7 @@ Usage examples:
                     try:
                         combined_list.sort(
                             key=lambda r: (
-                                r[sort_key]
-                                is None,
+                                r[sort_key] is None,
                                 isinstance(
                                     r[sort_key],
                                     str,
@@ -2070,14 +1754,9 @@ Usage examples:
                 )
                 if selected
             ]
-            combined_label = (
-                " & ".join(label_parts)
-                if label_parts
-                else "ALL"
-            )
-            self.begin_report(
-                "AND filters", self.output_dict
-            )
+            combined_label = " & ".join(label_parts) if label_parts else "ALL"
+            self.begin_report("AND filters", self.output_dict)
+
             res_dict = self.print_group_summary(
                 combined_label,
                 combined_list,
@@ -2092,24 +1771,17 @@ Usage examples:
         # Build one generic list of grouped trade dictionaries
         self.dict_of_trades = []
 
-        for idx, key_name in enumerate(
-            self.key_list
-        ):
+        for idx, key_name in enumerate(self.key_list):
             grouped_trades = {}
             for trade in ttrades_list[idx]:
                 group_value = trade[key_name]
-                grouped_trades.setdefault(
-                    group_value, []
-                ).append(copy.deepcopy(trade))
+                grouped_trades.setdefault(group_value, []).append(copy.deepcopy(trade))
 
             self.dict_of_trades.append(
                 {
                     "key": key_name,
                     "selected": (
-                        self.list_values[idx]
-                        if idx
-                        < len(self.list_values)
-                        else []
+                        self.list_values[idx] if idx < len(self.list_values) else []
                     ),
                     "groups": grouped_trades,
                 }
@@ -2121,9 +1793,7 @@ Usage examples:
                 self.output_dict,
             )
             key_name = trade_group["key"]
-            selected_values = trade_group[
-                "selected"
-            ]
+            selected_values = trade_group["selected"]
             grouped_trades = trade_group["groups"]
 
             for (
@@ -2132,22 +1802,17 @@ Usage examples:
             ) in grouped_trades.items():
                 if not selected_values:
                     continue
-
-                if selected_values[
-                    0
-                ] == "ALL" or self.value_in_selected(
+                if selected_values[0] == "ALL" or self.value_in_selected(
                     group_name, selected_values
                 ):
-                    res_dict = (
-                        self.print_group_summary(
-                            group_name,
-                            trade_list,
-                            key_name,
-                            self.output_file,
-                            self.start_date,
-                            self.end_date,
-                            self.output_dict,
-                        )
+                    res_dict = self.print_group_summary(
+                        group_name,
+                        trade_list,
+                        key_name,
+                        self.output_file,
+                        self.start_date,
+                        self.end_date,
+                        self.output_dict,
                     )
         return self.reports
 
@@ -2164,30 +1829,18 @@ Usage examples:
 
     def run_generic_table_report(self):
         """Filter any selected SQLite table and send it to the same report window."""
-        rows = [
-            dict(row) for row in self.trades_list
-        ]
+        rows = [dict(row) for row in self.trades_list]
         active = [
-            (key, values)
-            for key, values in zip(
-                self.key_list, self.list_values
-            )
-            if key
+            (key, values) for key, values in zip(self.key_list, self.list_values) if key
         ]
         if not active:
-            active = (
-                [(self.hdr_list[0], ["ALL"])]
-                if self.hdr_list
-                else []
-            )
+            active = [(self.hdr_list[0], ["ALL"])] if self.hdr_list else []
         for key, selected in active:
             if selected and selected[0] != "ALL":
                 rows = [
                     row
                     for row in rows
-                    if self.value_in_selected(
-                        row.get(key), selected
-                    )
+                    if self.value_in_selected(row.get(key), selected)
                 ]
         for sort_key in reversed(self.sort_list):
             if sort_key in self.hdr_list:
@@ -2198,43 +1851,26 @@ Usage examples:
                     ),
                     reverse=self.rev_sort,
                 )
-        columns = (
-            self.output_fields
-            if self.output_fields
-            else self.hdr_list
-        )
+        columns = self.output_fields if self.output_fields else self.hdr_list
         self.output_dict = {
-            column: column
-            for column in columns
-            if column in self.hdr_list
+            column: column for column in columns if column in self.hdr_list
         }
         self.begin_report(
             f"{self.args.table} table",
             self.output_dict,
         )
         if self.current_report is not None:
-            self.current_report["rows"].extend(
-                rows
-            )
+            self.current_report["rows"].extend(rows)
             self.current_report["text"].append(
                 f"Table: {self.args.table}\nRows: {len(rows)}\nColumns: {', '.join(columns)}\n"
             )
         elif rows:
-            print(
-                f"Table: {self.args.table}\nRows: {len(rows)}"
-            )
+            print(f"Table: {self.args.table}\nRows: {len(rows)}")
             print("\t".join(columns))
             for row in rows:
                 print(
                     "\t".join(
-                        (
-                            ""
-                            if row.get(column)
-                            is None
-                            else str(
-                                row.get(column)
-                            )
-                        )
+                        ("" if row.get(column) is None else str(row.get(column)))
                         for column in columns
                     )
                 )
@@ -2248,9 +1884,7 @@ Usage examples:
         Otherwise text is printed to stdout.
         """
         if self.gui_mode:
-            self.current_report["text"].append(
-                clean_ansi(text)
-            )
+            self.current_report["text"].append(text)
             return text
         if output_file:
             clean_text = clean_ansi(text)
@@ -2267,32 +1901,13 @@ Usage examples:
                             quotechar=" ",
                             quoting=csv.QUOTE_MINIMAL,
                         )
-                        for (
-                            line
-                        ) in (
-                            clean_text.splitlines()
-                        ):
-                            stripped = (
-                                line.strip()
-                            )
-                            if (
-                                not stripped
-                                or set(stripped)
-                                == {"="}
-                            ):
-                                spamwriter.writerow(
-                                    []
-                                )
-                            elif (
-                                stripped.count(
-                                    ":"
-                                )
-                                >= 2
-                            ):
+                        for line in clean_text.splitlines():
+                            stripped = line.strip()
+                            if not stripped or set(stripped) == {"="}:
+                                spamwriter.writerow([])
+                            elif stripped.count(":") >= 2:
                                 # summary lines like "Total Trades: 54   Total P&L: -1320.00 ..."
-                                pairs = STAT_LABEL_VALUE_RE.findall(
-                                    stripped
-                                )
+                                pairs = STAT_LABEL_VALUE_RE.findall(stripped)
                                 row = [
                                     part.strip()
                                     for label, value in pairs
@@ -2301,14 +1916,9 @@ Usage examples:
                                         value,
                                     )
                                 ]
-                                spamwriter.writerow(
-                                    row
-                                    or stripped.split()
-                                )
+                                spamwriter.writerow(row or stripped.split())
                             else:
-                                spamwriter.writerow(
-                                    stripped.split()
-                                )
+                                spamwriter.writerow(stripped.split())
                 else:
                     with open(
                         output_file,
@@ -2318,9 +1928,7 @@ Usage examples:
                         file.write(clean_text)
                         return clean_text
             except OSError as e:
-                print(
-                    f"Error writing to output file: {e}"
-                )
+                print(f"Error writing to output file: {e}")
                 sys.exit(1)
         else:
             print(text, end="")
@@ -2363,7 +1971,9 @@ Usage examples:
                 # remote command so Bash leaves the Python code and paths alone.
                 # After python -c, argv must contain just the DB path and table;
                 # an extra '--' here would become a third Python argument.
-                shlex.join(["python3", "-c", script, self.args.ssh_db, self.args.table]),
+                shlex.join(
+                    ["python3", "-c", script, self.args.ssh_db, self.args.table]
+                ),
             ]
             result = subprocess.run(
                 command,
@@ -2374,24 +1984,16 @@ Usage examples:
             )
             if result.returncode:
                 detail = (
-                    result.stderr.strip()
-                    or result.stdout.strip()
-                    or "SSH query failed"
+                    result.stderr.strip() or result.stdout.strip() or "SSH query failed"
                 )
-                raise sqlite3.OperationalError(
-                    detail
-                )
+                raise sqlite3.OperationalError(detail)
             try:
-                payload = json.loads(
-                    result.stdout
-                )
+                payload = json.loads(result.stdout)
                 columns = payload["columns"]
                 rows = payload["rows"]
-                self.remote_table_names = (
-                    payload.get(
-                        "tables",
-                        [self.args.table],
-                    )
+                self.remote_table_names = payload.get(
+                    "tables",
+                    [self.args.table],
                 )
             except (
                 ValueError,
@@ -2403,41 +2005,23 @@ Usage examples:
                 ) from exc
             conn = sqlite3.connect(":memory:")
             conn.row_factory = sqlite3.Row
-            safe_columns = [
-                '"'
-                + str(col).replace('"', '""')
-                + '"'
-                for col in columns
-            ]
+            safe_columns = ['"' + str(col).replace('"', '""') + '"' for col in columns]
             conn.execute(
-                "CREATE TABLE trades ("
-                + ",".join(
-                    col + " BLOB"
-                    for col in safe_columns
-                )
+                "CREATE TABLE " + self.quote_identifier(self.args.table) + " ("
+                + ",".join(col + " BLOB" for col in safe_columns)
                 + ")"
             )
             if rows:
-                marks = ",".join(
-                    "?" for _ in columns
-                )
+                marks = ",".join("?" for _ in columns)
                 conn.executemany(
-                    "INSERT INTO trades VALUES ("
-                    + marks
-                    + ")",
+                    "INSERT INTO " + self.quote_identifier(self.args.table) + " VALUES (" + marks + ")",
                     rows,
                 )
                 conn.commit()
             return conn
-        path = (
-            Path(self.args.db)
-            .expanduser()
-            .resolve()
-        )
+        path = Path(self.args.db).expanduser().resolve()
         self.remote_table_names = []
-        conn = sqlite3.connect(
-            path.as_uri() + "?mode=ro", uri=True
-        )
+        conn = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
         try:
             conn.execute(
@@ -2501,49 +2085,29 @@ Usage examples:
         tot_fees = 0
         for trade in loc_trade_list:
             t_sli = 38 if self.extended else 20
-            t_idx = (
-                -len(trade["trade_id"])
-                if self.extended
-                else -16
-            )
+            t_idx = -len(trade["trade_id"]) if self.extended else -16
             #       for my_idx, my_key in trade.items():
             #           field_lens[my_idx] =  len(str(my_key)) + 4
             break  # only look at one record
         for trade_dict in loc_trade_list:
-            entry_time = (
-                trade_dict["entry_time"] or ""
-            )
-            exit_time = (
-                trade_dict["exit_time"] or ""
-            )
+            entry_time = trade_dict["entry_time"] or ""
+            exit_time = trade_dict["exit_time"] or ""
             if (
                 entry_time[0:16] >= start_date
                 and exit_time[0:16] <= end_date
                 and (
                     ikey == "ALL"
-                    or trade_dict.get(
-                        ikey, "None"
-                    )
-                    == strat_name
+                    or trade_dict.get(ikey, "None") == strat_name
                     or strat_name == "ALL"
                 )
             ):
                 if self.gui_mode:
-                    self.current_report[
-                        "rows"
-                    ].append(dict(trade_dict))
-                tot_fees += (
-                    trade_dict["fees_paid"] or 0
-                )
+                    self.current_report["rows"].append(dict(trade_dict))
+                tot_fees += trade_dict["fees_paid"] or 0
                 symbol = trade_dict["symbol"]
 
-                trade_pnl = float(
-                    trade_dict["pnl"] or 0.0
-                )
-                sym_total_pnl[symbol] = (
-                    sym_total_pnl.get(symbol, 0.0)
-                    + trade_pnl
-                )
+                trade_pnl = float(trade_dict["pnl"] or 0.0)
+                sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl
                 #  entry contains strat were after total the PnL
                 total_pnl += trade_pnl
                 # Running total the number of wins or losses and trace the total of each
@@ -2555,9 +2119,7 @@ Usage examples:
                     tot_losses += trade_pnl
                 # Track the biggst win and biggest loss
                 max_win = max(max_win, trade_pnl)
-                max_loss = min(
-                    max_loss, trade_pnl
-                )
+                max_loss = min(max_loss, trade_pnl)
                 # Track the number of trades processed
                 trade_count += 1
                 if trade_pnl < 0:
@@ -2574,10 +2136,7 @@ Usage examples:
                 tail_str = ""
                 for key in output_dict:
                     #                   key_len = field_lens[key]
-                    if (
-                        key == "trade_id"
-                        and self.extended
-                    ):
+                    if key == "trade_id" and self.extended:
                         head_str += f"{key[t_idx:]:<{t_sli}}"
                     elif key == "exit_reason":
                         head_str += f"{key:<27}"
@@ -2586,36 +2145,21 @@ Usage examples:
                     if key == "trade_id":
                         tail_str += f"{trade_dict[key][t_idx:]:{t_sli}}"
                     elif key == "exit_reason":
-                        tail_str += f"{str(trade_dict[key] or ''):<27}"
-                    elif (
-                        key == "entry_time"
-                        or key == "exit_time"
-                    ):
-                        tail_str += f"{(trade_dict[key] or "")[0:16]:<20}"
+                        tail_str += f"{trade_dict[key] or ''!s:<27}"
+                    elif key == "entry_time" or key == "exit_time":
+                        tail_str += f"{(trade_dict[key] or '')[0:16]:<20}"
                     elif trade_dict[key] is None:
                         tail_str += f"{'':<20}"
-                    elif (
-                        chkstr_isnum(
-                            trade_dict[key]
-                        )
-                        == "float"
-                    ):
-                        if (
-                            float(trade_dict[key])
-                            >= 0
-                        ):
-                            stii = float(
-                                trade_dict[key]
-                            )
+                    elif chkstr_isnum(trade_dict[key]) == "float":
+                        if float(trade_dict[key]) >= 0:
+                            stii = float(trade_dict[key])
                             stii2 = colorize(
                                 f"{stii:<20.6f}",
                                 "green",
                             )
                             tail_str += f"{stii2}"
                         else:
-                            stii = float(
-                                trade_dict[key]
-                            )
+                            stii = float(trade_dict[key])
                             stii2 = colorize(
                                 f"{stii:<20.6f}",
                                 "red",
@@ -2632,9 +2176,7 @@ Usage examples:
                         f"List of {colorize(strat_name, 'red')} Trades\n",
                         output_file,
                     )
-                    self.print_outfile(
-                        BL_EQUALSTR, output_file
-                    )
+                    self.print_outfile(BL_EQUALSTR, output_file)
                     self.print_outfile(
                         colorize(
                             f"{head_str}",
@@ -2642,14 +2184,10 @@ Usage examples:
                         ),
                         output_file,
                     )
-                    self.print_outfile(
-                        BL_EQUALSTR, output_file
-                    )
+                    self.print_outfile(BL_EQUALSTR, output_file)
                     passes += 1
 
-                self.print_outfile(
-                    tail_str, output_file
-                )
+                self.print_outfile(tail_str, output_file)
 
         # Select the best and worst complete symbol totals after every matching
         # trade has been accumulated. This also works when every symbol is a loss
@@ -2704,41 +2242,21 @@ Usage examples:
             f"{(tot_winners / trade_count) * 100:>3.0f}",
             "green",
         )
-        ret_dict["trade_count"] = (
-            f"{trade_count:<14}"
-        )
+        ret_dict["trade_count"] = f"{trade_count:<14}"
 
         # Properly color the Tot PnL red for neg, green for pos
         if total_pnl >= 0:
-            ret_dict["total_pnl"] = colorize(
-                f"{total_pnl:<19.2f}", "green"
-            )
+            ret_dict["total_pnl"] = colorize(f"{total_pnl:<19.2f}", "green")
         else:
-            ret_dict["total_pnl"] = colorize(
-                f"{total_pnl:<19.2f}", "red"
-            )
+            ret_dict["total_pnl"] = colorize(f"{total_pnl:<19.2f}", "red")
 
-        ret_dict["max_win"] = colorize(
-            f"{max_win:<14.2f}", "green"
-        )
-        ret_dict["max_loss"] = colorize(
-            f"{max_loss:>3.2f}", "red"
-        )
-        ret_dict["avg_wins"] = colorize(
-            f"{avg_wins:<14.2f}", "green"
-        )
-        ret_dict["avg_loss"] = colorize(
-            f"{avg_loss:<19.2f}", "red"
-        )
-        ret_dict["tot_wins"] = colorize(
-            f"{tot_winners:>3}", "green"
-        )
-        ret_dict["tot_losers"] = colorize(
-            f"{tot_losers:<11}", "red"
-        )
-        ret_dict["tot_fees"] = colorize(
-            f"{tot_fees:<9.2f}", "red"
-        )
+        ret_dict["max_win"] = colorize(f"{max_win:<14.2f}", "green")
+        ret_dict["max_loss"] = colorize(f"{max_loss:>3.2f}", "red")
+        ret_dict["avg_wins"] = colorize(f"{avg_wins:<14.2f}", "green")
+        ret_dict["avg_loss"] = colorize(f"{avg_loss:<19.2f}", "red")
+        ret_dict["tot_wins"] = colorize(f"{tot_winners:>3}", "green")
+        ret_dict["tot_losers"] = colorize(f"{tot_losers:<11}", "red")
+        ret_dict["tot_fees"] = colorize(f"{tot_fees:<9.2f}", "red")
         ret_dict["high_sym"] = high_sym
         ret_dict["low_sym"] = low_sym
         # Pass back our pre color formatted dictionary of results
@@ -2762,17 +2280,13 @@ Usage examples:
             final_list += f"{my_key:<20}"
 
             if local_counter % 5 == 0:
-                print(
-                    f"{colorize(final_list, 'blue')}"
-                )
+                print(f"{colorize(final_list, 'blue')}")
                 final_list = ""
 
             local_counter += 1
         # If num of columns not divisible by 5 print the remaining odd headers
         if final_list:
-            print(
-                f"{colorize(final_list, 'blue')}"
-            )
+            print(f"{colorize(final_list, 'blue')}")
 
     # ...existing code...
 
@@ -2880,47 +2394,25 @@ Usage examples:
                 if val.startswith(op):
                     if actual_num is None:
                         break
-                    bound = self.numeric_value(
-                        val[len(op) :]
-                    )
+                    bound = self.numeric_value(val[len(op) :])
                     if bound is None:
                         break
-                    if (
-                        op == "!="
-                        and actual_num != bound
-                    ):
+                    if op == "!=" and actual_num != bound:
                         return True
-                    if (
-                        op == "<="
-                        and actual_num <= bound
-                    ):
+                    if op == "<=" and actual_num <= bound:
                         return True
-                    if (
-                        op == ">="
-                        and actual_num >= bound
-                    ):
+                    if op == ">=" and actual_num >= bound:
                         return True
-                    if (
-                        op == "<"
-                        and actual_num < bound
-                    ):
+                    if op == "<" and actual_num < bound:
                         return True
-                    if (
-                        op == ">"
-                        and actual_num > bound
-                    ):
+                    if op == ">" and actual_num > bound:
                         return True
                     break
             else:
                 if actual_str == val:
                     return True
-                selected_num = self.numeric_value(
-                    val
-                )
-                if (
-                    actual_num is not None
-                    and selected_num is not None
-                ) and (
+                selected_num = self.numeric_value(val)
+                if (actual_num is not None and selected_num is not None) and (
                     actual_num == selected_num
                 ):
                     return True
@@ -2947,18 +2439,46 @@ Usage examples:
             output_dict,
         )
         if int(res_dict["trade_count"]) >= 1:
+            if self.gui_mode:
+                # Reuse the CLI calculation and formatter, not a second formula.
+                self.current_report["summaries"].append(
+                    colorize(f"{key}: {group_name}\n", "cyan")
+                    + self.format_group_summary(res_dict)
+                )
+                # Export the same calculated values in separate CSV cells.
+                group = f"{key}: {group_name}"
+                for label, field in [
+                    ("Total Trades", "trade_count"),
+                    ("Total P&L", "total_pnl"),
+                    ("Max Win", "max_win"),
+                    ("Max Loss", "max_loss"),
+                    ("Avg Win", "avg_wins"),
+                    ("Avg Loss", "avg_loss"),
+                    ("Wins", "tot_wins"),
+                    ("Losses", "tot_losers"),
+                    ("Win %", "win_pct"),
+                    ("Loss %", "loss_pct"),
+                    ("Total Fees", "tot_fees"),
+                ]:
+                    self.current_report["summary_rows"].append(
+                        (group, label, res_dict[field])
+                    )
+                for label, field in [
+                    ("High Symbol", "high_sym"),
+                    ("Low Symbol", "low_sym"),
+                ]:
+                    self.current_report["summary_rows"].extend(
+                        [
+                            (group, label, res_dict[field]["symbol"]),
+                            (group, label + " P&L", f"{res_dict[field]['total']:.2f}"),
+                        ]
+                    )
+            self.print_outfile(BL_EQUALSTR, output_file)
             self.print_outfile(
-                BL_EQUALSTR, output_file
-            )
-            self.print_outfile(
-                self.format_group_summary(
-                    res_dict
-                ),
+                self.format_group_summary(res_dict),
                 output_file,
             )
-            self.print_outfile(
-                BL_EQUALSTR + "\n\n", output_file
-            )
+            self.print_outfile(BL_EQUALSTR + "\n\n", output_file)
         return res_dict
 
 
@@ -2968,24 +2488,12 @@ def main(argv=None):
     A CLI-only instance does not initialize the ttk.Frame base, because the
     reporting methods need no widgets. Only --gui constructs a QuickApp.
     """
-    args = TradeAnalyzerTool.make_parser().parse_args(
-        argv
-    )
+    args = TradeAnalyzerTool.make_parser().parse_args(argv)
     if args.gui:
-        if (
-            args.key
-            and len(args.key.split(",")) > 5
-        ):
-            TradeAnalyzerTool.make_parser().error(
-                "maximum of 5 keys is supported"
-            )
-        if (
-            args.sort_keys
-            and len(args.sort_keys.split(",")) > 5
-        ):
-            TradeAnalyzerTool.make_parser().error(
-                "maximum of 5 sort keys is supported"
-            )
+        if args.key and len(args.key.split(",")) > 5:
+            TradeAnalyzerTool.make_parser().error("maximum of 5 keys is supported")
+        if args.sort_keys and len(args.sort_keys.split(",")) > 5:
+            TradeAnalyzerTool.make_parser().error("maximum of 5 sort keys is supported")
         app = QuickApp(
             title="Trade Analyzer Utility",
             size=(1250, 900),
@@ -2994,9 +2502,7 @@ def main(argv=None):
         app.set_single_tool(TradeAnalyzerTool)
         app.run()
     else:
-        tool = TradeAnalyzerTool.__new__(
-            TradeAnalyzerTool
-        )
+        tool = TradeAnalyzerTool.__new__(TradeAnalyzerTool)
         tool.initialize_report_state(args)
         try:
             tool.main_loop()

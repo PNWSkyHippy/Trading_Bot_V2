@@ -47,8 +47,14 @@ class MyUtilityTool(ToolView):
     title = "Data Processing Utility"
 
     def build_ui(self):
+        # Configure layout (Left Form / Right Console)
+        self.columnconfigure(0, weight=0)
+        self.columnconfigure(1, weight=1)
+        self.rowconfigure(0, weight=1)
+
         # 1. Declare your inputs
-        self.form = self.add_form("Settings")
+        self.form = self.add_form("Settings", parent=self)
+        self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         self.form.add_text("username", "Operator Name", default="Linda")
         self.form.add_dropdown("mode", "Operation Mode", ["Quick", "Thorough", "Deep"])
         self.form.add_slider(
@@ -58,7 +64,8 @@ class MyUtilityTool(ToolView):
         self.form.add_button("Execute", callback=self.on_run, variant="primary")
 
         # 2. Declare your outputs
-        self.console = self.add_console("Live Logs")
+        self.console = self.add_console("Live Logs", parent=self)
+        self.console.grid(row=0, column=1, sticky="nsew")
 
     def on_run(self, inputs: dict):
         # 3. Drop in your backend logic!

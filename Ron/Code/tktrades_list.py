@@ -553,6 +553,10 @@ class TradeAnalyzerTool(ToolView):
         )
         if path:
             self.option_vars["db"].set(path)
+            # Browsing for a local file is an explicit source switch. Clear
+            # the SSH source so an earlier remote default cannot override it.
+            for name in ("ssh_host", "ssh_user", "ssh_db"):
+                self.option_vars[name].set("")
             self.load_database_fields()
 
     def choose_output_file(self):
@@ -1951,12 +1955,15 @@ Usage examples:
                 )
             script = (
                 "import sqlite3,json,sys; "
-                "p,t=sys.argv[1:]; q='\"'+t.replace('\"','\"\"')+'\"'; "
+                "p,t=sys.argv[1:]; "
                 "c=sqlite3.connect('file:'+p+'?mode=ro',uri=True); "
                 "tables=[x[0] for x in c.execute(\"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name\")]; "
+                "t=t if t in tables else ('trades' if 'trades' in tables else (tables[0] if tables else '')); "
+                "t or (_ for _ in ()).throw(RuntimeError('database has no user tables')); "
+                "q='\"'+t.replace('\"','\"\"')+'\"'; "
                 "cols=[x[1] for x in c.execute('PRAGMA table_info('+q+')')]; "
                 "rows=[list(r) for r in c.execute('SELECT * FROM '+q)]; "
-                "print(json.dumps({'tables':tables,'columns':cols,'rows':rows}))"
+                "print(json.dumps({'tables':tables,'table':t,'columns':cols,'rows':rows}))"
             )
             command = [
                 "ssh",
@@ -1995,6 +2002,7 @@ Usage examples:
                     "tables",
                     [self.args.table],
                 )
+                self.args.table = payload.get("table", self.args.table)
             except (
                 ValueError,
                 KeyError,
@@ -2023,13 +2031,6 @@ Usage examples:
         self.remote_table_names = []
         conn = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
-        try:
-            conn.execute(
-                f"SELECT 1 FROM {self.quote_identifier(self.args.table)} LIMIT 1"
-            )
-        except sqlite3.Error:
-            conn.close()
-            raise
         return conn
 
     def get_closed_trades(self, conn):

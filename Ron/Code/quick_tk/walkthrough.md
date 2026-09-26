@@ -96,15 +96,30 @@ class MyQuickTool(ToolView):
     title = "My Utility"
 
     def build_ui(self):
-        # 1. Inputs
-        form = self.add_form("Parameters")
+        # Configure layout (Left Form / Right Output Panel)
+        self.columnconfigure(0, weight=0)
+        self.columnconfigure(1, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        # 1. Inputs (Left Form)
+        form = self.add_form("Parameters", parent=self)
+        form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         form.add_text("query", "Search Term", default="python")
         form.add_slider("limit", "Max Results", min_val=5, max_val=100, default=25)
         form.add_button("Execute", callback=self.on_run, variant="primary")
 
-        # 2. Outputs
-        self.stats = self.add_stat_grid(columns=2)
-        self.table = self.add_data_table(columns=["ID", "Name", "Status"])
+        # 2. Outputs (Right Container)
+        right_box = ttk.Frame(self, style="TFrame")
+        right_box.grid(row=0, column=1, sticky="nsew")
+        right_box.columnconfigure(0, weight=1)
+        right_box.rowconfigure(1, weight=1)
+
+        self.stats = self.add_stat_grid(columns=2, parent=right_box)
+        self.stats.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        self.table = self.add_data_table(
+            columns=["ID", "Name", "Status"], parent=right_box
+        )
+        self.table.grid(row=1, column=0, sticky="nsew")
 
     def on_run(self, inputs: dict):
         # 3. Your logic!

@@ -441,6 +441,33 @@ def test_ssh_command_quotes_python_and_passes_exact_arguments(tmp_path, monkeypa
         conn.close()
 
 
+def test_remote_query_falls_back_when_selected_table_is_missing(tmp_path, monkeypatch):
+    path = tmp_path / "candle_store.db"
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE candles (symbol TEXT, close REAL)")
+    conn.execute("INSERT INTO candles VALUES (?, ?)", ("AAA", 123.45))
+    conn.commit()
+    conn.close()
+    tool = report_tool(path, ["--ssh-host", "vps", "--ssh-db", str(path)])
+    real_run = current.subprocess.run
+
+    def run_remote_command_locally(command, **kwargs):
+        remote = current.shlex.split(command[-1])
+        return real_run([sys.executable] + remote[1:], **kwargs)
+
+    monkeypatch.setattr(current.subprocess, "run", run_remote_command_locally)
+    conn = tool.connect()
+    try:
+        assert tool.args.table == "candles"
+        assert tool.remote_table_names == ["candles"]
+        assert tuple(conn.execute("SELECT symbol, close FROM candles").fetchone()) == (
+            "AAA",
+            123.45,
+        )
+    finally:
+        conn.close()
+
+
 def test_remote_query_is_read_only_and_in_memory(
     monkeypatch,
 ):

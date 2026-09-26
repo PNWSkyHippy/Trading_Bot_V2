@@ -1,0 +1,21 @@
+﻿trade_id,entry_time,exit_time,symbol,direction,entry_price,exit_price,pnl,exit_reason
+trade-id-with-a-long-prefix-1,2026-09-19T10:00:00,2026-09-19T11:00:00,BBB,long,10.0,11.0,-25.0,"target, ""filled"""
+trade-id-with-a-long-prefix-0,2026-09-18T10:00:00,2026-09-18T11:00:00,AAA,long,10.0,11.0,100.0,"target, ""filled"""
+
+Report totals by group (all report rows)
+Group,Metric,Value
+strategy_name: alpha,Total Trades,2
+strategy_name: alpha,Total P&L,75.00
+strategy_name: alpha,Max Win,100.00
+strategy_name: alpha,Max Loss,-25.00
+strategy_name: alpha,Avg Win,100.00
+strategy_name: alpha,Avg Loss,-25.00
+strategy_name: alpha,Wins,1
+strategy_name: alpha,Losses,1
+strategy_name: alpha,Win %,50
+strategy_name: alpha,Loss %,50
+strategy_name: alpha,Total Fees,2.00
+strategy_name: alpha,High Symbol,AAA
+strategy_name: alpha,High Symbol P&L,100.00
+strategy_name: alpha,Low Symbol,BBB
+strategy_name: alpha,Low Symbol P&L,-25.00
