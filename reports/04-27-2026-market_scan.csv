@@ -1,4 +1,0 @@
-AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
-Stock,MGM,40.55,1.37,69.2,-0.95,14.0,19.2,Within 1.0% of 52W high | 1.4x avg vol | 14% above 200MA,,
-Crypto,TRX,0.325769,,68.9,,,19.01,+0.6% 24h | RSI 69 (momentum zone),0.65,-0.0009
-Crypto,HTX,2e-06,,64.4,,,14.64,+1.4% 24h | RSI 64 (momentum zone),1.38,

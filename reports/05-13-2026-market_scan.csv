@@ -1,6 +1,0 @@
-AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
-Stock,CSCO,101.87,1.86,79.0,-0.14,34.9,64.83,Within 0.1% of 52W high | 1.9x avg vol | 35% above 200MA,,
-Stock,HPE,32.07,1.72,71.8,-1.41,37.5,64.65,Within 1.4% of 52W high | 1.7x avg vol | 38% above 200MA,,
-Stock,CVS,98.11,1.51,85.0,-0.11,29.9,45.09,Within 0.1% of 52W high | 1.5x avg vol | 30% above 200MA,,
-Crypto,TRX,0.350253,,62.4,,,12.44,+0.2% 24h | RSI 62 (momentum zone),0.18,-0.0012
-Crypto,DOGE,0.113046,,56.5,,,6.67,+2.8% 24h | RSI 56 (momentum zone),2.78,0.0011

@@ -1,4 +1,0 @@
-trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker
-16a2e07a-155,XPL/USD,short,breakout_scanner,2026-06-16T06:50:30.869085,2026-06-16T07:24:49.477282,0.09845,0.094403,69.3253,4.1107,trailing_stop,kraken
-4deaf446-962,MRNA,long,bollinger_breakout,2026-06-16T08:57:43.734589,2026-06-16T09:18:46.047110,54.41,56.06,60.2828,3.0325,bracket_fill,alpaca
-0e248727-ec6,MU,short,sfr_structural_fakeout,2026-06-16T07:36:49.131542,2026-06-16T08:51:41.803178,1057.085,1028.037888,54.1912,2.7479,trailing_stop,alpaca

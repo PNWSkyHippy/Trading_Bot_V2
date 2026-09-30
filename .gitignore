@@ -13,6 +13,14 @@ graphify-out/20*/
 graphify-out/trading-bot-code-graph.html
 data/futures_history/
 watchlist/
+claud-skills/
+*.exe
+# Ignore common Python build directories
+__pycache__/
+*.pyc
+.build/
+-build/
+.dist/
 *.ppm
 *.jpg
 *.tga

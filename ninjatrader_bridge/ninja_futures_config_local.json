@@ -167,14 +167,14 @@
       },
       "MES": {
         "enabled": false,
-        "instrument": "MES 09-26",
+        "instrument": "MES 12-26",
         "broker_symbol": "MESU6",
         "ledger_path": "emt_trades_mes_local.jsonl",
         "control_state_key": "scanner_emt_mes_enabled_local"
       },
       "NQ": {
         "enabled": false,
-        "instrument": "NQ 09-26",
+        "instrument": "NQ 12-26",
         "broker_symbol": "NQU6",
         "ledger_path": "emt_trades_nq_local.jsonl",
         "control_state_key": "scanner_emt_nq_enabled_local"
@@ -188,28 +188,28 @@
       },
       "YM": {
         "enabled": false,
-        "instrument": "YM 09-26",
+        "instrument": "YM 12-26",
         "broker_symbol": "YMU6",
         "ledger_path": "emt_trades_ym_local.jsonl",
         "control_state_key": "scanner_emt_ym_enabled_local"
       },
       "MYM": {
         "enabled": false,
-        "instrument": "MYM 09-26",
+        "instrument": "MYM 12-26",
         "broker_symbol": "MYMU6",
         "ledger_path": "emt_trades_mym_local.jsonl",
         "control_state_key": "scanner_emt_mym_enabled_local"
       },
       "RTY": {
         "enabled": false,
-        "instrument": "RTY 09-26",
+        "instrument": "RTY 12-26",
         "broker_symbol": "RTYU6",
         "ledger_path": "emt_trades_rty_local.jsonl",
         "control_state_key": "scanner_emt_rty_enabled_local"
       },
       "M2K": {
         "enabled": false,
-        "instrument": "M2K 09-26",
+        "instrument": "M2K 12-26",
         "broker_symbol": "M2KU6",
         "ledger_path": "emt_trades_m2k_local.jsonl",
         "control_state_key": "scanner_emt_m2k_enabled_local"
@@ -230,28 +230,28 @@
       },
       "NKD": {
         "enabled": false,
-        "instrument": "NKD 09-26",
+        "instrument": "NKD 12-26",
         "broker_symbol": "NKDU6",
         "ledger_path": "emt_trades_nkd_local.jsonl",
         "control_state_key": "scanner_emt_nkd_enabled_local"
       },
       "MNK": {
         "enabled": false,
-        "instrument": "MNK 09-26",
+        "instrument": "MNK 12-26",
         "broker_symbol": "MNKU6",
         "ledger_path": "emt_trades_mnk_local.jsonl",
         "control_state_key": "scanner_emt_mnk_enabled_local"
       },
       "MBT": {
         "enabled": false,
-        "instrument": "MBT 09-26",
+        "instrument": "MBT 12-26",
         "broker_symbol": "MBTU6",
         "ledger_path": "emt_trades_mbt_local.jsonl",
         "control_state_key": "scanner_emt_mbt_enabled_local"
       },
       "MET": {
         "enabled": false,
-        "instrument": "MET 09-26",
+        "instrument": "MET 12-26",
         "broker_symbol": "METU6",
         "ledger_path": "emt_trades_met_local.jsonl",
         "control_state_key": "scanner_emt_met_enabled_local"

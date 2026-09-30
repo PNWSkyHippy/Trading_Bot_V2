@@ -34,7 +34,7 @@ python -m nuitka `
     --enable-plugin=tk-inter `
     --include-package=quick_tk `
     --windows-console-mode=force `
-    C:\Users\Linda\Trading_Bot_V2\Ron\Code\quick_tk\tkimage_convert.py
+    C:\Users\Linda\Trading_Bot_V2\Ron\Code\TKCalc.py
 
 OR 
 

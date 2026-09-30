@@ -143,33 +143,51 @@ BOOK_SCENE_CHOICES = {
 
 
 # BEGIN CAMERA DIRECTOR SHOTS
-# The Camera Director saves only this section. Existing scenes above stay intact.
-# A/C are start/end; an Arc passes through B at its halfway time.
-# steps=48 means 48 intervals, hence 49 frames including the initial pose.
-camera_director_shots = {
-    "Camera sweep": {
-        "name": "Camera sweep",
-        "segments": [
-            {
-                "kind": "Arc",
-                "a": [-8, 4, -12],
-                "b": [0, 6, -15],
-                "c": [8, 4, -12],
-                "target_a": [0, 1, 0],
-                "target_c": [0, 1, 0],
-                "steps": 48,
-                "fov_a": 45,
-                "fov_c": 45,
-            }
-        ],
-        "object": {
-            "kind": "Sphere", "position": [0, 1, 0],
-            "size": 1, "color": "#75baff",
-        },
-        "lights": [
-            {"position": [-4, 8, -6], "color": "#ffffff", "brightness": 1.5}
-        ],
-        "fps": 24,
-    }
-}
+# Saved camera moves, objects, and lights. Safe to edit as plain Python data.
+camera_director_shots = {'Camera sweep': {'name': 'Camera sweep',
+                  'segments': [{'kind': 'Arc',
+                                'a': [-0.598568434, 0.310020963, -0.94900103],
+                                'b': [2.62705035, 1.73993444, -1.26963678],
+                                'c': [-2.85982696, 2.8040561, 0.613927658],
+                                'target_a': [0.0, 1.0, 0.0],
+                                'target_c': [0.0, 3.0, 0.0],
+                                'steps': 48,
+                                'fov_a': 45.0,
+                                'fov_c': 65.0},
+                               {'kind': 'Arc',
+                                'a': [-2.85982696, 2.8040561, 0.613927658],
+                                'b': [-0.897852651, 0.975097001, 1.77781072],
+                                'c': [0.931106453, 0.443036171, -0.716224417],
+                                'target_a': [0.0, 3.0, 0.0],
+                                'target_c': [-2.0, 3.0, 4.0],
+                                'steps': 24,
+                                'fov_a': 65.0,
+                                'fov_c': 25.0},
+                               {'kind': 'Line',
+                                'a': [0.931106453, 0.443036171, -0.716224417],
+                                'b': [0.42321226, 4.0, -1.42347291],
+                                'c': [-2.66030415, 2.30524908, 0.114888379],
+                                'target_a': [-2.0, 3.0, 4.0],
+                                'target_c': [0.0, 2.0, 0.0],
+                                'steps': 24,
+                                'fov_a': 25.0,
+                                'fov_c': 25.0}],
+                  'object': {'kind': 'Box',
+                             'position': [-0.166269009, 1.27438122, 0.0],
+                             'size': 1.0,
+                             'color': '#7debf7'},
+                  'lights': [{'position': [-4.0, 8.0, -6.0],
+                              'color': '#ffffff',
+                              'brightness': 1.5},
+                             {'position': [0.0997614056, 0.875335595, -0.150909785],
+                              'color': '#55ff66',
+                              'brightness': 1.0},
+                             {'position': [0.0, 6.0, -4.0],
+                              'color': '#aaffaa',
+                              'brightness': 1.0}],
+                  'fps': 24,
+                  'ground_y': 0.0,
+                  'pov_template': None,
+                  'include_object': False,
+                  'roll': 10.0}}
 # END CAMERA DIRECTOR SHOTS

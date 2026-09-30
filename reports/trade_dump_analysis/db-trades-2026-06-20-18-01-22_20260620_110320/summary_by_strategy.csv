@@ -1,5 +1,0 @@
-strategy_name,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
-bollinger_breakout,1,0,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
-nr7_scanner,1,0,1,-31.1708,-31.1708,0.0,-31.1708,0.0,31.1708,0.0,0.0
-breakout_scanner,27,8,19,-341.9443,-12.6646,26.0905,-28.9825,208.7239,550.6682,29.6,0.379
-TOTAL,29,8,21,-373.1151,-12.866,26.0905,-27.7066,208.7239,581.839,27.6,0.359

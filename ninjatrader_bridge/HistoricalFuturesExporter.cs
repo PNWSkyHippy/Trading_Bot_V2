@@ -27,12 +27,12 @@ namespace NinjaTrader.NinjaScript.AddOns
         private const string OutputDir = @"C:\Users\Linda\trading_bot_v2\data\futures_history";
 
         private readonly string[] instruments = {
-            "MES 09-26", "ES 12-26",
-            "MNQ 12-26", "NQ 09-26",
-            "MYM 09-26", "YM 09-26", 
-            "M2K 09-26", "RTY 09-26",
-            "MGC 12-26", "GC 12-26", "MNK 09-26",
-            "NKD 09-26", "MBT 09-26", "MET 09-26"
+            "MES 12-26", "ES 12-26",
+            "MNQ 12-26", "NQ 12-26",
+            "MYM 12-26", "YM 12-26", 
+            "M2K 12-26", "RTY 12-26",
+            "MGC 12-26", "GC 12-26", "MNK 12-26",
+            "NKD 12-26", "MBT 12-26", "MET 12-26"
         };
 
         protected override void OnStateChange()

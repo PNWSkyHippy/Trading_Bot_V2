@@ -1,4 +1,0 @@
-trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker
-a69c39ef-a73,UNFI/USD,long,breakout_scanner,2026-06-22T05:07:23.326132,2026-06-22T08:35:45.343912,0.0183,0.020346,147.27530000000002,11.1803,trailing_stop,kraken
-2adc0829-cad,ME/USD,long,breakout_scanner,2026-06-22T06:15:49.220896,2026-06-22T07:23:34.751973,0.0678,0.073902,115.1986,9.0,take_profit,kraken
-ddbb6da8-ffe,SYND/USD,short,breakout_scanner,2026-06-22T16:07:58.700794,2026-06-22T16:18:39.225150,0.02477,0.023152,86.67429999999999,6.5321,trailing_stop,kraken

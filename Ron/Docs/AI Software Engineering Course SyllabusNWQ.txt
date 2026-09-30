@@ -1,0 +1,149 @@
+Academic year 1
+
+Term 1
+
+Jun 01 - Aug 16
+
+PY101 · Introduction to Python programming
+
+4 Credits
+Jun 01 - Jun 28
+Final grade: A
+PSYC100 · General psychology
+
+4 Credits
+Jun 29 - Jul 12
+Final grade: A
+PY104 · Software engineering principles
+
+4 Credits
+Jul 13 - Aug 09
+Final grade: A
+Term break
+Aug 10 - Aug 16
+
+Academic year 1
+
+Term 2
+
+Aug 17 - Oct 25
+
+PY102 · Data structures & algorithms
+
+4 Credits
+Aug 17 - Sep 13
+Grade: A
+HIST200 · American history since world war II
+
+4 Credits
+Sep 14 - Sep 27
+Awaiting grade
+PY103 · Object-Oriented Programming
+
+4 Credits
+Sep 28 - Oct 25
+Academic year 1
+
+Term 3
+
+Oct 26 - Jan 03
+
+FE101 · Introduction to modern JavaScript & TypeScript
+
+4 Credits
+Oct 26 - Nov 22
+ENGL100 · English composition
+
+4 Credits
+Nov 23 - Dec 06
+BE101 · Web fundamentals
+
+4 Credits
+Dec 07 - Jan 03
+Academic year 2
+
+Term 4
+
+Jan 04 - Mar 14
+
+FE102 · Building interactive UIs
+
+4 Credits
+Jan 04 - Jan 24
+ENVR200 · Global Environmental Change
+
+4 Credits
+Jan 25 - Jan 31
+BE102 · RESTful API Development
+
+4 Credits
+Feb 01 - Feb 21
+BE103 · Databases: SQL & NoSQL Basics
+
+4 Credits
+Feb 22 - Mar 07
+SPCH100 · Essentials of public speaking
+
+4 Credits
+Mar 08 - Mar 14
+Academic year 2
+
+Term 5
+
+Mar 15 - May 23
+ntication, Autho
+BE104 · Autherization, and Middleware
+
+4 Credits
+Mar 15 - Mar 28
+BE105 · Advanced Backend Concepts and Microservices
+
+	
+4 Credits
+Mar 29 - Apr 11
+BE106 · Backend project
+
+5 Credits
+Apr 12 - Apr 25
+AI101 · Introduction to AI concepts & math foundations
+
+4 Credits
+Apr 26 - May 09
+MATH200 · College mathematics
+
+4 Credits
+May 10 - May 16
+AI102 · Fundamentals of machine learning
+
+4 Credits
+May 17 - May 23
+Academic year 2
+
+Term 6
+
+May 24 - Aug 01
+
+AI103 · Prompt engineering & working with LLMs
+
+4 Credits
+
+
+May 24 - Jun 06
+FE103 · Frontend integration project
+
+5 Credits
+Jun 07 - Jun 20
+Jun 30 · Teach-out ends
+
+************************************* SKIPPED
+CD101 · Professional profiles and personal branding
+CD102 · AI project portfolio development
+AI104 · Applied AI capstone project
+CD103 · AI career strategy and interview preparation
+CD104 · AI career launch workshop
+**************************************
+Associate of Applied Science in
+
+AI Software Engineering
+Complete all required coursework to earn your Associate degree.
+

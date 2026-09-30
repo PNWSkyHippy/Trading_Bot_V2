@@ -1,6 +1,0 @@
-AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
-Stock,ON,127.0,1.44,68.2,-1.65,103.3,148.29,Within 1.6% of 52W high | 1.4x avg vol | 103% above 200MA,,
-Stock,DELL,305.08,1.43,75.5,-1.15,103.0,147.73,Within 1.2% of 52W high | 1.4x avg vol | 103% above 200MA,,
-Stock,F,15.32,1.36,76.2,-1.45,23.5,31.88,Within 1.4% of 52W high | 1.4x avg vol | 23% above 200MA,,
-Crypto,FIGR_HELOC,1.03,,59.4,,,9.45,+1.1% 24h | RSI 59 (momentum zone),1.08,
-Crypto,OKB,90.78,,56.6,,,7.18,+9.0% 24h | RSI 57 (momentum zone),8.95,

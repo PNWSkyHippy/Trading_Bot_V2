@@ -1,7 +1,0 @@
-AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal
-Stock,TER,437.92,2.98,61.4,-0.64,72.9,217.03,Within 0.6% of 52W high | 3.0x avg vol | 73% above 200MA
-Stock,INTC,133.99,1.53,61.0,-1.1,141.4,216.86,Within 1.1% of 52W high | 1.5x avg vol | 141% above 200MA
-Stock,ADI,434.46,1.98,56.5,-1.19,40.6,80.32,Within 1.2% of 52W high | 2.0x avg vol | 41% above 200MA
-Stock,HST,25.01,1.55,74.5,-1.38,32.7,50.71,Within 1.4% of 52W high | 1.6x avg vol | 33% above 200MA
-Stock,IBKR,96.0,1.35,71.1,-1.85,33.2,44.73,Within 1.9% of 52W high | 1.3x avg vol | 33% above 200MA
-Stock,TRV,307.81,1.6,70.1,-1.11,7.1,11.34,Within 1.1% of 52W high | 1.6x avg vol | 7% above 200MA

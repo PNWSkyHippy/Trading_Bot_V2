@@ -1,6 +1,0 @@
-stop_loss_pct,take_profit_pct,score,avg_profit_factor,avg_win_rate,avg_net_pnl,consistency,symbols_tested,symbols_profitable
-1.5,3.0,0.07,0.14,9.1,-115.29,0.0,1,0
-2.0,2.0,0.07,0.14,9.1,-115.29,0.0,1,0
-2.0,3.0,0.07,0.14,9.1,-115.29,0.0,1,0
-1.0,2.0,0.07,0.14,9.1,-115.29,0.0,1,0
-1.5,2.0,0.07,0.14,9.1,-115.29,0.0,1,0

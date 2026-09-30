@@ -1,6 +1,0 @@
-AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
-Stock,UAL,130.54,1.71,76.1,-0.04,27.3,46.67,Within 0.0% of 52W high | 1.7x avg vol | 27% above 200MA,,
-Stock,WELL,221.43,1.31,70.3,-1.12,13.9,18.23,Within 1.1% of 52W high | 1.3x avg vol | 14% above 200MA,,
-Stock,EA,204.52,1.4,64.2,-0.18,2.5,3.56,Within 0.2% of 52W high | 1.4x avg vol | 3% above 200MA,,
-Crypto,LAB,16.72,,62.2,,,13.6,+11.1% 24h | RSI 62 (momentum zone),11.09,
-Crypto,RAIN,0.015872,,55.5,,,5.55,+1.4% 24h | RSI 55 (momentum zone),1.37,

@@ -1,6 +1,0 @@
-strategy_name,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
-sfr_structural_fakeout,2,2,0,24.5822,12.2911,12.2911,0.0,24.5822,0.0,100.0,
-orb_breakout,1,1,0,18.3694,18.3694,18.3694,0.0,18.3694,0.0,100.0,
-bollinger_breakout,5,2,3,4.8091,0.9618,7.4146,-3.34,14.8291,10.02,40.0,1.48
-breakout_scanner,25,9,16,-117.3625,-4.6945,44.0143,-32.0932,396.1291,513.4916,36.0,0.771
-TOTAL,33,14,19,-69.6018,-2.1091,32.4221,-27.5532,453.9098,523.5116,42.4,0.867

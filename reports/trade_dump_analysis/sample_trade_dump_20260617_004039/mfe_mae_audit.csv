@@ -1,5 +1,0 @@
-strategy_name,symbol,pnl,mfe_pct,mae_pct,exit_reason
-breakout_scanner,BTC/USD,65.0,4.1,-0.2,take_profit
-breakout_scanner,AAVE/USD,-12.5,1.7,-0.8,trailing_stop
-sfr_structural_fakeout,TSLA,22.1,1.2,-0.3,take_profit
-gap_scanner,NVDA,-30.0,0.2,-1.5,stop_loss

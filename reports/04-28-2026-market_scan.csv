@@ -1,9 +1,0 @@
-AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
-Stock,NUE,225.11,2.3,96.2,-1.04,42.0,96.66,Within 1.0% of 52W high | 2.3x avg vol | 42% above 200MA,,
-Stock,BEN,29.46,1.94,81.3,-0.03,22.8,44.07,Within 0.0% of 52W high | 1.9x avg vol | 23% above 200MA,,
-Stock,VTR,87.57,1.8,60.7,-0.49,16.4,29.41,Within 0.5% of 52W high | 1.8x avg vol | 16% above 200MA,,
-Crypto,RAIN,0.00753,,72.2,,,22.71,+2.5% 24h | RSI 72 (momentum zone),2.48,
-Crypto,TAO,256.19,,68.6,,,19.33,+4.1% 24h | RSI 69 (momentum zone),4.11,-0.0005
-Crypto,CC,0.148972,,62.8,,,12.88,+0.9% 24h | RSI 63 (momentum zone),0.88,
-Crypto,WLFI,0.073834,,58.7,,,8.87,+2.1% 24h | RSI 59 (momentum zone),2.14,0.0006
-Crypto,USDS,0.999734,,56.2,,,6.23,+0.0% 24h | RSI 56 (momentum zone),0.0,

@@ -2,21 +2,25 @@ import sys
 import tkinter as tk
 from tkinter import ttk
 
+import colllections as col
 from quick_tk import QuickApp, ToolView
 
 
 class TicTacToeApp(ToolView):
-    title = "Tic-Tac-Toe Studio"
+    title = "TK Calculator"
 
     def build_ui(self):
+        self.mem_q = col.deque(maxlen=10)
         self.btn_list = []
         self.buttons = {}
         # 1. Main Window Split: Left (Board) & Right (Actions)
-        self.columself.nconfigure(1, weight=1)  # Board area
-        self.columself.nconfigure(0, weight=1)  # Action sidebar
-        self.rowconfigure(0, weight=1)
-        self.rowconfigure(1, weight=1)
-        self.rowconfigure(2, weight=1)
+        self.columnconfigure(0, weight=0)  # Action sidebar
+        self.columnconfigure(1, weight=1)  # Total Board area / Board Area
+
+        self.rowconfigure(0, weight=0)  # Action bar
+        self.rowconfigure(1, weight=0)  # Total Board area
+        self.rowconfigure(2, weight=0)
+        self.rowconfigure(3, weight=1)  # board area
         self.btn_layout = [
             ["()", "0", ".", "="],
             ["1", "2", "3", "*"],
@@ -25,47 +29,52 @@ class TicTacToeApp(ToolView):
             ["C", "Bk", "%", "/"],
         ]
 
-        top_box = self.add_form("Top Controls", parent=self)
-        top_box.grid(row=0, column=1, columnspan=2, sticky="nwe", padx=20, pady=10)
+        self.side_box = self.add_form("Calc Options", parent=self)
+        self.side_box.grid(row=0, column=0, sticky="nws", padx=0, pady=10)
+        self.options = self.side_box.add_frame("Game Options", padding=10)
+        self.options.add_button("Memory", self.on_memory)
+        self.options.grid(row=0, column=0, sticky="nws", padx=10, pady=10)
+        self.options.add_button("Clear Memory", self.on_clear_memory)
+        self.options.grid(row=2, column=0, sticky="nws", padx=10, pady=10)
+        self.memort_box = tk.Text(self.options, height=5, width=20)
+        self.memort_box.grid(row=1, column=0, sticky="nswe", padx=10, pady=10)
 
-        # Add a total score dispself.lay
-        total_but = self.add_butself.ton(
-            "", callback=self.on_new_game, background="lightblue", variant="primary"
+        #        self.top_form = self.add_form("T", parent=self)
+        self.top_form = ttk.LabelFrame(self, text="", padding=20)
+        self.top_form.grid(row=0, column=1, sticky="new", padx=20, pady=8)
+        self.top_form.columnconfigure(1, weight=1)
+
+        self.entry_box = tk.Text(self.top_form, height=5, width=20)
+        self.entry_box.grid(
+            row=0, column=1, columnspan=3, sticky="nswe", padx=10, pady=10
         )
-        self.total_area.grid(row=0, column=1, sticky="ne", padx=20, pady=20)
-        self.total_but = self.add_button(
-            "", callback=self.on_new_game, background="lightblue", variant="primary"
-        )
-        self.total_area.grid(row=1, column=1, sticky="ne", padx=20, pady=20)
+        self.entry_box.config(
+            state="disabled", background="lightblue"
+        )  # Make the text box read-only
+
+        self.result_box = ttk.Entry(self.top_form, width=30, state="readonly")
+        self.result_box.grid(row=1, column=1, sticky="nwe", padx=20, pady=10)
+        self.result_box.config(state="readonly", background="lightblue")
 
         # -------------------------------------------------------------
         # SECTION B: Left Box (Vertically Stacked Controls)
         # -------------------------------------------------------------
-        side_box = self.add_form("Game Controls", parent=self)
-        side_box.grid(row=0, column=0, sticky="nws", padx=0, pady=10)
-
-        # Settings inputs inside the sidebar:
-        side_box.add_dropdown("player_symbol", "Your Symbol", ["X", "O"], default="X")
-        side_box.add_dropdown(
-            "difficulty", "AI Difficulty", ["Easy", "Medium", "Unbeatable"]
-        )
-
-        # Action buttons stacked vertically:
-        #       side_box.add_button("🔄 New Game", callself.back=self.on_new_game, variant="primary")
-        #       side_box.add_button("💡 Hint", callback=self.on_hint, variant="surface")
-        #       side_box.add_button("⏹ End Game", callback=self.on_end_game, variant="outline")
 
         # -------------------------------------------------------------
         # self. SECTION A: Right Box (3x3 Board)
         # -------------------------------------------------------------
-        board_box = ttk.LabelFrame(self, text=" Game Board ", padding=12)
-        board_box.grid(row=2, column=1, sticky="nswe", padx=0, pady=10)
+        board_box = ttk.LabelFrame(self, text=" TKCalculator ", padding=12)
+        board_box.grid(row=3, column=1, sticky="nsew", padx=20, pady=10)
 
         # Make the 3x3 grid cells stretch equally
         for i in range(3):
             board_box.columnconfigure(i, weight=1)
             board_box.rowconfigure(i, weight=1)
             board_box.rowconfigure(3, weight=1)
+        for i in range(1, 5):
+            board_box.columnconfigure(i, weight=1)
+            board_box.rowconfigure(4, weight=1)
+        board_box.columnconfigure(0, weight=0)
 
         top_list = ["C", "Bk", "  %  ", "  /   "]
         side_list = ["* ", "- ", "+ "]
@@ -79,11 +88,16 @@ class TicTacToeApp(ToolView):
                 bg="#1e1e2e",
                 fg="#cdd6f4",
                 activebackground="#313244",
-                command=lambda row=1, col=c: self.on_cell_click(row, col),
+                # Top calculator buttons
+                command=lambda text=top_list[c - 1].strip(): self.on_cell_click(text),
             )
-            btn.grid(row=1, column=j, sticky="nsew", padx=4, pady=4)
+            btn.grid(row=0, column=j, sticky="nwse", padx=4, pady=4)
             self.btn_list.append(btn)
-            self.buttons[(1, j)] = btn
+            # Keep the lookup key consistent with the row passed to the
+            # callback.  These are the bottom calculator row (row 4), not
+            # row 1; using row 1 overwrites other buttons and causes a
+            # KeyError when the button is pressed.
+            self.buttons[(4, 5 - c)] = btn
             j -= 1
         i = 1
         for r in [3, 2, 1]:
@@ -97,9 +111,12 @@ class TicTacToeApp(ToolView):
                     bg="#1e1e2e",
                     fg="#cdd6f4",
                     activebackground="#313244",
-                    command=lambda row=r, col=c + 1: self.on_cell_click(row, col),
+                    # Number buttons
+                    command=lambda text=str((r * 3) + c + 1 - 3): self.on_cell_click(
+                        text
+                    ),
                 )
-                btn.grid(row=i, column=j, sticky="nswe", padx=4, pady=4)
+                btn.grid(row=i, column=j, sticky="nwse", padx=4, pady=4)
                 self.btn_list.append(btn)
                 self.buttons[(i, j)] = btn
                 btn = tk.Button(
@@ -109,9 +126,10 @@ class TicTacToeApp(ToolView):
                     bg="#1e1e2e",
                     fg="#cdd6f4",
                     activebackground="#313244",
-                    command=lambda row=j, col=c + 1: self.on_cell_click(row, 4),
+                    # Operator buttons
+                    command=lambda text=side_list[c].strip(): self.on_cell_click(text),
                 )
-                btn.grid(row=k, column=4, sticky="nswe", padx=4, pady=4)
+                btn.grid(row=k, column=4, sticky="nwse", padx=4, pady=4)
                 self.btn_list.append(btn)
                 self.buttons[(k, 4)] = btn  # C + 1
                 j -= 1
@@ -126,38 +144,91 @@ class TicTacToeApp(ToolView):
                 bg="#1e1e2e",
                 fg="#cdd6f4",
                 activebackground="#313244",
-                command=lambda row=0, col=c: self.on_cell_click(row, col),
+                # Bottom calculator buttons
+                command=lambda text=bottom_list[c - 1].strip(): self.on_cell_click(
+                    text
+                ),
             )
-            btn.grid(row=4, column=c, sticky="nswe", padx=4, pady=4)
+            btn.grid(row=4, column=c, sticky="nwse", padx=4, pady=4)
             self.btn_list.append(btn)
             self.buttons[(0, c)] = btn
             j -= 1
         i = 1
 
-    # -------------------------------------------------------------
-    # Callbacks
-    # -------------------------------------------------------------
-    def on_cell_click(self, r, c):
-        btn = self.buttons[(r, c)]
-        sys.stderr.write(f"Botton Pressed in grid: {r}:{c}\n")
+        # -------------------------------------------------------------
+        # Callbacks
+        # -------------------------------------------------------------
+        """self.btn_layout = [
+                    ["()", "0", ".", "="],
+                    ["1", "2", "3", "*"],
+                    ["4", "5", "6", "-"],
+                    ["7", "8", "9", "+"],
+                    ["C", "Bk", "%", "/"],
+                ]
+        """
+
+    def on_cell_click(self, txt):
+        sys.stderr.write(f"Button pressed: {txt}\n")
         sys.stderr.flush()
-        if btn["text"] == " ":
-            btn.config(text="X", fg="#89b4fa")  # Soft blue
-            self.set_status(f"Placed X at row {r + 1}, col {c + 1}")
 
-    def on_new_game(self, values: dict):
-        for btn in self.buttons.values():
-            btn.config(text=" ", bg="#1e1e2e")
-        self.set_status(f"New game started! Mode: {values.get('difficulty')}")
+        self.entry_box.config(state="normal")
 
-    def on_hint(self, values: dict):
-        self.set_status("Hint: Take the center square (Row 2, Col 2)!")
+        if txt == "Bk":
+            if self.entry_box.get("1.0", "end-1c"):
+                self.entry_box.delete("end-2c", "end-1c")
 
-    def on_end_game(self, values: dict):
-        self.set_status("Game ended.")
+        elif txt == "C":
+            self.mem_q.append(self.entry_box.get("1.0", "end-1c"))
+            self.entry_box.delete("1.0", "end")
+        elif txt == "()":
+            current_text = self.entry_box.get("1.0", "end-1c")
+
+            if current_text.count("(") > current_text.count(")"):
+                self.entry_box.insert("end", ")")
+            else:
+                # Add multiplication for expressions such as 5(...)
+                if current_text and (
+                    current_text[-1].isdigit() or current_text[-1] == ")"
+                ):
+                    self.entry_box.insert("end", "*(")
+                else:
+                    self.entry_box.insert("end", "(")
+        elif txt == "=":
+            current_text = self.entry_box.get("1.0", "end-1c")
+            try:
+                result = eval(current_text, {"__builtins__": {}}, {})
+                self.entry_box.delete("1.0", "end")
+
+                self.result_box.config(state="normal")
+                self.result_box.delete(0, "end")
+                self.result_box.insert(0, str(result))
+                self.result_box.config(state="readonly")
+            except Exception as error:
+                self.result_box.config(state="normal")
+                self.result_box.delete(0, "end")
+                self.result_box.insert(0, f"Error: {error}")
+                self.result_box.config(state="readonly")
+
+        else:
+            self.entry_box.insert("end", txt)
+
+        self.entry_box.config(state="disabled")
+
+    def on_memory(self, values: dict):
+        self.memort_q.config(state="normal")
+        self.memort_q.delete("1.0", "end")
+        for item in self.mem_q:
+            self.memort_q.insert("end", item + "\n")
+        self.memort_q.config(state="disabled")
+
+    def on_clear_memory(self):
+        self.mem_q.clear()
+        self.memort_box.config(state="normal")
+        self.memort_box.delete("1.0", "end")
+        self.memort_box.config(state="disabled")
 
 
 if __name__ == "__main__":
-    app = QuickApp(title="Tic-Tac-Toe", size=(750, 450), theme="Dark Obsidian")
+    app = QuickApp(title="Tic-Tac-Toe", size=(750, 750), theme="Dark Obsidian")
     app.set_single_tool(TicTacToeApp)
     app.run()

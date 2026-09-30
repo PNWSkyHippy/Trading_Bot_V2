@@ -40,7 +40,53 @@ from tkcalendar import DateEntry
 from trade_report_table import TradeReportTable
 
 # Constants stay global; report settings and results belong to each tool instance.
-DB_PATH = str(Path(__file__).resolve().parents[2] / "data" / "trading_bot.db")
+def _get_default_db_path() -> str:
+    # In Nuitka --onefile mode, BOTH __file__ and sys.executable point to the
+    # temporary extracted directory (AppData\Local\Temp\onefile_...).
+    # sys.argv[0] is the only path that points to the original .exe launched by the user!
+    candidates = []
+
+    # 1. Path from sys.argv[0] (the actual .exe or script invoked)
+    if sys.argv and sys.argv[0]:
+        try:
+            arg0_path = Path(sys.argv[0]).resolve()
+            if "Temp" not in str(arg0_path) and "temp" not in str(arg0_path):
+                candidates.append(arg0_path)
+        except Exception:
+            pass
+
+    # 2. Path from __file__ (when running via standard Python)
+    try:
+        f_path = Path(__file__).resolve()
+        if "Temp" not in str(f_path) and "temp" not in str(f_path):
+            candidates.append(f_path)
+    except Exception:
+        pass
+
+    # Check candidates for the database file
+    for base in candidates:
+        # Check standard relative path (2 levels up from Ron/Code)
+        try:
+            standard = base.parents[2] / "data" / "trading_bot.db"
+            if standard.is_file() and standard.stat().st_size > 1024:
+                return str(standard)
+        except (IndexError, OSError):
+            pass
+
+        # Search upward for the database file
+        for parent in [base.parent, *base.parents]:
+            candidate = parent / "data" / "trading_bot.db"
+            if candidate.is_file() and candidate.stat().st_size > 1024:
+                return str(candidate)
+
+    # 3. Known project root fallback if launched from unusual locations
+    known_db = Path(r"C:\Users\Linda\Trading_Bot_V2\data\trading_bot.db")
+    if known_db.is_file():
+        return str(known_db)
+
+    return str(Path(__file__).resolve().parents[2] / "data" / "trading_bot.db")
+
+DB_PATH = _get_default_db_path()
 EQUALSTR = "=" * 175 + "\n"
 BL_EQUALSTR = colorize(EQUALSTR, "blue")
 GUI_SSH_DEFAULTS = {
