@@ -1,19 +1,19 @@
 # ...existing code...
+import argparse
+import copy
+import csv
+import os
+import re
 import sqlite3
 import sys
-import os
-import copy
-import argparse
-import csv
-import re
 
 from local_functions import (
-    colorize,
-    chkstr_isnum,
-    clean_ansi,
-    date_check,
     STAT_LABEL_VALUE_RE,
     Timed,
+    chkstr_isnum,
+    clean_ansi,
+    colorize,
+    date_check,
 )
 
 extended = False
@@ -67,6 +67,7 @@ def print_outfile(text, output_file):
                         elif stripped.count(":") >= 2:
                             # summary lines like "Total Trades: 54   Total P&L: -1320.00 ..."
                             pairs = STAT_LABEL_VALUE_RE.findall(stripped)
+
                             row = [
                                 part.strip()
                                 for label, value in pairs
@@ -75,6 +76,7 @@ def print_outfile(text, output_file):
                                     value,
                                 )
                             ]
+
                             spamwriter.writerow(row or stripped.split())
                         else:
                             spamwriter.writerow(stripped.split())
@@ -177,10 +179,8 @@ def proc_dict(
                     tot_losers += 1
                     tot_losses += trade_pnl
                 # Track the biggst win and biggest loss
-                if max_win < trade_pnl:
-                    max_win = trade_pnl
-                if max_loss > trade_pnl:
-                    max_loss = trade_pnl
+                max_win = max(max_win, trade_pnl)
+                max_loss = min(max_loss, trade_pnl)
                 # Track the number of trades processed
                 trade_count += 1
                 if trade_pnl < 0:
@@ -459,10 +459,12 @@ def print_group_summary(
         )
         print_outfile(BL_EQUALSTR + "\n\n", output_file)
 
+
 def build_hdr_list(trades_lst2):
     """Collect the column header names in trades table"""
     # Flattens the nested structure into a single list of keys in one line
     return [my2_key for key2_lst in trades_lst2 for my2_key in key2_lst]
+
 
 @Timed
 def main():

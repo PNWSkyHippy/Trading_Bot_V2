@@ -15,10 +15,14 @@ with open(sys.argv[1], newline="", encoding="utf-8-sig") as file:
     cur_balance = balances[-1]
 
 #    highest_row = max(rows, key=lambda row: float(row[5]))
-max_drawdown = max(balances) - 2500        
-drawdwn_remains = cur_balance - max_drawdown
+if len(sys.argv) > 2:    
+    max_drawdown = (max(balances) - int(sys.argv[2]))        
+else:
+    max_drawdown =  max(balances) - 2500
+print(f'Max Drawdown is: {max_drawdown}')
+drawdown_remains = cur_balance - max_drawdown
 print(f"Highest recorded balance: ${max(balances):,.2f}\nLowest recorded balance: ${min(balances):,.2f}")
 print(f"Total Balancees: ${total_balance:,.2f}\nAverage balance: ${avg_balance:,.2f}\nNum balancse {num_balances}")
 print(f"Curent Balance is: {cur_balance}")
-print(f"Max Drawdown is {max_drawdown}\nDrawdow Remaining  is {drawdwn_remains:.2f}")
-
+print(f"Max Drawdown is {max_drawdown}")
+print(f"Drawdow Remaining  is {drawdown_remains:.2f}")

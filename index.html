@@ -11368,11 +11368,8 @@
             latchedMove.lift = 0;
             keyboardStatus.innerText = 'flight restarted at tunnel start';
         }
-        const touchCapable = (
-            (navigator.maxTouchPoints || 0) > 0 ||
-            (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
-        );
-        let mobileInputMode = touchCapable;
+        const touchCapable = false;
+        let mobileInputMode = false;
 
         const controlKeys = new Set([
             'w', 'a', 's', 'd', 'r', 'f', 'q', 'e', 'v', 'c', 'shift',
@@ -12270,27 +12267,16 @@
                 e.preventDefault();
                 return;
             }
-            if (mobileInputMode) {
-                const latchUntil = performance.now() + MOBILE_THRUST_LATCH_MS;
-                if (key === 'w') { latchedMove.forward = 1; latchedMoveUntil.forward = latchUntil; }
-                if (key === 's') { latchedMove.forward = -1; latchedMoveUntil.forward = latchUntil; }
-                if (key === 'd') { latchedMove.strafe = 1; latchedMoveUntil.strafe = latchUntil; }
-                if (key === 'a') { latchedMove.strafe = -1; latchedMoveUntil.strafe = latchUntil; }
-                if (key === 'r') { latchedMove.lift = 1; latchedMoveUntil.lift = latchUntil; }
-                if (key === 'f') { latchedMove.lift = -1; latchedMoveUntil.lift = latchUntil; }
-                if (key === ' ') {
-                    latchedMove.forward = 0;
-                    latchedMove.strafe = 0;
-                    latchedMove.lift = 0;
-                    latchedMoveUntil.forward = 0;
-                    latchedMoveUntil.strafe = 0;
-                    latchedMoveUntil.lift = 0;
-                }
+            if (key === ' ') {
+                latchedMove.forward = 0;
+                latchedMove.strafe = 0;
+                latchedMove.lift = 0;
+                latchedMoveUntil.forward = 0;
+                latchedMoveUntil.strafe = 0;
+                latchedMoveUntil.lift = 0;
             }
             keyboardStatus.innerText =
-                `${key || 'unknown'} k=${e.key || '?'} c=${e.code || '?'} n=${e.keyCode || e.which || '?'} ` +
-                `mode=${mobileInputMode ? 'mobile' : 'hold'} ` +
-                `lat=${getLatchedMove('forward')}/${getLatchedMove('strafe')}/${getLatchedMove('lift')}`;
+                `${key || 'unknown'} k=${e.key || '?'} c=${e.code || '?'} n=${e.keyCode || e.which || '?'}`;
             if (controlKeys.has(key)) e.preventDefault();
         }
 
@@ -12300,27 +12286,22 @@
             physicalKeysHeld.delete(normalizeKey(e));
             physicalShiftHeld = e.key === 'Shift' ? false : !!e.shiftKey;
             if (!physicalShiftHeld) physicalKeysHeld.delete('shift');
-            // Suppress the browser's Alt behavior: in Chrome, RELEASING Alt moves focus
-            // to the browser menu button — after an Alt+M the game stopped receiving ANY
-            // key events (boost, Ctrl+H, Alt+M all "dead") until the canvas was clicked.
-            // ONLY the bare Alt release — other keys released while Alt is held (like
-            // Tab during Alt+Tab) must pass through to the browser/OS untouched.
             if (e.key === 'Alt') e.preventDefault();
             if (isDialogInputTarget(e.target) || isJoinEditDialogOpen() || isPilotStartDialogOpen()) return;
             const key = normalizeKey(e);
-            if (mobileInputMode) {
-                const age = performance.now() - (lastKeyDown[key] || 0);
-                const realRelease = age > ANDROID_PULSE_KEYUP_MS;
-                if (realRelease) {
-                    if (key === 'w' && latchedMove.forward === 1) latchedMove.forward = 0;
-                    if (key === 's' && latchedMove.forward === -1) latchedMove.forward = 0;
-                    if (key === 'd' && latchedMove.strafe === 1) latchedMove.strafe = 0;
-                    if (key === 'a' && latchedMove.strafe === -1) latchedMove.strafe = 0;
-                    if (key === 'r' && latchedMove.lift === 1) latchedMove.lift = 0;
-                    if (key === 'f' && latchedMove.lift === -1) latchedMove.lift = 0;
-                }
-            }
             keys[key] = false;
+            lastKeyDown[key] = 0;
+            if (['w', 's'].includes(key)) { latchedMove.forward = 0; latchedMoveUntil.forward = 0; }
+            if (['a', 'd'].includes(key)) { latchedMove.strafe = 0; latchedMoveUntil.strafe = 0; }
+            if (['r', 'f'].includes(key)) { latchedMove.lift = 0; latchedMoveUntil.lift = 0; }
+            if (key === ' ') {
+                latchedMove.forward = 0;
+                latchedMove.strafe = 0;
+                latchedMove.lift = 0;
+                latchedMoveUntil.forward = 0;
+                latchedMoveUntil.strafe = 0;
+                latchedMoveUntil.lift = 0;
+            }
             if (controlKeys.has(key)) e.preventDefault();
         }
 
@@ -28028,11 +28009,18 @@
                     const bp = projectPoint(bb, centerX, centerY, fov);
                     if (!bp) continue;
                     ctx.save();
+                    const bRad = Math.max(7, (fov / Math.max(12, cam.z)) * 18);
+                    ctx.shadowBlur = 14;
+                    ctx.shadowColor = '#ff0033';
                     ctx.fillStyle = '#ff2244';
-                    ctx.shadowBlur = 10;
-                    ctx.shadowColor = '#ff0000';
                     ctx.beginPath();
-                    ctx.arc(bp.x, bp.y, Math.max(4, (fov / Math.max(12, cam.z)) * 12), 0, Math.PI * 2);
+                    ctx.arc(bp.x, bp.y, bRad, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Bright inner core
+                    ctx.fillStyle = '#fff0f0';
+                    ctx.beginPath();
+                    ctx.arc(bp.x, bp.y, bRad * 0.45, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.restore();
                 }
@@ -28044,9 +28032,18 @@
                     const mp = projectPoint(bm, centerX, centerY, fov);
                     if (!mp) continue;
                     ctx.save();
+                    const mHalf = 18;
                     ctx.strokeStyle = (now % 140 < 70) ? '#ff0033' : '#ffaa00';
-                    ctx.lineWidth = 2.2;
-                    ctx.strokeRect(mp.x - 12, mp.y - 12, 24, 24);
+                    ctx.shadowColor = (now % 140 < 70) ? '#ff0033' : '#ffaa00';
+                    ctx.shadowBlur = 12;
+                    ctx.lineWidth = 2.8;
+                    ctx.strokeRect(mp.x - mHalf, mp.y - mHalf, mHalf * 2, mHalf * 2);
+
+                    // Inner warning core
+                    ctx.fillStyle = (now % 140 < 70) ? '#ff0033' : '#ffffaa';
+                    ctx.beginPath();
+                    ctx.arc(mp.x, mp.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
                     ctx.restore();
                 }
             }
@@ -28128,15 +28125,15 @@
                 if (onScreen) {
                     // On-screen HUD reticle: targeting brackets + diamond
                     const pulse = Math.sin(now * 0.006) * 3;
-                    const rSize = Math.max(18, Math.min(48, (fov / Math.max(20, cam.z)) * 32)) + pulse;
+                    const rSize = Math.max(26, Math.min(65, (fov / Math.max(20, cam.z)) * 42)) + pulse;
 
                     ctx.strokeStyle = targetObj.color;
                     ctx.shadowColor = targetObj.color;
-                    ctx.shadowBlur = 12;
-                    ctx.lineWidth = 2.0;
+                    ctx.shadowBlur = 14;
+                    ctx.lineWidth = 2.4;
 
                     // Brackets [ ]
-                    const bLen = rSize * 0.4;
+                    const bLen = rSize * 0.45;
                     // Top-left
                     ctx.beginPath();
                     ctx.moveTo(p.x - rSize, p.y - rSize + bLen);
@@ -28163,7 +28160,7 @@
                     ctx.stroke();
 
                     // Central diamond
-                    const dSize = Math.max(5, rSize * 0.35);
+                    const dSize = Math.max(6, rSize * 0.35);
                     ctx.beginPath();
                     ctx.moveTo(p.x, p.y - dSize);
                     ctx.lineTo(p.x + dSize, p.y);
@@ -28172,15 +28169,32 @@
                     ctx.closePath();
                     ctx.stroke();
 
-                    // Target label and distance
-                    ctx.font = 'bold 11px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(targetObj.title, p.x, p.y - rSize - 6);
+                    // Target label and distance in large high-contrast plate
+                    const titleText = targetObj.title;
+                    const distText = `${Math.round(dist)}m`;
+                    ctx.font = 'bold 16px monospace';
+                    const textW = Math.max(ctx.measureText(titleText).width, ctx.measureText(distText).width) + 20;
 
-                    ctx.font = '10px monospace';
+                    // High-contrast background plate for Title
+                    ctx.fillStyle = 'rgba(0, 10, 25, 0.90)';
+                    ctx.strokeStyle = targetObj.color;
+                    ctx.lineWidth = 1.6;
+                    ctx.fillRect(p.x - textW / 2, p.y - rSize - 30, textW, 24);
+                    ctx.strokeRect(p.x - textW / 2, p.y - rSize - 30, textW, 24);
+
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(titleText, p.x, p.y - rSize - 18);
+
+                    // Distance text plate
+                    const distW = ctx.measureText(distText).width + 20;
+                    ctx.fillStyle = 'rgba(0, 10, 25, 0.90)';
+                    ctx.fillRect(p.x - distW / 2, p.y + rSize + 8, distW, 24);
+                    ctx.strokeRect(p.x - distW / 2, p.y + rSize + 8, distW, 24);
+
                     ctx.fillStyle = targetObj.color;
-                    ctx.fillText(`${Math.round(dist)}m`, p.x, p.y + rSize + 14);
+                    ctx.fillText(distText, p.x, p.y + rSize + 20);
                 } else {
                     // Off-screen or behind camera: draw Edge Nav Pointer
                     let dx = 0;
@@ -28214,20 +28228,31 @@
                     ctx.translate(edgeX, edgeY);
                     ctx.rotate(angle);
                     ctx.beginPath();
-                    ctx.moveTo(14, 0);
-                    ctx.lineTo(-10, -8);
-                    ctx.lineTo(-6, 0);
-                    ctx.lineTo(-10, 8);
+                    ctx.moveTo(16, 0);
+                    ctx.lineTo(-12, -9);
+                    ctx.lineTo(-7, 0);
+                    ctx.lineTo(-12, 9);
                     ctx.closePath();
                     ctx.fill();
                     ctx.stroke();
                     ctx.restore();
 
-                    ctx.font = 'bold 10px monospace';
+                    const pointerText = `${targetObj.title} [${Math.round(dist)}m]`;
+                    ctx.font = 'bold 15px monospace';
+                    const ptrW = ctx.measureText(pointerText).width + 18;
+                    const textX = edgeX > centerX ? edgeX - ptrW - 16 : edgeX + 16;
+                    const textY = edgeY - 12;
+
+                    ctx.fillStyle = 'rgba(0, 10, 25, 0.92)';
+                    ctx.strokeStyle = targetObj.color;
+                    ctx.lineWidth = 1.5;
+                    ctx.fillRect(textX, textY, ptrW, 24);
+                    ctx.strokeRect(textX, textY, ptrW, 24);
+
                     ctx.fillStyle = '#ffffff';
-                    ctx.textAlign = edgeX > centerX ? 'right' : 'left';
-                    const tx = edgeX > centerX ? edgeX - 18 : edgeX + 18;
-                    ctx.fillText(`${targetObj.title} [${Math.round(dist)}m]`, tx, edgeY + 4);
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(pointerText, textX + 9, textY + 12);
                 }
                 ctx.restore();
             }
@@ -34137,97 +34162,31 @@
             const targetVelY = forward.y * forwardAmount * currentSpeed + right.y * strafeAmount * strafeSpeed + up.y * liftAmount * strafeSpeed;
             const targetVelZ = forward.z * forwardAmount * currentSpeed + right.z * strafeAmount * strafeSpeed + up.z * liftAmount * strafeSpeed;
 
-            // Tokyo Drift / Speed Brake engagement
-            const curSpeedMag = Math.hypot(shipVelocity.x, shipVelocity.y, shipVelocity.z);
-            if (speedBrakeHeld && curSpeedMag > 0.15) {
-                if (!shipDriftActive) {
-                    shipDriftActive = true;
-                    driftSlingshotArmed = true;
+            // Active Speed Brake & Responsive 6DOF Flight Dynamics
+            if (speedBrakeHeld) {
+                // Speed Brake (Spacebar): actively decelerates all axes to an immediate full stop
+                const brakeDrag = Math.pow(0.80, frameScale);
+                shipVelocity.x *= brakeDrag;
+                shipVelocity.y *= brakeDrag;
+                shipVelocity.z *= brakeDrag;
+                if (Math.hypot(shipVelocity.x, shipVelocity.y, shipVelocity.z) < 0.08) {
+                    shipVelocity.x = 0;
+                    shipVelocity.y = 0;
+                    shipVelocity.z = 0;
                 }
-            }
-
-            if (shipDriftActive) {
-                if (speedBrakeHeld) {
-                    // Airbrake retro-drag: scrub speed smoothly (~2.5% per frame) while preserving slide vector
-                    const brakeDrag = Math.pow(0.975, frameScale);
-                    shipVelocity.x *= brakeDrag;
-                    shipVelocity.y *= brakeDrag;
-                    shipVelocity.z *= brakeDrag;
-
-                    // Lateral nudges while drifting
-                    if (Math.abs(strafeAmount) > 0.01) {
-                        const strafeAccel = (strafeSpeed / 25) * frameScale * strafeAmount;
-                        shipVelocity.x += right.x * strafeAccel;
-                        shipVelocity.y += right.y * strafeAccel;
-                        shipVelocity.z += right.z * strafeAccel;
-                    }
-                    if (Math.abs(liftAmount) > 0.01) {
-                        const liftAccel = (strafeSpeed / 25) * frameScale * liftAmount;
-                        shipVelocity.x += up.x * liftAccel;
-                        shipVelocity.y += up.y * liftAccel;
-                        shipVelocity.z += up.z * liftAccel;
-                    }
-
-                    // Drift HUD status indication
-                    const moveNorm = curSpeedMag > 0.001 ? normalize(shipVelocity) : forward;
-                    const alignDot = dot(moveNorm, forward);
-                    if (alignDot < 0.82) {
-                        keyboardStatus.innerText = 'DRIFT BRAKE // TOKYO DRIFT';
-                    } else {
-                        keyboardStatus.innerText = 'SPEED BRAKE // AIRBRAKE';
-                    }
-                } else if (forwardAmount > 0) {
-                    // Forward thrusters firing out of drift: slingshot boost bite
-                    const slingshotMult = (driftSlingshotArmed ? 1.35 : 1.0) * (boosting ? 1.15 : 1.0);
-                    const accelRate = (currentSpeed / 60) * frameScale * forwardAmount * slingshotMult;
-                    shipVelocity.x += forward.x * accelRate;
-                    shipVelocity.y += forward.y * accelRate;
-                    shipVelocity.z += forward.z * accelRate;
-
-                    if (Math.abs(strafeAmount) > 0.01) {
-                        const strafeAccel = (strafeSpeed / 30) * frameScale * strafeAmount;
-                        shipVelocity.x += right.x * strafeAccel;
-                        shipVelocity.y += right.y * strafeAccel;
-                        shipVelocity.z += right.z * strafeAccel;
-                    }
-                    if (Math.abs(liftAmount) > 0.01) {
-                        const liftAccel = (strafeSpeed / 30) * frameScale * liftAmount;
-                        shipVelocity.x += up.x * liftAccel;
-                        shipVelocity.y += up.y * liftAccel;
-                        shipVelocity.z += up.z * liftAccel;
-                    }
-
-                    // Once velocity has aligned with forward heading and matched target speed, exit drift mode
-                    const forwardDot = dot(shipVelocity, forward);
-                    if (forwardDot >= currentSpeed * forwardAmount * 0.92) {
-                        shipDriftActive = false;
-                        driftSlingshotArmed = false;
-                    }
-                } else if (forwardAmount < 0) {
-                    // Reverse thrust applied while drifting backwards: accelerate further backwards
-                    const accelRate = (currentSpeed / 50) * frameScale * Math.abs(forwardAmount);
-                    shipVelocity.x -= forward.x * accelRate;
-                    shipVelocity.y -= forward.y * accelRate;
-                    shipVelocity.z -= forward.z * accelRate;
-                } else {
-                    // Zero thrust / throttle cut: zero-g coasting in weightless space
-                    if (Math.abs(strafeAmount) > 0.01) {
-                        const strafeAccel = (strafeSpeed / 30) * frameScale * strafeAmount;
-                        shipVelocity.x += right.x * strafeAccel;
-                        shipVelocity.y += right.y * strafeAccel;
-                        shipVelocity.z += right.z * strafeAccel;
-                    }
-                    if (Math.abs(liftAmount) > 0.01) {
-                        const liftAccel = (strafeSpeed / 30) * frameScale * liftAmount;
-                        shipVelocity.x += up.x * liftAccel;
-                        shipVelocity.y += up.y * liftAccel;
-                        shipVelocity.z += up.z * liftAccel;
-                    }
-                }
+                shipDriftActive = false;
+                keyboardStatus.innerText = 'SPEED BRAKE // FULL STOP ENGAGED';
+            } else if (!forwardAmount && !strafeAmount && !liftAmount) {
+                // Releasing keys stops ship cleanly (classic responsive 6DOF arcade flight)
+                shipVelocity.x = 0;
+                shipVelocity.y = 0;
+                shipVelocity.z = 0;
+                shipDriftActive = false;
             } else {
                 shipVelocity.x = targetVelX;
                 shipVelocity.y = targetVelY;
                 shipVelocity.z = targetVelZ;
+                shipDriftActive = false;
             }
 
             // Keep collision checks at roughly the original 60 Hz distance even

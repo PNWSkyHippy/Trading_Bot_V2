@@ -15,12 +15,11 @@ data/futures_history/
 watchlist/
 claud-skills/
 *.exe
-# Ignore common Python build directories
+# Comprehensive Nuitka & Python cleaning
 __pycache__/
 *.pyc
-.build/
--build/
-.dist/
+*.build/
+*.dist/
 *.ppm
 *.jpg
 *.tga

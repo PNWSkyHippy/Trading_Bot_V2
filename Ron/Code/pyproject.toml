@@ -1,0 +1,21 @@
+[project]
+name = "trading-bot-v2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependenci
+line-length = 160 # Increase from 88 to 120 (or higher) to keep your lines wide and compactes = []
+
+[tool.black]
+line-length = 160
+skip-magic-trailing-comma = true
+# Top-level shared settings
+
+[tool.ruff.format]
+# Tells Ruff to ignore trailing commas and aggressively squash lists/matrices back inline
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint.isort]
+# Prevents conflicts with the import sorter when trailing commas are removed
+split-on-trailing-comma = false

@@ -32,7 +32,7 @@ namespace NinjaTrader.NinjaScript.AddOns
             "MYM 12-26", "YM 12-26", 
             "M2K 12-26", "RTY 12-26",
             "MGC 12-26", "GC 12-26", "MNK 12-26",
-            "NKD 12-26", "MBT 12-26", "MET 12-26"
+            "NKD 12-26", "MBT 10-26", "MET 10-26"
         };
 
         protected override void OnStateChange()

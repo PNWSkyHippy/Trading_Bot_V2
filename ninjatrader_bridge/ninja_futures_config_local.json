@@ -244,14 +244,14 @@
       },
       "MBT": {
         "enabled": false,
-        "instrument": "MBT 12-26",
+        "instrument": "MBT 10-26",
         "broker_symbol": "MBTU6",
         "ledger_path": "emt_trades_mbt_local.jsonl",
         "control_state_key": "scanner_emt_mbt_enabled_local"
       },
       "MET": {
         "enabled": false,
-        "instrument": "MET 12-26",
+        "instrument": "MET 10-26",
         "broker_symbol": "METU6",
         "ledger_path": "emt_trades_met_local.jsonl",
         "control_state_key": "scanner_emt_met_enabled_local"

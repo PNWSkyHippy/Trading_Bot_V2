@@ -127,8 +127,11 @@ preview operation, snapshot, restore, then focused validation.
 import sys
 
 quick_tk_dir = r"C:\Users\Linda\Trading_Bot_V2\Ron\Code"
-if quick_tk_dir not in sys.path:
-    sys.path.insert(0, quick_tk_dir)
+# Remove any accidental stale quick_tk locations from sys.path
+sys.path = [p for p in sys.path if not ("antigravity" in p.lower() and "scratch" in p.lower())]
+if quick_tk_dir in sys.path:
+    sys.path.remove(quick_tk_dir)
+sys.path.insert(0, quick_tk_dir)
 import copy
 import os
 import re
@@ -144,6 +147,8 @@ from typing import Any, cast
 import camera_path as director
 import rayincludes as ri
 from camera_path_editor import CameraPathEditor
+from movie_maker import MovieMakerStudio
+from pov_scene_studio import POVSceneStudio
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageTk
 from quick_tk import FormPanel, QuickApp, ToolView
 
@@ -758,13 +763,19 @@ class LiveRayTraceViewer(ToolView):
         self.form.add_button(
             "Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline"
         )
-        self.prog_bar = self.form.addCTkProgressBar(
-            "scan_progress",
-            "Scan Progress",
-            default=0.0,
-            progress_color="yellow",
-            fg_color="purple",
+        add_bar = (
+            getattr(self.form, "addCTkProgressBar", None)
+            or getattr(self.form, "add_ctk_progress", None)
+            or getattr(self.form, "add_progress", None)
         )
+        if add_bar:
+            self.prog_bar = add_bar(
+                "scan_progress",
+                "Scan Progress",
+                default=0.0,
+            )
+        else:
+            self.prog_bar = None
         # 2. Right Canvas: Live Drawing Image Surface self.form.set_values({"infile": filepath}
         self.right_box = self.add_container(parent=self)
         self.right_box.grid(row=0, column=1, sticky="nsew")
@@ -841,6 +852,19 @@ class LiveRayTraceViewer(ToolView):
 
         tools_menu = self.menu("Edit")
         tools_menu.add_command(
+            label="POV-Ray Scene Studio… 🏰 <F8>", command=self.open_pov_scene_studio
+        )
+        self.bind_all("<F8>", self.open_pov_scene_studio)
+        tools_menu.add_command(
+            label="Launch Official POV-Ray 3.7 GUI… 🚀", command=self.launch_official_povray_editor
+        )
+        tools_menu.add_command(
+            label="Movie Maker Studio… 🎬 <F7 / Ctrl-M>", command=self.open_movie_maker
+        )
+        self.bind_all("<F7>", self.open_movie_maker)
+        self.bind_all("<Control-m>", self.open_movie_maker)
+        self.bind_all("<Control-M>", self.open_movie_maker)
+        tools_menu.add_command(
             label="Camera Director…", command=self.open_camera_director
         )
         tools_menu.add_command(
@@ -910,6 +934,12 @@ class LiveRayTraceViewer(ToolView):
         )
         self.bind_all("<Control-s>", self.on_save_image)
         form.add_ctk_button(
+            label="Movie Maker Studio 🎬",
+            callback=self.open_movie_maker,
+            text_color="#38bdf8",
+            variant="surface",
+        )
+        form.add_ctk_button(
             label="SExport Sequence as GIF 🎞",
             callback=self.on_export_sequence_gif,
             text_color="yellow",
@@ -919,6 +949,16 @@ class LiveRayTraceViewer(ToolView):
         form.add_button(
             "Load Image Sequence 📂",
             callback=self.on_load_image_sequence,
+            variant="surface",
+        )
+        form.add_button(
+            "POV-Ray Scene Studio 🏰",
+            callback=self.open_pov_scene_studio,
+            variant="surface",
+        )
+        form.add_button(
+            "Launch Official POV-Ray GUI 🚀",
+            callback=self.launch_official_povray_editor,
             variant="surface",
         )
         form.add_button(
@@ -2083,6 +2123,57 @@ class LiveRayTraceViewer(ToolView):
                 "Movie Frames", f"Could not generate the camera path:\n{exc}"
             )
             return None
+
+    def open_movie_maker(self, event=None):
+        """Open the multi-track non-linear Movie Maker Studio."""
+        window = getattr(self, "movie_maker_window", None)
+        if window is not None and window.winfo_exists():
+            window.lift()
+            return
+        initial_frames = getattr(self, "sequence_images", None)
+        initial_fps = self._sequence_fps() if hasattr(self, "_sequence_fps") else 30
+        clip_name = "Render_Sequence"
+        if getattr(self, "pov_scene_path", None):
+            clip_name = Path(self.pov_scene_path).stem
+        self.movie_maker_window = MovieMakerStudio(
+            self.app.root,
+            initial_frames=initial_frames,
+            initial_fps=initial_fps,
+            clip_name=clip_name,
+        )
+
+    def open_pov_scene_studio(self, event=None):
+        """Open the POV-Ray Scene Studio & Visual Builder."""
+        window = getattr(self, "pov_studio_window", None)
+        if window is not None and window.winfo_exists():
+            window.lift()
+            return
+        self.pov_studio_window = POVSceneStudio(
+            self.app.root,
+            initial_scene_path=getattr(self, "pov_scene_path", None),
+            on_scene_applied=self._on_scene_studio_applied,
+        )
+
+    def _on_scene_studio_applied(self, scene_path: Path):
+        self.pov_scene_path = scene_path
+        self.director_shot = None
+        self.director_pov = False
+        self.set_status(f"Active POV-Ray scene updated: {scene_path.name}")
+        if self.debug_console is not None:
+            self.debug_console.write(f"Updated POV-Ray scene from Scene Studio: {scene_path}\n")
+
+    def launch_official_povray_editor(self, event=None):
+        """Spawn the official POV-Ray 3.7 Windows GUI Editor (pvengine64.exe)."""
+        pvengine_path = r"C:\Program Files\POV-Ray\v3.7\bin\pvengine64.exe"
+        scene_path = getattr(self, "pov_scene_path", None)
+        cmd = [pvengine_path]
+        if scene_path and Path(scene_path).is_file():
+            cmd.append(str(scene_path))
+        try:
+            subprocess.Popen(cmd)
+            self.set_status(f"Launched POV-Ray 3.7 Windows Editor")
+        except Exception as exc:
+            messagebox.showerror("POV-Ray Launch Error", f"Could not launch POV-Ray GUI:\n{exc}")
 
     def open_camera_director(self, event=None):
         """Keep the new editor separate from image-editing and render callbacks."""
