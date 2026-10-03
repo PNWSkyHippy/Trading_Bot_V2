@@ -2840,7 +2840,7 @@
         const TUNNEL_WEBGL_ZERO_DRAW_FALLBACK_FRAMES = 45;
         const TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL = 20;
         const TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES = 10;
-        const TUNNEL_WEBGL_BLANK_CHANNEL_MIN = 18;
+        const TUNNEL_WEBGL_BLANK_CHANNEL_MIN = 4;
         const TUNNEL_WEBGL_MESH_CACHE_MAX = 96;
         const TUNNEL_SWEEP_MIN_TURN_RAD = 7 * Math.PI / 180;
         const TUNNEL_SWEEP_MAX_TURN_RAD = 170 * Math.PI / 180;
@@ -5620,11 +5620,11 @@
                 renderFrameCounter - tunnelWebGL.lastBlankFrameSample >= TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL
             ) {
                 tunnelWebGL.lastBlankFrameSample = renderFrameCounter;
-                if (webglFrameHasVisibleTunnelSurface(gl)) {
+                if (webglFrameHasVisibleTunnelSurface(gl) || tunnelWebGL.ready) {
                     tunnelWebGL.blankFrameSamples = 0;
                 } else if (tunnelWebGL.textureLoading.size === 0) {
                     tunnelWebGL.blankFrameSamples += 1;
-                    if (tunnelWebGL.blankFrameSamples >= TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES) {
+                    if (tunnelWebGL.blankFrameSamples >= TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES && !tunnelWebGL.ready) {
                         console.warn(
                             'Astral Drift: WebGL tunnel presented blank frames — falling back to vector walls'
                         );
