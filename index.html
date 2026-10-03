@@ -29148,6 +29148,7 @@
             if (sentry.label || sentry.isRunner) {
                 ctx.save();
                 ctx.globalAlpha = alpha;
+                const now = performance.now();
                 const isRunner = sentry.isRunner || (sentry.id && sentry.id.includes('runner'));
                 ctx.font = (sentry.captainKey || isRunner) ? 'bold 15px monospace' : 'bold 12px monospace';
                 ctx.textAlign = 'left';
