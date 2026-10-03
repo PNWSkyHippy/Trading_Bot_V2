@@ -12166,7 +12166,7 @@
                 }
             }
             if (
-                key === '6' &&
+                (key === '6' || key === 'v') &&
                 !mapView &&
                 !builderMode &&
                 !e.ctrlKey &&
@@ -12178,7 +12178,7 @@
                     e.preventDefault();
                     return;
                 } else {
-                    keyboardStatus.innerText = 'NO DECOY FLARES REMAINING';
+                    keyboardStatus.innerText = 'NO DECOY FLARES REMAINING · FIND CACHES OR ELIMINATE GUARDS';
                     e.preventDefault();
                     return;
                 }
@@ -26870,12 +26870,19 @@
             }
 
             // 3. Runner / Alarm Scout Behavior
-            if (sentry.engaged && !sentry.isRunner && !tunnelSectorAlarm.active) {
-                // If this sentry's squad has no runner yet and takes damage or has low HP, designate as runner
-                if (sentry.health < SENTRY_HEALTH_MAX * 0.65 || (sentry.id && sentry.id.endsWith('_runner'))) {
+            const isScoutRunner = sentry.isRunner || (sentry.id && (sentry.id.startsWith('runner_') || sentry.id.includes('runner')));
+            if (sentry.engaged && isScoutRunner && !tunnelSectorAlarm.active) {
+                if (!sentry.isRunner) sentry.isRunner = true;
+                if (!sentry.fleeStartedAt) {
+                    sentry.fleeStartedAt = now;
+                    keyboardStatus.innerText = '⚠️ SCOUT FLEEING TO SOUND SECTOR ALARM! INTERCEPT! [150m]';
+                }
+            } else if (sentry.engaged && !sentry.isRunner && !tunnelSectorAlarm.active) {
+                // If a damaged squad member tries to flee as emergency runner
+                if (sentry.health < sentry.maxHealth * 0.45) {
                     sentry.isRunner = true;
                     sentry.fleeStartedAt = now;
-                    keyboardStatus.innerText = '⚠️ SCOUT FLEEING TO SOUND SECTOR ALARM! INTERCEPT! [120m]';
+                    keyboardStatus.innerText = '⚠️ SENTRY FLEEING TO SOUND SECTOR ALARM! INTERCEPT!';
                 }
             }
 
@@ -26887,7 +26894,7 @@
                     z: sentry.z - ship.z
                 };
                 const awayDist = Math.hypot(awayVector.x, awayVector.y, awayVector.z) || 1;
-                const fleeSpeed = SENTRY_CHASE_SPEED * 1.85;
+                const fleeSpeed = SENTRY_CHASE_SPEED * 1.45;
                 moveSentryToward(sentry, {
                     x: sentry.x + (awayVector.x / awayDist) * 400,
                     y: sentry.y + (awayVector.y / awayDist) * 400,
@@ -26899,8 +26906,8 @@
                     z: sentry.z + (awayVector.z / awayDist) * 400
                 });
 
-                // Runner escaped to sound alarm!
-                if (!sentry.alarmTriggered && (now - sentry.fleeStartedAt > 6500 || awayDist > 350)) {
+                // Runner escaped to sound alarm! Give player a fair 12-second / 750m chase window
+                if (!sentry.alarmTriggered && (now - sentry.fleeStartedAt > 12000 || awayDist > 750)) {
                     sentry.alarmTriggered = true;
                     soundTunnelSectorAlarm(sentry, now);
                 }
@@ -27501,7 +27508,7 @@
                         health: 75, maxHealth: 75,
                         mode: 'guard', path: [], waypointIndex: 0, lingerUntil: 0,
                         engaged: false, patrolBroken: false, lastFireAt: 0, lastSeenAt: 0,
-                        isRunner: false, fleeStartedAt: 0, alarmTriggered: false,
+                        isRunner: true, fleeStartedAt: 0, alarmTriggered: false,
                         empStunnedUntil: 0, slippingUntil: 0, slipVx: 0, slipVy: 0, slipVz: 0, spinAngle: 0,
                         isReinforcement: false, captainKey: null,
                         label: `[ ⚠️ ${sq.name} RUNNER ]`
@@ -28303,16 +28310,26 @@
 
             // B. Countermeasures Status Bar
             ctx.save();
-            ctx.font = 'bold 11px monospace';
+            ctx.font = 'bold 13px monospace';
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#00ffcc';
+            ctx.textBaseline = 'middle';
             const slickCount = shipInventory.items.oilSlick || 0;
             const empCount = shipInventory.items.empBomb || 0;
             const decoyCount = shipInventory.items.smokeBomb || 0;
             const rocketCount = shipInventory.rocketLoaded || 0;
+
+            const cmWidth = 620;
+            const cmHeight = 26;
+            ctx.fillStyle = 'rgba(0, 12, 24, 0.90)';
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 1.4;
+            ctx.fillRect(centerX - cmWidth / 2, 34, cmWidth, cmHeight);
+            ctx.strokeRect(centerX - cmWidth / 2, 34, cmWidth, cmHeight);
+
+            ctx.fillStyle = '#00ffcc';
             ctx.fillText(
-                `[G: SLICK (${slickCount})]   [T: EMP (${empCount})]   [6: DECOY (${decoyCount})]   [X: ROCKETS (${rocketCount})]`,
-                centerX, 48
+                `[G/4: SLICK (${slickCount})]   [T/5: EMP (${empCount})]   [V/6: DECOY (${decoyCount})]   [X: ROCKETS (${rocketCount})]`,
+                centerX, 47
             );
             ctx.restore();
 
@@ -29128,13 +29145,54 @@
                 }
             }
 
-            if (sentry.label) {
+            if (sentry.label || sentry.isRunner) {
+                ctx.save();
                 ctx.globalAlpha = alpha;
-                ctx.font = 'bold 12px monospace';
+                const isRunner = sentry.isRunner || (sentry.id && sentry.id.includes('runner'));
+                ctx.font = (sentry.captainKey || isRunner) ? 'bold 15px monospace' : 'bold 12px monospace';
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'bottom';
-                ctx.fillStyle = sentry.captainKey ? (sentry.captainKey === 'crimson' ? '#ff3355' : (sentry.captainKey === 'cobalt' ? '#00ccff' : '#ffcc00')) : '#ffd0b0';
-                ctx.fillText(sentry.label, projected.x + 8, projected.y - 6);
+                const lbl = sentry.label || (isRunner ? '[ ⚠️ SCOUT RUNNER ]' : 'ENEMY SENTRY');
+                const textW = ctx.measureText(lbl).width;
+
+                // High-contrast plate for text
+                ctx.fillStyle = 'rgba(0, 10, 25, 0.88)';
+                ctx.fillRect(projected.x + 6, projected.y - 24, textW + 10, 22);
+                ctx.strokeStyle = isRunner ? '#ffcc00' : (sentry.captainKey === 'crimson' ? '#ff3355' : (sentry.captainKey === 'cobalt' ? '#00ccff' : (sentry.captainKey === 'amber' ? '#ffcc00' : '#446688')));
+                ctx.lineWidth = 1.2;
+                ctx.strokeRect(projected.x + 6, projected.y - 24, textW + 10, 22);
+
+                if (isRunner) {
+                    ctx.fillStyle = (now % 200 < 100) ? '#ffcc00' : '#ff3300';
+                } else if (sentry.captainKey) {
+                    ctx.fillStyle = sentry.captainKey === 'crimson' ? '#ff3355' : (sentry.captainKey === 'cobalt' ? '#00ccff' : '#ffcc00');
+                } else {
+                    ctx.fillStyle = '#ffd0b0';
+                }
+                ctx.fillText(lbl, projected.x + 11, projected.y - 7);
+
+                // For runner scouts, draw pulsing brackets around ship
+                if (isRunner && !mapMode) {
+                    const rSize = Math.max(20, Math.min(50, screenSize * 0.95));
+                    ctx.strokeStyle = (now % 200 < 100) ? '#ffcc00' : '#ff3300';
+                    ctx.lineWidth = 2.2;
+                    const bLen = rSize * 0.45;
+                    ctx.beginPath();
+                    ctx.moveTo(projected.x - rSize, projected.y - rSize + bLen);
+                    ctx.lineTo(projected.x - rSize, projected.y - rSize);
+                    ctx.lineTo(projected.x - rSize + bLen, projected.y - rSize);
+                    ctx.moveTo(projected.x + rSize - bLen, projected.y - rSize);
+                    ctx.lineTo(projected.x + rSize, projected.y - rSize);
+                    ctx.lineTo(projected.x + rSize, projected.y - rSize + bLen);
+                    ctx.moveTo(projected.x - rSize, projected.y + rSize - bLen);
+                    ctx.lineTo(projected.x - rSize, projected.y + rSize);
+                    ctx.lineTo(projected.x - rSize + bLen, projected.y + rSize);
+                    ctx.moveTo(projected.x + rSize - bLen, projected.y + rSize);
+                    ctx.lineTo(projected.x + rSize, projected.y + rSize);
+                    ctx.lineTo(projected.x + rSize, projected.y + rSize - bLen);
+                    ctx.stroke();
+                }
+                ctx.restore();
             }
             const maxHp = sentry.maxHealth || SENTRY_HEALTH_MAX;
             const showHealth = !mapMode && (sentry.health < maxHp || (sentry.hitFlashUntil && performance.now() < sentry.hitFlashUntil + 5000));
