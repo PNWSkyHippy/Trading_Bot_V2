@@ -20,11 +20,7 @@ class TkCalc(ToolView):
         self.scientific_extended = False
         self.standard_mode = True
         self.angle_mode = "radians"
-        self.mem_q = col.deque(maxlen=25)
-        self.recall_pending = False
-        self.memory_boxes = []
-        self.mode_frames = {}
-        
+
     def build_ui(self):
 
         # The view is a two-row layout: the shared toolbar stays at the top
@@ -96,7 +92,12 @@ class TkCalc(ToolView):
 
         # One memory queue shared by every calculator mode.  Each mode gets
         # its own display widget, kept in sync by the memory methods below.
-   
+        self.mem_q = col.deque(maxlen=25)
+        self.recall_pending = False
+        self.memory_boxes = []
+
+        # Build the 3 distinct mode frames
+        self.mode_frames = {}
         self.mode_frames["Standard"] = self._build_standard_mode()
         self.mode_frames["Scientific"] = self._build_scientific_mode()
         self.mode_frames["Scientific Extended"] = self._build_scientific_mode_ext()
@@ -125,21 +126,13 @@ class TkCalc(ToolView):
         self.show_mode(mode)
 
     def _build_standard_mode(self):
-        standard_buttons = [
-            ("C", "Bk", "%", "/"),
-            ("7", "8", "9", "+"),
-            ("4", "5", "6", "-"),
-            ("1", "2", "3", "*"),
-            ("()", "0", ".", "="),
-        ]
-
         frame = ttk.LabelFrame(self.container, text=" Standard Mode ", padding=8)
         # Keep the mode panel full width, but let its bottom edge follow the
         # board instead of stretching to the bottom of the window.
         frame.grid(row=0, column=0, sticky="nsew")
 
         # Never used litst of al the buttons in the calc
- 
+        self.buttons = {}  # Also unused dictionay f buttuns in the calc
         # 1. Main Window Split: Left (Board) & Right (Actions)
         frame.columnconfigure(0, weight=0, minsize=210)  # Action sidebar
         frame.columnconfigure(1, weight=1, minsize=460)  # Calculator board area
@@ -148,7 +141,13 @@ class TkCalc(ToolView):
         frame.rowconfigure(1, weight=1, minsize=320)  # Calculator board area
         frame.rowconfigure(2, weight=0)
         frame.rowconfigure(3, weight=0)
-
+        self.btn_layout = [
+            ["()", "0", ".", "="],
+            ["1", "2", "3", "*"],
+            ["4", "5", "6", "-"],
+            ["7", "8", "9", "+"],
+            ["C", "Bk", "%", "/"],
+        ]
         # set up left hand side window add a frame for controls
         self.side_box = self.add_form("Calc Options", parent=frame)
         self.side_box.grid(
@@ -193,13 +192,12 @@ class TkCalc(ToolView):
             self.options_form,
             height=5,
             width=20,
-            font=("Segoe UI", 16),
+            font=("Segoe UI", 24, "bold"),
         )
         memory_box.grid(row=3, column=0, sticky="nswe", padx=10, pady=10)
         self.memory_boxes.append(memory_box)
 
-
-    # Setip top panel to display total and running calculations, add a frame
+        # Setip top panel to display total and running calculations, add a frame
         self.top_form = ttk.LabelFrame(frame, text="", padding=20)
         self.top_form.grid(row=0, column=1, sticky="new", padx=20, pady=8)
         self.top_form.columnconfigure(1, weight=1)
@@ -210,25 +208,87 @@ class TkCalc(ToolView):
         # the entire height of the mode frame.
         board_box.grid(row=1, column=1, sticky="nsew", padx=20, pady=10)
 
-        for column in range(4):
-            board_box.columnconfigure(column, weight=1)
-        for row in range(len(standard_buttons)):
-            board_box.rowconfigure(row, weight=1)
+        # Make the 4*5 grid cells stretch equally (5th row setup later at ottom)
+        for i in range(3):
+            board_box.columnconfigure(i, weight=1)
+            board_box.rowconfigure(i, weight=1)
+            board_box.rowconfigure(3, weight=1)
+        for i in range(1, 5):
+            board_box.columnconfigure(i, weight=1)
+            board_box.rowconfigure(4, weight=1)
+        board_box.columnconfigure(0, weight=0)
 
-        for r, row in enumerate(standard_buttons):
-            for c, char in enumerate(row):
-                board_box.columnconfigure(c, weight=1)
-                is_sci = r < 2
+        # Map the button labels
+        top_list = ["C", "Bk", "  %  ", "  /   "]
+        side_list = ["* ", "- ", "+ "]
+        bottom_list = ["() ", "0", ". ", "= "]
+        # Create top row buttons all operators
+        j = 4
+        for c in [4, 3, 2, 1]:
+            btn = tk.Button(
+                board_box,
+                text=top_list[c - 1],
+                font=("Segoe UI", 24, "bold"),
+                bg="#1e1e2e",
+                fg="#89b4fa",
+                command=lambda ch=top_list[c - 1].strip(): self.on_cell_click(ch),
+            )
+            btn.grid(row=0, column=j, sticky="nwse", padx=4, pady=4)
+            self.buttons[(0, j)] = btn
+            # Keep the lookup key consistent with the row passed to the
+            # callback.  These are the bottom calculator row (row 4), not
+            # row 1; using row 1 overwrites other buttons and causes a
+            # KeyError when the button is pressed.
+            self.buttons[(4, 5 - c)] = btn
+            j -= 1
+        i = 1
+        for r in [3, 2, 1]:
+            j = 3
+            k = 1
+            for c in [2, 1, 0]:
                 btn = tk.Button(
                     board_box,
-                    text=char,
-                    font=("Segoe UI", 12 if is_sci else 14),
-                    bg="#1e1e2e" if is_sci else "#313244",
-                    fg="#89b4fa" if is_sci else "#cdd6f4",
-                    command=lambda ch=char: self.on_cell_click(ch),
+                    text=str((r * 3) + c + 1 - 3),
+                    font=("Segoe UI", 24, "bold"),
+                    bg="#1e1e2e",
+                    fg="#89b4fa",
+                    # Number buttons
+                    command=lambda text=str((r * 3) + c + 1 - 3): self.on_cell_click(
+                        text
+                    ),
                 )
-                btn.grid(row=r, column=c, sticky="nsew", padx=3, pady=3)
-
+                btn.grid(row=i, column=j, sticky="nwse", padx=4, pady=4)
+                self.buttons[(i, j)] = btn
+                btn = tk.Button(
+                    board_box,
+                    text=side_list[c],
+                    font=("Segoe UI", 24, "bold"),
+                    bg="#1e1e2e",
+                    fg="#89b4fa",
+                    # Operator buttons
+                    command=lambda text=side_list[c].strip(): self.on_cell_click(text),
+                )
+                btn.grid(row=k, column=4, sticky="nwse", padx=4, pady=4)
+                self.buttons[(k, 4)] = btn  # C + 1
+                j -= 1
+                k += 1
+            i += 1
+        j = 4
+        for c in [4, 3, 2, 1]:
+            btn = tk.Button(
+                board_box,
+                text=bottom_list[c - 1],
+                font=("Segoe UI", 24, "bold"),
+                bg="#1e1e2e",
+                fg="#89b4fa",  # Bottom calculator buttons
+                command=lambda text=bottom_list[c - 1].strip(): self.on_cell_click(
+                    text
+                ),
+            )
+            btn.grid(row=4, column=c, sticky="nwse", padx=4, pady=4)
+            self.buttons[(0, c)] = btn
+            j -= 1
+        i = 1
         return frame
 
     def _build_scientific_mode(self):
@@ -250,6 +310,7 @@ class TkCalc(ToolView):
         frame.grid(row=0, column=0, sticky="nsew")
 
         # Never used litst of al the buttons in the calc
+        self.buttons = {}  # Also unused dictionay f buttuns in the calc
         # 1. Main Window Split: Left (Board) & Right (Actions)
         frame.columnconfigure(0, weight=0, minsize=210)  # Action sidebar
         frame.columnconfigure(1, weight=1, minsize=460)  # Calculator board area
@@ -262,6 +323,13 @@ class TkCalc(ToolView):
         frame.rowconfigure(6, weight=0)
         frame.rowconfigure(7, weight=0)
 
+        self.btn_layout = [
+            ["()", "0", ".", "="],
+            ["1", "2", "3", "*"],
+            ["4", "5", "6", "-"],
+            ["7", "8", "9", "+"],
+            ["C", "Bk", "%", "/"],
+        ]
         # set up left hand side window add a frame for controls
         self.side_box = self.add_form("Calc Options", parent=frame)
         self.side_box.grid(
@@ -306,7 +374,7 @@ class TkCalc(ToolView):
             self.options_form,
             height=5,
             width=20,
-            font=("Segoe UI", 16),
+            font=("Segoe UI", 24, "bold"),
         )
         memory_box.grid(row=3, column=0, sticky="nswe", padx=10, pady=10)
         self.memory_boxes.append(memory_box)
@@ -334,9 +402,9 @@ class TkCalc(ToolView):
                 btn = tk.Button(
                     board_box,
                     text=char,
-                    font=("Segoe UI", 12 if is_sci else 14),
-                    bg="#1e1e2e" if is_sci else "#313244",
-                    fg="#89b4fa" if is_sci else "#cdd6f4",
+                    font=("Segoe UI", 24, "bold"),
+                    bg="#1e1e2e",
+                    fg="#89b4fa",
                     command=lambda ch=char: self.on_cell_click(ch),
                 )
                 btn.grid(row=r, column=c, sticky="nsew", padx=3, pady=3)
@@ -360,7 +428,7 @@ class TkCalc(ToolView):
             ("1", "2", "3", "*"),
             ("()", "0", ".", "="),
         ]
-    
+
         frame = ttk.LabelFrame(
             self.container, text=" Scientific Extensions Extended", padding=8
         )
@@ -369,12 +437,20 @@ class TkCalc(ToolView):
         frame.grid(row=0, column=0, sticky="nsew")
 
         # Never used litst of al the buttons in the calc
+        self.buttons = {}  # Also unused dictionay f buttuns in the calc
         # 1. Main Window Split: Left (Board) & Right (Actions)
         frame.columnconfigure(0, weight=0, minsize=210)  # Action sidebar
         frame.columnconfigure(1, weight=1, minsize=460)  # Calculator board area
 
         frame.rowconfigure(1, weight=1)  # Calculator board area
 
+        self.btn_layout = [
+            ["()", "0", ".", "="],
+            ["1", "2", "3", "*"],
+            ["4", "5", "6", "-"],
+            ["7", "8", "9", "+"],
+            ["C", "Bk", "%", "/"],
+        ]
         # set up left hand side window add a frame for controls
         self.side_box = self.add_form("Calc Options", parent=frame)
         self.side_box.grid(
@@ -419,7 +495,7 @@ class TkCalc(ToolView):
             self.options_form,
             height=5,
             width=20,
-            font=("Segoe UI", 16),
+            font=("Segoe UI", 24, "bold"),
         )
         memory_box.grid(row=3, column=0, sticky="nswe", padx=10, pady=10)
         self.memory_boxes.append(memory_box)
@@ -447,9 +523,9 @@ class TkCalc(ToolView):
                 btn = tk.Button(
                     board_box,
                     text=char,
-                    font=("Segoe UI", 12 if is_sci else 14),
-                    bg="#1e1e2e" if is_sci else "#313244",
-                    fg="#89b4fa" if is_sci else "#cdd6f4",
+                    font=("Segoe UI", 24, "bold"),
+                    bg="#1e1e2e",
+                    fg="#89b4fa",
                     command=lambda ch=char: self.on_cell_click(ch),
                 )
                 btn.grid(row=r, column=c, sticky="nsew", padx=3, pady=3)
@@ -1083,6 +1159,6 @@ class TkCalc(ToolView):
 
 
 if __name__ == "__main__":
-    app = QuickApp(title="TK Calculator", size=(800, 800), theme="Dark Obsidian")
+    app = QuickApp(title="TK Calculator", size=(960, 800), theme="Dark Obsidian")
     app.set_single_tool(TkCalc)
     app.run()

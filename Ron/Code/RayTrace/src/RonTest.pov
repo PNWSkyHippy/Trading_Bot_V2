@@ -40,22 +40,11 @@ global_settings {
 }
 
 #default {
-  texture {
-    pigment {rgb 1}
-    #if (Radiosity)
-      finish {
-        ambient 0.0
-        diffuse 0.6
-        specular 0.3
-      }
-    #else
-      finish {
-        ambient 0.1
-        diffuse 0.6
-        specular 0.3
-      }
-    #end
-  }
+
+    texture {
+    	pigment { color rgb <0.75, 0.78, 0.82> }
+    	finish { ambient 0.1 diffuse 0.6 reflection 0.35 roughness 0.08 metallic 0.7 }
+    }
 }
 
 // ----------------------------------------
@@ -72,13 +61,8 @@ light_source {
 }
 
 sky_sphere {
-  pigment {
-    gradient y
-    color_map {
-      [0.0 rgb <0.6,0.7,1.0>]
-      [0.7 rgb <0.0,0.1,0.8>]
-    }
-  }
+  pigment { color rgb <0.75, 0.78, 0.82> }
+  finish { ambient 0.1 diffuse 0.6 reflection 0.35 roughness 0.08 metallic 0.7 }
 }
 
 // ----------------------------------------
@@ -97,7 +81,11 @@ plane {
 
 sphere {
   <0,1,0>, 1
+    pigment { color rgb <0.875, 0.761, 0.384> }
 }
+
+
+
 
 
 

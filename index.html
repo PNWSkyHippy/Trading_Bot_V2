@@ -2840,7 +2840,7 @@
         const TUNNEL_WEBGL_ZERO_DRAW_FALLBACK_FRAMES = 45;
         const TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL = 20;
         const TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES = 10;
-        const TUNNEL_WEBGL_BLANK_CHANNEL_MIN = 18;
+        const TUNNEL_WEBGL_BLANK_CHANNEL_MIN = 4;
         const TUNNEL_WEBGL_MESH_CACHE_MAX = 96;
         const TUNNEL_SWEEP_MIN_TURN_RAD = 7 * Math.PI / 180;
         const TUNNEL_SWEEP_MAX_TURN_RAD = 170 * Math.PI / 180;
@@ -5620,11 +5620,11 @@
                 renderFrameCounter - tunnelWebGL.lastBlankFrameSample >= TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL
             ) {
                 tunnelWebGL.lastBlankFrameSample = renderFrameCounter;
-                if (webglFrameHasVisibleTunnelSurface(gl)) {
+                if (webglFrameHasVisibleTunnelSurface(gl) || tunnelWebGL.ready) {
                     tunnelWebGL.blankFrameSamples = 0;
                 } else if (tunnelWebGL.textureLoading.size === 0) {
                     tunnelWebGL.blankFrameSamples += 1;
-                    if (tunnelWebGL.blankFrameSamples >= TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES) {
+                    if (tunnelWebGL.blankFrameSamples >= TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES && !tunnelWebGL.ready) {
                         console.warn(
                             'Astral Drift: WebGL tunnel presented blank frames — falling back to vector walls'
                         );
@@ -26887,6 +26887,7 @@
             }
 
             if (sentry.isRunner) {
+                if (!sentry.engaged) return;
                 if (!sentry.fleeStartedAt) sentry.fleeStartedAt = now;
                 const awayVector = {
                     x: sentry.x - ship.x,
@@ -26906,8 +26907,9 @@
                     z: sentry.z + (awayVector.z / awayDist) * 400
                 });
 
-                // Runner escaped to sound alarm! Give player a fair 12-second / 750m chase window
-                if (!sentry.alarmTriggered && (now - sentry.fleeStartedAt > 12000 || awayDist > 750)) {
+                // Runner escaped to sound alarm ONLY if actually engaged and actively fleeing for > 12s or > 850m AFTER flee started!
+                const fleeTime = now - sentry.fleeStartedAt;
+                if (!sentry.alarmTriggered && sentry.fleeStartedAt > 0 && fleeTime > 3000 && (fleeTime > 14000 || awayDist > 850)) {
                     sentry.alarmTriggered = true;
                     soundTunnelSectorAlarm(sentry, now);
                 }
@@ -27440,7 +27442,13 @@
             // Always check if sentries exist; if < 6 or force, generate forward scout and 3 tactical squadrons
             const hasCaptains = tunnelSentries.some(s => s.captainKey);
             if (!hasCaptains || tunnelSentries.length < 6 || force) {
-                if (force) tunnelSentries.length = 0;
+                if (force) {
+                    tunnelSentries.length = 0;
+                    if (typeof tunnelSectorAlarm !== 'undefined') {
+                        tunnelSectorAlarm.active = false;
+                        tunnelSectorAlarm.until = 0;
+                    }
+                }
 
                 // 0. Forward Recon Drone near start (segment 2 or 3) so player sees action immediately upon flight!
                 const scoutSeg = segs[idxScout];

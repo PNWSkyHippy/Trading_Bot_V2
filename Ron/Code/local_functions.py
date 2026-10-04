@@ -432,7 +432,442 @@ def bubble_sort(lst):
         print(f"Passes made: {pass_count}")
     return tmp_lst
 
+class OpOverloaded:
+ 
+    def lt(a,b):
+        """ lt(a, b) is equivalent to a < b, """
+        return a < b
 
+    def le(a,b):
+        """ le(a, b) is equivalent to a <= b, """
+        return a <= b
+    
+    def eq(a,b):
+        """ eq(a, b) is equivalent to a == b, """
+        return a == b
+  
+    def ne(a,b):
+        """ ne(a, b) is equivalent to a != b, """
+        return a != b
+    
+    def ge(a,b):
+        """ ge(a, b) is equivalent to a >= b, """
+        return a >= b
+    
+    def gt(a,b):
+        """ gt(a, b) is equivalent to a > b, """
+        return a > b
+    
+    def __lt__(self, other):
+        """ __lt__(self, other) is equivalent to self < other, """
+        return self.lt(self, other)
+    
+    def __le__(self, other):
+        """ __le__(self, other) is equivalent to self <= other, """
+        return self.le(self, other)
+    
+    def __eq__(self, other):
+        """ __eq__(self, other) is equivalent to self == other, """
+        return self.eq(self, other)
+    
+    def __ne__(self, other):
+        """ __ne__(self, other) is equivalent to self != other, """
+        return self.ne(self, other)
+    
+    def __ge__(self, other):
+        """ __ge__(self, other) is equivalent to self >= other, """
+        return self.ge(self, other)
+    
+    def __gt__(self, other):
+        """ __gt__(self, other) is equivalent to self > other, """
+        return self.gt(self, other) 
+    
+    def not_(self, other):
+        """ not_(self, other) is equivalent to not self == other, """
+        return not self.eq(self, other)
+    
+    def __not__(self, other):
+        """ __not__(self, other) is equivalent to not self == other, """
+        return self.not_(self, other)
+    
+    def truth(self):
+        """ truth(self) is equivalent to self == self, """
+        return self.eq(self, self)
+    
+    def is_(self, other):
+        """ is_(self, other) is equivalent to self is other, """
+        return self is other
+    
+    def is_not(self, other):
+        """ is_not(self, other) is equivalent to self is not other, """
+        return not self.eq(self, other) 
+    
+    def  is_none(self):
+        """ is_none(self) is equivalent to self is None, """
+        return self.eq(self, None)  
+    
+    def is_not_none(self):
+        """ is_not_none(self) is equivalent to self is not None, """
+        return not self.eq(self, None)
+    
+    def abs(self):
+        """ abs(self) is equivalent to self if self >= 0 else -self, """
+        return self if self.ge(self, 0) else -self  
+    
+    def add(self, other):
+        """ add(self, other) is equivalent to self + other, """
+        return self + other 
+    
+    def __add__(self, other):
+        """ __add__(self, other) is equivalent to self + other, """
+        return self.add(self, other)
+    
+    def and_(self, other):
+        """ and_(self, other) is equivalent to self and other, """
+        return self and other
+    
+    def __and__(self, other):
+        """ __and__(self, other) is equivalent to self and other, """
+        return self.and_(self, other)
+    
+    def floordiv(self, other):
+        """ floordiv(self, other) is equivalent to self // other, """
+        return self // other    
+    
+    def __floordiv__(self, other):
+        """ __floordiv__(self, other) is equivalent to self // other, """
+        return self.floordiv(self, other)
+    
+    def index(self, other):
+        """ index(self, other) is equivalent to self[other], """
+        return self[other]
+    
+    def __index__(self, other):
+        """ __index__(self, other) is equivalent to self[other], """
+        return self.index(self, other)
+    
+    def  inv(self):
+        """ inv(self) is equivalent to not self, """
+        return not self.truth()
+    
+    def __inv__(self):
+        """ __inv__(self) is equivalent to not self, """
+        return self.inv(self)
+    
+    def invert(self):
+        """ invert(self) is equivalent to not self, """
+        return not self.truth()
+    
+    def __invert__(self): 
+        """ __invert__(self) is equivalent to not self, """
+        return self.invert(self)
+    
+    def lfshift(self, other):
+        """ lfshift(self, other) is equivalent to self << other, """
+        return self << other    
+    
+    def __lfshift__(self, other):
+        """ __lfshift__(self, other) is equivalent to self << other, """
+        return self.lfshift(self, other)
+    
+    def mod(self, other):
+        """ mod(self, other) is equivalent to self % other, """
+        return self % other
+    
+    def __mod__(self, other):
+        """ __mod__(self, other) is equivalent to self % other, """
+        return self.mod(self, other)
+    
+    def mul(self, other):
+        """ mul(self, other) is equivalent to self * other, """
+        return self * other
+    
+    def __mul__(self, other):
+        """ __mul__(self, other) is equivalent to self * other, """
+        return self.mul(self, other)
+    
+    def matmul(self, other):
+        """ matmul(self, other) is equivalent to self @ other, """
+        return self @ other
+    
+    def __matmul__(self, other):
+        """ __matmul__(self, other) is equivalent to self @ other, """
+        return self.matmul(self, other)
+    
+    def neg(self):
+        """ neg(self) is equivalent to -self, """
+        return -self
+    
+    def __neg__(self):
+        """ __neg__(self) is equivalent to -self, """
+        return self.neg(self)
+    
+    def or_(self, other):
+        """ or_(self, other) is equivalent to self or other, """
+        return self or other
+    
+    def __or__(self, other):
+        """ __or__(self, other) is equivalent to self or other, """
+        return self.or_(self, other)
+    
+    def pos(self):
+        """ pos(self) is equivalent to +self, """
+        return +self
+    
+    def __pos__(self):
+        """ __pos__(self) is equivalent to +self, """
+        return self.pos(self)
+    
+    def pow(self, other):
+        """ pow(self, other) is equivalent to self ** other, """
+        return self ** other    
+    
+    def __pow__(self, other):
+        """ __pow__(self, other) is equivalent to self ** other, """
+        return self.pow(self, other)
+    
+    def rshift(self, other):    
+        """ rshift(self, other) is equivalent to self >> other, """
+        return self >> other
+    
+    def __rshift__(self, other):
+        """ __rshift__(self, other) is equivalent to self >> other, """
+        return self.rshift(self, other)
+    
+    def sub(self, other):
+        """ sub(self, other) is equivalent to self - other, """
+        return self - other
+    
+    def __sub__(self, other):
+        """ __sub__(self, other) is equivalent to self - other, """
+        return self.sub(self, other)
+    
+    def truediv(self, other):
+        """ truediv(self, other) is equivalent to self / other, """
+        return self / other
+    
+    def __truediv__(self, other):
+        """ __truediv__(self, other) is equivalent to self / other, """
+        return self.truediv(self, other)
+    
+    def xor(self, other):
+        """ xor(self, other) is equivalent to self ^ other, """
+        return self ^ other
+    
+    def __xor__(self, other):
+        """ __xor__(self, other) is equivalent to self ^ other, """
+        return self.xor(self, other)
+    
+    def comcat(self, other):
+        """ comcat(self, other) is equivalent to str(self) + str(other), """
+        return str(self) + str(other)
+    
+    def __concat__(self, other):
+        """ __concat__(self, other) is equivalent to str(self) + str(other), """
+        return self.comcat(self, other)
+    
+    def contains(self, other):
+        """ contains(self, other) is equivalent to other in self, """
+        return other in self
+    
+    def __contains__(self, other):
+        """ __contains__(self, other) is equivalent to other in self, """
+        return self.contains(self, other)
+    
+    def countOf(self, other):
+        """ countOf(self, other) is equivalent to self.count(other), """
+        return self.count(other)
+    
+    def __countOf__(self, other):
+        """ __countOf__(self, other) is equivalent to self.count(other), """
+        return self.countOf(self, other)
+    
+    def delitem(self, other):
+        """ delitem(self, other) is equivalent to del self[other], """
+        del self[other]
+        
+    def __delitem__(self, other):
+        """ __delitem__(self, other) is equivalent to del self[other], """
+        return self.delitem(self, other)
+    
+    def getitem(self, other):
+        """ getitem(self, other) is equivalent to self[other], """
+        return self[other]
+    
+    def __getitem__(self, other): 
+        """ __getitem__(self, other) is equivalent to self[other], """
+        return self.getitem(self, other)
+    
+    def indexOf(self, other):
+        """ indexOf(self, other) is equivalent to self.index(other), """
+        return self.index(other)    
+    
+    
+    def __indexOf__(self, other):
+        """ __indexOf__(self, other) is equivalent to self.index(other), """
+        return self.indexOf(self, other)
+    
+    def setitem(self, other, value):
+        """ setitem(self, other, value) is equivalent to self[other] = value, """
+        self[other] = value
+        
+    def __setitem__(self, other, value):
+        """ __setitem__(self, other, value) is equivalent to self[other] = value, """
+        return self.setitem(self, other, value)
+    
+    def length_hint(self):
+        """ length_hint(self) is equivalent to len(self), """
+        return len(self)
+    
+    def __length_hint__(self):
+        """ __length_hint__(self) is equivalent to len(self), """
+        return self.length_hint(self)
+    
+    def call(self, *args, **kwargs):
+        """ call(self, *args, **kwargs) is equivalent to self(*args, **kwargs), """
+        return self(*args, **kwargs)
+    
+    def __call__(self, *args, **kwargs):
+        """ __call__(self, *args, **kwargs) is equivalent to self(*args, **kwargs), """
+        return self.call(self, *args, **kwargs)
+    
+    def attrgetter(self, attr):
+        """ attrgetter(self, attr) is equivalent to getattr(self, attr), """
+        return getattr(self, attr)
+    
+    def __attrgetter__(self, attr):
+        """ __attrgetter__(self, attr) is equivalent to getattr(self, attr), """
+        return self.attrgetter(self, attr)
+    
+    def itemgetter(self, item):
+        """ itemgetter(self, item) is equivalent to self[item], """
+        return self[item]
+    
+    def __itemgetter__(self, item):
+        """ __itemgetter__(self, item) is equivalent to self[item], """
+        return self.itemgetter(self, item)
+    
+    def methodcaller(self, method, *args, **kwargs):
+        """ methodcaller(self, method, *args, **kwargs) is equivalent to getattr(self, method)(*args, **kwargs), """
+        return getattr(self, method)(*args, **kwargs)
+    
+    def __methodcaller__(self, method, *args, **kwargs):
+        """ __methodcaller__(self, method, *args, **kwargs) is equivalent to getattr(self, method)(*args, **kwargs), """
+        return self.methodcaller(self, method, *args, **kwargs)
+    
+    def iadd(self, other):
+        """ iadd(self, other) is equivalent to self += other, """
+        return self + other
+    
+    def __iadd__(self, other):
+        """ __iadd__(self, other) is equivalent to self += other, """
+        return self.iadd(self, other)
+    
+    def iand(self, other):
+        """ iand(self, other) is equivalent to self &= other, """
+        return self and other
+    
+    def __iand__(self, other):
+        """ __iand__(self, other) is equivalent to self &= other, """
+        return self.iand(self, other)
+    
+    def iconcat(self, other):
+        """ iconcat(self, other) is equivalent to self += other, """
+        return str(self) + str(other)
+    
+    def __iconcat__(self, other):
+        """ __iconcat__(self, other) is equivalent to self += other, """
+        return self.iconcat(self, other)
+    
+    def ifloordiv(self, other):
+        """ ifloordiv(self, other) is equivalent to self //= other, """
+        return self // other
+    
+    def __ifloordiv__(self, other):
+        """ __ifloordiv__(self, other) is equivalent to self //= other, """
+        return self.ifloordiv(self, other)
+    
+    def ilshift(self, other):
+        """ ilshift(self, other) is equivalent to self <<= other, """
+        return self << other
+    
+    def __ilshift__(self, other):
+        """ __ilshift__(self, other) is equivalent to self <<= other, """
+        return self.ilshift(self, other)
+    
+    def imod(self, other):
+        """ imod(self, other) is equivalent to self %= other, """
+        return self % other
+    
+    def __imod__(self, other):
+        """ __imod__(self, other) is equivalent to self %= other, """
+        return self.imod(self, other)
+    
+    def imul(self, other):
+        """ imul(self, other) is equivalent to self *= other, """
+        return self * other
+    
+    def __imul__(self, other):
+        """ __imul__(self, other) is equivalent to self *= other, """
+        return self.imul(self, other)
+    
+    def imatmul(self, other):
+        """ imatmul(self, other) is equivalent to self @= other, """
+        return self @ other
+    
+    def __imatmul__(self, other):
+        """ __imatmul__(self, other) is equivalent to self @= other, """
+        return self.imatmul(self, other)
+    
+    def ior(self, other):
+        """ ior(self, other) is equivalent to self |= other, """
+        return self or other
+    
+    def __ior__(self, other):
+        """ __ior__(self, other) is equivalent to self |= other, """
+        return self.ior(self, other)
+    
+    def ipow(self, other):
+        """ ipow(self, other) is equivalent to self **= other, """
+        return self ** other
+    
+    def __ipow__(self, other):
+        """ __ipow__(self, other) is equivalent to self **= other, """
+        return self.ipow(self, other)
+    
+    def irshift(self, other):
+        """ irshift(self, other) is equivalent to self >>= other, """
+        return self >> other
+    
+    def __irshift__(self, other):
+        """ __irshift__(self, other) is equivalent to self >>= other, """
+        return self.irshift(self, other)
+    
+    def isub(self, other):
+        """ isub(self, other) is equivalent to self -= other, """
+        return self - other
+    
+    def __isub__(self, other):
+        """ __isub__(self, other) is equivalent to self -= other, """
+        return self.isub(self, other)
+    
+    def itruediv(self, other):
+        """ itruediv(self, other) is equivalent to self /= other, """
+        return self / other
+    
+    def __itruediv__(self, other):
+        """ __itruediv__(self, other) is equivalent to self /= other, """
+        return self.itruediv(self, other)
+    
+    def ixor(self, other):
+        """ ixor(self, other) is equivalent to self ^= other, """
+        return self ^ other
+    
+    def __ixor__(self, other):
+        """ __ixor__(self, other) is equivalent to self ^= other, """
+        return self.ixor(self, other)
+    
+    
 def main():
     def wide_formatter(prog):
         return argparse.RawDescriptionHelpFormatter(

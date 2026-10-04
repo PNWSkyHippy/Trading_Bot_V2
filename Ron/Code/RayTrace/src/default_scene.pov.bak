@@ -1,0 +1,93 @@
+#version 3.7;
+global_settings { assumed_gamma 1.0 }
+#include "colors.inc"
+
+// Camera
+camera {
+    location <0.0, 1.5, -4.0>
+    look_at  <0.0, 1.0,  0.0>
+    angle 65.0
+}
+
+// Key Light Source
+light_source {
+    <5.0, 10.0, -5.0>
+    color rgb <1.0, 0.98, 0.95>
+}
+
+// Checkered Floor Plane
+plane {
+    y, 0
+    texture {
+    pigment {
+    image_map { jpeg "section1.jpg" map_type 2 interpolate 2 }
+    scale <-1, 50, 1>
+    }
+    finish { ambient 0.25 diffuse 0.75 specular 0.2 }
+    }
+}
+
+// Primary Subject Sphere
+sphere {
+    <0.0, 1.0, 0.0>, 1.0
+    texture {
+    pigment { color rgb <0.9, 0.15, 0.15> }
+    finish { ambient 0.1 diffuse 0.7 specular 0.6 roughness 0.02 reflection 0.15 }
+    }
+}
+
+
+
+
+
+
+// Torus #2
+torus {
+    1.50, 0.4
+    rotate <45, 0, 0>
+    translate <0.00, 2.50, 0.00>
+    texture {
+    pigment {
+    image_map { jpeg "section3.jpg" map_type 1 interpolate 2 }
+    scale 1.0
+    }
+    finish { ambient 0.15 diffuse 0.85 specular 0.2 }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -96,7 +96,7 @@ light_source { <-35.0, 30.0, -150.0> colour White }
 #declare Liquid = finish { reflection 0.05 }
 
 #declare Bead = object {
-   sphere { <0, 0, 0>, 1 scale <1.65, 0.65, 1.65> }
+   sphere { <0.00, 4.00, 3.00>, 1.00 scale <1.65, 0.65, 1.65> }
    texture { T_Glass}
    interior {I_Glass2}
 
@@ -175,10 +175,10 @@ union {
 #declare Frame =
 union {
    // corners
-   sphere { <-120, 0, -120>, 4.65 }
-   sphere { < 120, 0, -120>, 4.65 }
-   sphere { <-120, 0,  120>, 4.65 }
-   sphere { < 120, 0,  120>, 4.65 }
+   sphere { <-102.00, 0.00, -120.00>, 4.65 }
+   sphere { <131.00, 0.00, -120.00>, 4.65 }
+   sphere { <-112.00, 0.00, 120.00>, 4.65 }
+   sphere { <122.00, 0.00, 120.00>, 4.65 }
 
    object {
       Disk_X    /* Front rounded edge */
@@ -285,4 +285,112 @@ union {
 object { WineGlass_Without_Wine translate -x*12.15 rotate -z*86.5 }
 
 object { WineGlass_With_Wine translate <0, 0, -20>}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
