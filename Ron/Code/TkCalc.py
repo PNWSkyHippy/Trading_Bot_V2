@@ -1,9 +1,10 @@
+import base64
 import collections as col
 import math
 import re
 import sys
 import tkinter as tk
-from tkinter import ttk
+from tkinter import PhotoImage, ttk
 
 from calc_inc import *
 from quick_tk import QuickApp, ToolView
@@ -22,7 +23,12 @@ class TkCalc(ToolView):
         self.angle_mode = "radians"
 
     def build_ui(self):
-
+        with open("buttonicon.gif", "rb") as image:
+            image_string = base64.encodebytes(image.read())
+        self.icon = PhotoImage(data=image_string)
+        with open("buttonicon2.gif", "rb") as image2:
+            image_string2 = base64.encodebytes(image2.read())
+        self.icon2 = PhotoImage(data=image_string2)
         # The view is a two-row layout: the shared toolbar stays at the top
         # and the active mode fills the remaining space below it.
         self.display_var = tk.StringVar(value="0")
@@ -33,7 +39,7 @@ class TkCalc(ToolView):
         # -------------------------------------------------------------
         # 1. TOP BAR: Mode Selector (Dropdown or Segmented Pills)
         # -------------------------------------------------------------
-        top_bar = ttk.Frame(self, padding=8)
+        top_bar = ttk.Frame(self, padding=8, relief=tk.RAISED)
         top_bar.grid(row=0, column=0, sticky="ew")
         top_bar.columnconfigure(0, weight=0)
         top_bar.columnconfigure(1, weight=1)
@@ -85,7 +91,7 @@ class TkCalc(ToolView):
         # -------------------------------------------------------------
         # 3. SWAP CONTAINER (Houses all mode frames in the same cell)
         # -------------------------------------------------------------
-        self.container = ttk.Frame(self, padding=8)
+        self.container = ttk.Frame(self, padding=8, relief=tk.RAISED)
         self.container.grid(row=1, column=0, sticky="nsew")
         self.container.columnconfigure(0, weight=1)
         self.container.rowconfigure(0, weight=1)
@@ -126,7 +132,9 @@ class TkCalc(ToolView):
         self.show_mode(mode)
 
     def _build_standard_mode(self):
-        frame = ttk.LabelFrame(self.container, text=" Standard Mode ", padding=8)
+        frame = ttk.LabelFrame(
+            self.container, text=" Standard Mode ", padding=8, relief=tk.RAISED
+        )
         # Keep the mode panel full width, but let its bottom edge follow the
         # board instead of stretching to the bottom of the window.
         frame.grid(row=0, column=0, sticky="nsew")
@@ -160,12 +168,14 @@ class TkCalc(ToolView):
         )
 
         self.options_form = ttk.LabelFrame(
-            self.side_box, text="Calc Options", padding=10
+            self.side_box, text="Calc Options", padding=10, relief=tk.RAISED
         )
         self.options_form.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         # Diplay contents of memory stack
         self.options_button = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Memory",
             command=self.on_memory,
         )
@@ -174,6 +184,8 @@ class TkCalc(ToolView):
         # Clear the memory stack
         self.options_button_clr = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Clear Memory",
             command=self.on_clear_memory,
         )
@@ -182,6 +194,8 @@ class TkCalc(ToolView):
         # Recover an item from the stack back to the working window
         self.options_button_rec = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Recall Memory",
             command=self.on_memory_rec,
         )
@@ -198,12 +212,14 @@ class TkCalc(ToolView):
         self.memory_boxes.append(memory_box)
 
         # Setip top panel to display total and running calculations, add a frame
-        self.top_form = ttk.LabelFrame(frame, text="", padding=20)
+        self.top_form = ttk.LabelFrame(frame, text="", padding=20, relief=tk.RAISED)
         self.top_form.grid(row=0, column=1, sticky="new", padx=20, pady=8)
         self.top_form.columnconfigure(1, weight=1)
 
         # Setup 4 * 5 grid for calculator bvuttons to live in a frame
-        board_box = ttk.LabelFrame(frame, text=" TKCalculator ", padding=12)
+        board_box = ttk.LabelFrame(
+            frame, text=" TKCalculator ", padding=12, relief=tk.RAISED
+        )
         # Expand across the available width, but keep the board from filling
         # the entire height of the mode frame.
         board_box.grid(row=1, column=1, sticky="nsew", padx=20, pady=10)
@@ -227,9 +243,11 @@ class TkCalc(ToolView):
         for c in [4, 3, 2, 1]:
             btn = tk.Button(
                 board_box,
+                image=self.icon,
+                compound=tk.CENTER,
                 text=top_list[c - 1],
                 font=("Segoe UI", 24, "bold"),
-                bg="#1e1e2e",
+                bg="#3825CB",
                 fg="#89b4fa",
                 command=lambda ch=top_list[c - 1].strip(): self.on_cell_click(ch),
             )
@@ -248,9 +266,11 @@ class TkCalc(ToolView):
             for c in [2, 1, 0]:
                 btn = tk.Button(
                     board_box,
+                    image=self.icon,
+                    compound=tk.CENTER,
                     text=str((r * 3) + c + 1 - 3),
                     font=("Segoe UI", 24, "bold"),
-                    bg="#1e1e2e",
+                    bg="#3825CB",
                     fg="#89b4fa",
                     # Number buttons
                     command=lambda text=str((r * 3) + c + 1 - 3): self.on_cell_click(
@@ -261,9 +281,11 @@ class TkCalc(ToolView):
                 self.buttons[(i, j)] = btn
                 btn = tk.Button(
                     board_box,
+                    image=self.icon,
+                    compound=tk.CENTER,
                     text=side_list[c],
                     font=("Segoe UI", 24, "bold"),
-                    bg="#1e1e2e",
+                    bg="#3825CB",
                     fg="#89b4fa",
                     # Operator buttons
                     command=lambda text=side_list[c].strip(): self.on_cell_click(text),
@@ -277,9 +299,11 @@ class TkCalc(ToolView):
         for c in [4, 3, 2, 1]:
             btn = tk.Button(
                 board_box,
+                image=self.icon,
+                compound=tk.CENTER,
                 text=bottom_list[c - 1],
                 font=("Segoe UI", 24, "bold"),
-                bg="#1e1e2e",
+                bg="#3825CB",
                 fg="#89b4fa",  # Bottom calculator buttons
                 command=lambda text=bottom_list[c - 1].strip(): self.on_cell_click(
                     text
@@ -304,7 +328,9 @@ class TkCalc(ToolView):
             ("()", "0", ".", "="),
         ]
 
-        frame = ttk.LabelFrame(self.container, text=" Scientific Extensions", padding=8)
+        frame = ttk.LabelFrame(
+            self.container, text=" Scientific Extensions", padding=8, relief=tk.RAISED
+        )
         # Keep the mode panel full width, but let its bottom edge follow the
         # board instead of stretching to the bottom of the window.
         frame.grid(row=0, column=0, sticky="nsew")
@@ -342,12 +368,14 @@ class TkCalc(ToolView):
         )
 
         self.options_form = ttk.LabelFrame(
-            self.side_box, text="Calc Options", padding=10
+            self.side_box, text="Calc Options", padding=10, relief=tk.RAISED
         )
         self.options_form.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         # Diplay contents of memory stack
         self.options_button = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Memory",
             command=self.on_memory,
         )
@@ -356,6 +384,8 @@ class TkCalc(ToolView):
         # Clear the memory stack
         self.options_button_clr = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Clear Memory",
             command=self.on_clear_memory,
         )
@@ -364,6 +394,8 @@ class TkCalc(ToolView):
         # Recover an item from the stack back to the working window
         self.options_button_rec = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Recall Memory",
             command=self.on_memory_rec,
         )
@@ -380,12 +412,14 @@ class TkCalc(ToolView):
         self.memory_boxes.append(memory_box)
 
         # Setip top panel to display total and running calculations, add a frame
-        self.top_form = ttk.LabelFrame(frame, text="", padding=20)
+        self.top_form = ttk.LabelFrame(frame, text="", padding=20, relief=tk.RAISED)
         self.top_form.grid(row=0, column=1, sticky="new", padx=20, pady=8)
         self.top_form.columnconfigure(1, weight=1)
 
         # Setup 4 * 5 grid for calculator bvuttons to live in a frame
-        board_box = ttk.LabelFrame(frame, text=" TKCalculator ", padding=12)
+        board_box = ttk.LabelFrame(
+            frame, text=" TKCalculator ", padding=12, relief=tk.RAISED
+        )
         # Expand across the available width, but keep the board from filling
         # the entire height of the mode frame.
         board_box.grid(row=1, column=1, sticky="nsew", padx=20, pady=10)
@@ -401,6 +435,8 @@ class TkCalc(ToolView):
                 is_sci = r < 2
                 btn = tk.Button(
                     board_box,
+                    image=self.icon,
+                    compound=tk.CENTER,
                     text=char,
                     font=("Segoe UI", 24, "bold"),
                     bg="#1e1e2e",
@@ -430,7 +466,10 @@ class TkCalc(ToolView):
         ]
 
         frame = ttk.LabelFrame(
-            self.container, text=" Scientific Extensions Extended", padding=8
+            self.container,
+            text=" Scientific Extensions Extended",
+            padding=8,
+            relief=tk.RAISED,
         )
         # Keep the mode panel full width, but let its bottom edge follow the
         # board instead of stretching to the bottom of the window.
@@ -463,12 +502,14 @@ class TkCalc(ToolView):
         )
 
         self.options_form = ttk.LabelFrame(
-            self.side_box, text="Calc Options", padding=10
+            self.side_box, text="Calc Options", padding=10, relief=tk.RAISED
         )
         self.options_form.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         # Diplay contents of memory stack
         self.options_button = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Memory",
             command=self.on_memory,
         )
@@ -477,6 +518,8 @@ class TkCalc(ToolView):
         # Clear the memory stack
         self.options_button_clr = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Clear Memory",
             command=self.on_clear_memory,
         )
@@ -485,6 +528,8 @@ class TkCalc(ToolView):
         # Recover an item from the stack back to the working window
         self.options_button_rec = ttk.Button(
             self.options_form,
+            image=self.icon,
+            compound=tk.CENTER,
             text="Recall Memory",
             command=self.on_memory_rec,
         )
@@ -501,12 +546,14 @@ class TkCalc(ToolView):
         self.memory_boxes.append(memory_box)
 
         # Setip top panel to display total and running calculations, add a frame
-        self.top_form = ttk.LabelFrame(frame, text="", padding=20)
+        self.top_form = ttk.LabelFrame(frame, text="", padding=20, relief=tk.RAISED)
         self.top_form.grid(row=0, column=1, sticky="new", padx=20, pady=8)
         self.top_form.columnconfigure(1, weight=1)
 
         # Setup 4 * 5 grid for calculator bvuttons to live in a frame
-        board_box = ttk.LabelFrame(frame, text=" TKCalculator ", padding=12)
+        board_box = ttk.LabelFrame(
+            frame, text=" TKCalculator ", padding=12, relief=tk.RAISED
+        )
         # Expand across the available width, but keep the board from filling
         # the entire height of the mode frame.
         board_box.grid(row=1, column=1, sticky="nsew", padx=20, pady=10)
@@ -522,6 +569,8 @@ class TkCalc(ToolView):
                 is_sci = r < 2
                 btn = tk.Button(
                     board_box,
+                    image=self.icon,
+                    compound=tk.CENTER,
                     text=char,
                     font=("Segoe UI", 24, "bold"),
                     bg="#1e1e2e",
@@ -534,14 +583,17 @@ class TkCalc(ToolView):
 
     def _build_converter_mode(self) -> ttk.Frame:
         frame = ttk.LabelFrame(
-            self.container, text=" Unit Converter & Calculations ", padding=10
+            self.container,
+            text=" Unit Converter & Calculations ",
+            padding=10,
+            relief=tk.GROOVE,
         )
         frame.grid(row=0, column=0, sticky="nsew")
         frame.columnconfigure(0, weight=1)
 
         # 1. Top Category Selector
         self.top_cat_form = self.add_form("Converter Category", parent=frame)
-        self.top_cat_form.pack(fill="x", pady=(0, 5))
+        self.top_cat_form.pack(fill="x", pady=0)
         self.top_cat_form.add_dropdown(
             "category",
             "Conversion Type",
@@ -563,15 +615,19 @@ class TkCalc(ToolView):
 
         # 2. Dynamic Container for inputs
         self.dynamic_inputs_box = ttk.Frame(frame)
-        self.dynamic_inputs_box.pack(fill="both", expand=True, pady=5)
-
+        self.dynamic_inputs_box.pack(fill="x", expand=True)
         # 3. Convert Button Action Bar
         self.action_form = self.add_form("Actions", parent=frame)
-        self.action_form.pack(fill="x", pady=(5, 0))
-        self.action_form.add_button(
-            "Convert 🔄", callback=self.on_run_conversion, variant="primary"
+        self.action_form.pack()
+        conv_btn = self.action_form.add_button(
+            "Convert 🔄",
+            image=self.icon2,
+            compound=tk.CENTER,
+            callback=self.on_run_conversion,
+            variant="primary",
         )
-
+        conv_btn.config(image=self.icon2, compound=tk.CENTER)
+        #       conv_btn.config(background="#7101F9", foreground="#7101F9")
         # Initialize with default category
         self.on_category_changed("Temperature (°C ⇄ °F)")
         return frame
@@ -609,7 +665,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "from_unit",
                 "From",
-                self.lengths_list,
+                lengths_list,
                 default="Meters",
                 on_change=lambda val: self._on_update_choices(
                     "from_unit", "to_unit", val, ["Meters", "Feet"]
@@ -618,7 +674,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "to_unit",
                 "To",
-                self.lengths_list,
+                lengths_list,
                 default="Feet",
                 on_change=lambda val: self._on_update_choices(
                     "to_unit", "from_unit", val, ["Feet", "Meters"]
@@ -630,7 +686,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "from_unit",
                 "From",
-                self.areas_list,
+                areas_list,
                 default="square feet",
                 on_change=lambda val: self._on_update_choices(
                     "from_unit", "to_unit", val, ["square feet", "square meters"]
@@ -639,7 +695,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "to_unit",
                 "To",
-                self.areas_list,
+                areas_list,
                 default="square meters",
                 on_change=lambda val: self._on_update_choices(
                     "to_unit", "from_unit", val, ["square meters", "square feet"]
@@ -651,7 +707,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "from_unit",
                 "From",
-                self.volume_list,
+                volume_list,
                 default="gallons us",
                 on_change=lambda val: self._on_update_choices(
                     "from_unit", "to_unit", val, ["gallons us", "liters"]
@@ -660,7 +716,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "to_unit",
                 "To",
-                self.volume_list,
+                volume_list,
                 default="liters",
                 on_change=lambda val: self._on_update_choices(
                     "to_unit", "from_unit", val, ["liters", "gallons us"]
@@ -672,7 +728,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "from_unit",
                 "From",
-                self.mass_list,
+                mass_list,
                 default="pounds",
                 on_change=lambda val: self._on_update_choices(
                     "from_unit", "to_unit", val, ["pounds", "kilograms"]
@@ -681,7 +737,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "to_unit",
                 "To",
-                self.mass_list,
+                mass_list,
                 default="kilograms",
                 on_change=lambda val: self._on_update_choices(
                     "to_unit", "from_unit", val, ["kilograms", "pounds"]
@@ -693,7 +749,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "from_unit",
                 "From",
-                self.data_list,
+                data_list,
                 default="kilobytes",
                 on_change=lambda val: self._on_update_choices(
                     "from_unit", "to_unit", val, ["kilobytes", "megabytes"]
@@ -702,7 +758,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "to_unit",
                 "To",
-                self.data_list,
+                data_list,
                 default="megabytes",
                 on_change=lambda val: self._on_update_choices(
                     "to_unit", "from_unit", val, ["megabytes", "kilobytes"]
@@ -714,7 +770,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "from_unit",
                 "From",
-                self.speed_list,
+                speed_list,
                 default="Meters/sec",
                 on_change=lambda val: self._on_update_choices(
                     "from_unit", "to_unit", val, ["Meters/sec", "Inches/sec"]
@@ -723,7 +779,7 @@ class TkCalc(ToolView):
             self.sub_form.add_dropdown(
                 "to_unit",
                 "To",
-                self.speed_list,
+                speed_list,
                 default="Inches/sec",
                 on_change=lambda val: self._on_update_choices(
                     "to_unit", "from_unit", val, ["Inches/sec", "Meters/sec"]
@@ -762,6 +818,7 @@ class TkCalc(ToolView):
                 "to_unit",
                 "To",
                 self.time_list,
+                relief=tk.GROOVE,
                 default="Hours",
                 on_change=lambda val: self._on_update_choices(
                     "to_unit", "from_unit", val, ["Hours", "Seconds"]
@@ -1159,6 +1216,6 @@ class TkCalc(ToolView):
 
 
 if __name__ == "__main__":
-    app = QuickApp(title="TK Calculator", size=(960, 800), theme="Dark Obsidian")
+    app = QuickApp(title="TK Calculator", size=(960, 860), theme="Dark Obsidian")
     app.set_single_tool(TkCalc)
     app.run()

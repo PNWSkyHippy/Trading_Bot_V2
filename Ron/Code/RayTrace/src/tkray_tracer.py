@@ -591,6 +591,64 @@ BOOK_SCENE_CHOICES = {
 }
 
 
+class _CheckboxVarWrapper:
+    """Safely wraps a boolean checkbox state, synchronizing with an optional UI widget."""
+
+    def __init__(self, val=False):
+        self._val = bool(val)
+        self._widget = None
+
+    def attach_widget(self, widget):
+        self._widget = widget
+        if widget is not None:
+            try:
+                if hasattr(widget, "set"):
+                    widget.set(self._val)
+                elif hasattr(widget, "select") and hasattr(widget, "deselect"):
+                    if self._val:
+                        widget.select()
+                    else:
+                        widget.deselect()
+            except Exception:
+                pass
+
+    def detach_widget(self):
+        self._widget = None
+
+    def set(self, val):
+        self._val = bool(val)
+        if self._widget is not None:
+            try:
+                if hasattr(self._widget, "winfo_exists") and not self._widget.winfo_exists():
+                    self._widget = None
+                elif hasattr(self._widget, "set"):
+                    self._widget.set(self._val)
+                elif hasattr(self._widget, "select") and hasattr(self._widget, "deselect"):
+                    if self._val:
+                        self._widget.select()
+                    else:
+                        self._widget.deselect()
+            except Exception:
+                self._widget = None
+
+    def get(self):
+        if self._widget is not None:
+            try:
+                if hasattr(self._widget, "winfo_exists") and not self._widget.winfo_exists():
+                    self._widget = None
+                else:
+                    return bool(self._widget.get())
+            except Exception:
+                self._widget = None
+        return self._val
+
+    def __bool__(self):
+        return self.get()
+
+    def __repr__(self):
+        return f"_CheckboxVarWrapper(val={self._val!r}, widget={self._widget!r})"
+
+
 class LiveRayTraceViewer(ToolView):
     """_summary_ The main class  program loop
     This program is a python front end to display the results
@@ -640,6 +698,11 @@ class LiveRayTraceViewer(ToolView):
         self.contour = False  # Think te next few are obvious
         self.smooth = False
         self.sharpen = False
+        self.blur_var = _CheckboxVarWrapper(False)
+        self.contour_var = _CheckboxVarWrapper(False)
+        self.smooth_var = _CheckboxVarWrapper(False)
+        self.sharpen_var = _CheckboxVarWrapper(False)
+        self.debug_var = _CheckboxVarWrapper(False)
         self.rotation = 0.0
         self.contrast = 1.0
         self.color = 1.0
@@ -1039,26 +1102,30 @@ class LiveRayTraceViewer(ToolView):
         self.debug_console = None
         self.scan_progress = 0.45
 
-        class _FallbackVar:
-            def __init__(self, val=False):
-                self._val = bool(val)
-
-            def set(self, val):
-                self._val = bool(val)
-
-            def get(self):
-                return self._val
-
         if not hasattr(self, "blur_var") or self.blur_var is None:
-            self.blur_var = _FallbackVar(False)
+            self.blur_var = _CheckboxVarWrapper(False)
+        else:
+            self.blur_var.set(False)
+
         if not hasattr(self, "contour_var") or self.contour_var is None:
-            self.contour_var = _FallbackVar(False)
+            self.contour_var = _CheckboxVarWrapper(False)
+        else:
+            self.contour_var.set(False)
+
         if not hasattr(self, "smooth_var") or self.smooth_var is None:
-            self.smooth_var = _FallbackVar(False)
+            self.smooth_var = _CheckboxVarWrapper(False)
+        else:
+            self.smooth_var.set(False)
+
         if not hasattr(self, "sharpen_var") or self.sharpen_var is None:
-            self.sharpen_var = _FallbackVar(False)
+            self.sharpen_var = _CheckboxVarWrapper(False)
+        else:
+            self.sharpen_var.set(False)
+
         if not hasattr(self, "debug_var") or self.debug_var is None:
-            self.debug_var = _FallbackVar(False)
+            self.debug_var = _CheckboxVarWrapper(False)
+        else:
+            self.debug_var.set(False)
 
     def close_debug_window(self):
         if self.debug_win is not None:
@@ -1112,6 +1179,22 @@ class LiveRayTraceViewer(ToolView):
         win.title("Image Adjustments")
         win.geometry("360x640")
         self.adjustments_win = win
+
+        def _on_close_adjustments():
+            self.blur_var.detach_widget()
+            self.contour_var.detach_widget()
+            self.smooth_var.detach_widget()
+            self.sharpen_var.detach_widget()
+            self.debug_var.detach_widget()
+            if getattr(self, "adjustments_win", None) is not None:
+                try:
+                    self.adjustments_win.destroy()
+                except Exception:
+                    pass
+            self.adjustments_win = None
+            self.adjustments_form = None
+
+        win.protocol("WM_DELETE_WINDOW", _on_close_adjustments)
 
         # 2. Put a FormPanel inside the floating window
         adj_form = self.add_form("Live Adjustments", parent=cast(tk.Widget, win))
@@ -1185,12 +1268,24 @@ class LiveRayTraceViewer(ToolView):
         cb_frame.columnconfigure(0, weight=1)
         cb_frame.columnconfigure(1, weight=1)
 
-        self.blur_var = adj_form.CTkCheckBox(
+        # Ensure wrappers exist
+        if not hasattr(self, "blur_var") or self.blur_var is None:
+            self.blur_var = _CheckboxVarWrapper(self.blur)
+        if not hasattr(self, "contour_var") or self.contour_var is None:
+            self.contour_var = _CheckboxVarWrapper(self.contour)
+        if not hasattr(self, "smooth_var") or self.smooth_var is None:
+            self.smooth_var = _CheckboxVarWrapper(self.smooth)
+        if not hasattr(self, "sharpen_var") or self.sharpen_var is None:
+            self.sharpen_var = _CheckboxVarWrapper(self.sharpen)
+        if not hasattr(self, "debug_var") or self.debug_var is None:
+            self.debug_var = _CheckboxVarWrapper(bool(self.debug_win and self.debug_win.winfo_exists()))
+
+        cb_blur = adj_form.CTkCheckBox(
             cb_frame,
             "Blur",
             row=0,
             col=0,
-            default=self.blur,
+            default=self.blur_var.get(),
             border_color="#3b82f6",  # Blue outline contour when UNCHECKED
             border_width=2,  # 2px contour thickness
             fg_color="#2563eb",  # Fills solid BLUE when CHECKED
@@ -1198,12 +1293,14 @@ class LiveRayTraceViewer(ToolView):
             text_color="white",  # White text label
             command=self.blur_auto_calc,
         )
-        self.contour_var = adj_form.CTkCheckBox(
+        self.blur_var.attach_widget(cb_blur)
+
+        cb_contour = adj_form.CTkCheckBox(
             cb_frame,
             "Contour",
             row=0,
             col=1,
-            default=self.contour,
+            default=self.contour_var.get(),
             fg_color="#2563eb",
             text_color="white",
             border_width=2,
@@ -1211,12 +1308,14 @@ class LiveRayTraceViewer(ToolView):
             border_color="#3b82f6",
             command=self.contour_auto_calc,
         )
-        self.smooth_var = adj_form.CTkCheckBox(
+        self.contour_var.attach_widget(cb_contour)
+
+        cb_smooth = adj_form.CTkCheckBox(
             cb_frame,
             "Smooth",
             row=1,
             col=0,
-            default=self.smooth,
+            default=self.smooth_var.get(),
             fg_color="#2563eb",
             text_color="white",
             border_width=2,
@@ -1224,12 +1323,14 @@ class LiveRayTraceViewer(ToolView):
             border_color="#3b82f6",
             command=self.smooth_auto_calc,
         )
-        self.sharpen_var = adj_form.CTkCheckBox(
+        self.smooth_var.attach_widget(cb_smooth)
+
+        cb_sharpen = adj_form.CTkCheckBox(
             cb_frame,
             "Sharpen",
             row=1,
             col=1,
-            default=self.sharpen,
+            default=self.sharpen_var.get(),
             fg_color="#2563eb",
             text_color="white",
             border_width=2,
@@ -1237,8 +1338,9 @@ class LiveRayTraceViewer(ToolView):
             border_color="#3b82f6",
             command=self.sharpen_auto_calc,
         )
-        #        view_menu.add_separator()
-        self.debug_var = adj_form.CTkCheckBox(
+        self.sharpen_var.attach_widget(cb_sharpen)
+
+        cb_debug = adj_form.CTkCheckBox(
             cb_frame,
             "Debug",
             row=2,
@@ -1252,6 +1354,7 @@ class LiveRayTraceViewer(ToolView):
             border_color="#3b82f6",
             command=self.open_debug_window,
         )
+        self.debug_var.attach_widget(cb_debug)
         self.bind_all("<Control-d>", self.open_debug_window)
 
     def _snapshot_editor_state(self, reason="Generic"):
@@ -3298,6 +3401,7 @@ class LiveRayTraceViewer(ToolView):
         if state is not None:
             self._begin_control_edit("blur")
             self.blur = bool(state)
+            self.blur_var.set(self.blur)
         self.update_live_preview()
 
     def contour_auto_calc(self, state=None):
@@ -3312,12 +3416,14 @@ class LiveRayTraceViewer(ToolView):
             )
             if accepted:
                 self.contour = enabled
+                self.contour_var.set(self.contour)
             else:
                 self.contour_var.set(self.contour)
             return
         if state is not None:
             self._begin_control_edit("contour")
             self.contour = bool(state)
+            self.contour_var.set(self.contour)
         self.update_live_preview()
 
     def smooth_auto_calc(self, state=None):
@@ -3332,12 +3438,14 @@ class LiveRayTraceViewer(ToolView):
             )
             if accepted:
                 self.smooth = enabled
+                self.smooth_var.set(self.smooth)
             else:
                 self.smooth_var.set(self.smooth)
             return
         if state is not None:
             self._begin_control_edit("smooth")
             self.smooth = bool(state)
+            self.smooth_var.set(self.smooth)
         self.update_live_preview()
 
     def sharpen_auto_calc(self, state=None):
@@ -3352,12 +3460,14 @@ class LiveRayTraceViewer(ToolView):
             )
             if accepted:
                 self.sharpen = enabled
+                self.sharpen_var.set(self.sharpen)
             else:
                 self.sharpen_var.set(self.sharpen)
             return
         if state is not None:
             self._begin_control_edit("sharpen")
             self.sharpen = bool(state)
+            self.sharpen_var.set(self.sharpen)
         self.update_live_preview()
 
     def scaled_auto_calc(self, _=None):

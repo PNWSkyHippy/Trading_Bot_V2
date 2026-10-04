@@ -1,5 +1,7 @@
 # AGENTS.md
 
+** If running inside project DecentClone, then use DecentClone/AgentDecent.md as authority not this file **
+
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ---
@@ -159,20 +161,28 @@ Current design: conservative fallback — any failure = SKIP, never default to A
 
 ## Pending Work
 
-1. May 1: Codex reviewer tiered rebuild (see above)
-2. Momentum rider mode — reorder `check_exit_conditions()` / `calculate_trailing_stop()` in `position_monitor.py`
-3. DCA Accumulator: add NVDA to blacklist
-4. Fix dashboard capital display (DB value vs live Alpaca sync)
-5. ~~`use_container_width` deprecation warnings in `dashboard.py`~~ — migrated to web_dashboard.py
-6. Coinbase non-base16 error (harmless but noisy)
-7. ES trading assistant Codex.ai Project for prop firm
+1. Deevlop main game logic for AI, Goals, graphics
+1a. high priority develop opening scren graphics to be displayed imediately to over up this horrible 5 minute delay o tunnel graphs loading
+    Lets make  a game logo openig vide montager welcome to Astral Drifdt showing cutaway sceense of action in tunnels, in bonus leve,s im space levels with background musi cgoing
+2. Build out 10 levels of the galaga bonus leve, 10 of the pacman bonus level and 10 of the defender bonus level
+3. Build out 30 levels of tunnel maps 
+4. Build out 30 levels of open space (Space station , ugrades, repair bays, space runner guild taks boards
+4a. Develop cino-graphci high res high detail deep space (nebluas , galaxies, black holes, planets, asteroid fields, as predone  images made to be sequenced into mp4 format for
+    precorded sequences and simulaed 60fps ray tracing, ie load a scene with wrap around texuture and ray trace every image view in full 360.shown on  vifewfporf format depending where player looks
+4b. Develop repair station at space station, repair hull, upgrade rockets, emps, oil slicks, etc quantity and strength based on player level. Devise ship upgrades for cash hull strength laser strength, shield regen speed, ship  accelleration and max speed upgradse.
+4c. along these lines Develop strategy for exp VS level gaining  and for cash generation in all tunnel , bonus leve, space level endeavors rewards for accompishments, loot sold at space station collect do missons, coin picked up for loot stashess in game---
+4d. Deveop high res custom image tiles for al tunnel and bonus level game walls fllors ceilings. Where possible 
+   and appropriate develop still imaged ray trace sequences through the image seuqnces simlulating movement and 
+   display as a roll of tiles in game (Tunnels). I want to totally eliminate the problem of gaps where one
+   image  begins and another ends by premaking an entire tunnels maps worth of imagry into one big long image sequnece that can be laid down anf ignoe all tunnel segment bounaries all together.
 
----
+5. Develop the etire  start to finish gameplan,  loading screen, charcter generation, starting map, opening splash screen, beginning game montage video sequence describing
+  game play and goals and how to access help ad move about the game. perhaps a tutorial level
+6. Revamp and createcustom sound effects utilizing dosplar effect sound technique for all bullet engine,s lasers explosions rocket emisons scrapes bumps, button activate, portal usages
+6a. Also develop overal game themr bakground music to be choosable from 1-5 choices or turnred off
 
 ## Coding Conventions
-
-- 4-space indentation, no tabs
-- All tunable parameters belong in `config.py` — no magic numbers in module code
-- `db` is a module-level singleton from `data/database.py`; import it directly
+- use skill /code-check on every code chage made, no shortcuts, adhere to the skill
+- 4-space indentation, no tab
 - In PowerShell `-c` commands, use semicolons to separate statements (newlines get scrambled)
 - Streamlit dashboard on port 8501; any secondary Streamlit app uses `--server.port 8502`
