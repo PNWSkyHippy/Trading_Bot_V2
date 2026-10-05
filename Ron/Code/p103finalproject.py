@@ -11,17 +11,50 @@ class Point3d:
         self._y = y
         self._z = z
 
-    # return x
+ 
+    def set_x(self, val):
+        self._x  - val
+
+    # Report current color
     def get_x(self):
+        return self_x
+
+    @property
+    def x(self):
         return self._x
+    
+    @x.setter
+    def x(self, val):
+        se;f._x = val 
+        
+    def set_y(self, val):
+        self._y - val
 
-    # return y
+    # Report current color
     def get_y(self):
-        return self._y
+        return self,_y
 
-    # return z
+    @property
+    def y(self):
+        return self_y
+    
+    @y.setter
+    def y(self, val):
+        self._y = val
+
+    def set_z(self, val)
+        self._z = val
+
     def get_z(self):
         return self._z
+
+    @property
+    def z(self):
+        return self._z
+    
+    @z.setter
+    def z(self, val):
+        seel._z = val
 
     # translate x,y,z to new x,y,z
     def move(self, dx, dy, dz):
@@ -43,18 +76,69 @@ class ColoredPixel(Point3d):
 
     # Initialize, store x,y,z in Point3d and color locally
     def __init__(self, x, y, z, color):
-        self._x = x
-        self._y = y
-        self._z = z
+        super().__init__(x, y, z)  # initialize parent Point3d
         self._color = color
 
-    # Change color ofpixel
+    # Change color of pixel
     def set_color(self, color):
         self._color = color
 
     # Report current color
     def get_color(self):
         return self._color
+
+    @property
+    def color(self):
+        return self._color
+    
+    @color.setter
+    def color(self, val):
+        self._color = val 
+
+    def set_x(self, val):
+        super().set_x(val)
+
+    # Report current color
+    def get_cxr(self):
+        return suoer().get_x()
+
+    @property
+    def x(self):
+        return super().get_x()
+    
+    @x.setter
+    def x(self, val):
+        super().set_x(val) 
+        
+    def set_y(self, val):
+        super().set_y(va;)
+
+    # Report current color
+    def get_y(self):
+        return super().get_y()
+
+    @property
+    def y(self):
+        return super().get_y()
+    
+    @y.setter
+    def y(self, val):
+        super().set_y(val)
+
+    # Change color ofpixel
+    def set_z(self, val)
+        super().set_z(val)
+
+    def get_z(self):
+        return parent().get_z()
+
+    @property
+    def z(self):
+        return super().get_z()
+    
+    @z.setter
+    def z(self, val):
+        super().set_z(val)
 
     # Return state of ColoredPixel object
     def __str__(self):
@@ -141,166 +225,3 @@ print(line1)
 print(plane)
 plane.move(1, 1, 1)
 print(plane)
-"""   #    def add(self, other):
-    #        return self.value + other.value
-
-    #    def __add__(self, other):
-    #        return self.add(other)
-
-    #    def sub(self, other):
-    #        return self.value - other
-
-    #    def __sub__(self, other):
-    #        return self.sub(other)
-
-    def floordiv(self, other):
-        return self.value // other.value
-
-    def __floordiv__(self, other):
-        return self.floordiv(other)
-
-    def mod(self, other):
-        return self.value % other.value
-
-    def __mod__(self, other):
-        return self.mod(other)
-
-    def pow(self, other):
-        return self.value**other.value
-
-    def __pow__(self, other):
-        return self.pow(other)
-
-    def rshift(self, other):
-        return self.value >> other.value
-
-    def __rshift__(self, other):
-        return self.rshift(other)
-
-    def truediv(self, other):
-        return self.value / other.value
-
-    def __truediv__(self, other):
-        return self.truediv(other)
-
-    def __str__(self):
-        return str(self.value)
-
-    def __repr__(self):
-        return f"({self.value})"
-
-#    def __eq__(self, other):
-#        if isinstance(other, TestOpOverload):
-#           return self.value == other.value
-#        return False
-
-#    def __lt__(self, other):
-#        if isinstance(other, TestOpOverload):
-#            return self.value < other.value
-#        return NotImplemented
-
-#    def __le__(self, other):
-#        if isinstance(other, TestOpOverload):
-#            return self.value <= other.value
-#        return NotImplemented
-
-    def __gt__(self, other):
-        if isinstance(other, TestOpOverload):
-            return self.value > other.value
-        return NotImplemented
-
-    def __ge__(self, other):
-        if isinstance(other, TestOpOverload):
-            return self.value >= other.value
-        return NotImplemented
-
-#    def __ne__(self, other):
-#        if isinstance(other, TestOpOverload):
-#            return self.value != other.value
-#        return NotImplemented
-
-    def __int__(self):
-        return int(self.value)
-
-    def __float__(self):
-        return float(self.value)
-
-    def __bool__(self):
-        return bool(self.value)
-
-    def __index__(self):
-        return int(self.value)
-
-    def __abs__(self):
-        return abs(self.value)
-
-    def __pos__(self):
-        return +self.value
-
-    def __invert__(self):
-        return ~self.value
-
-    def __and__(self, other):
-        if isinstance(other, TestOpOverload):
-            return self.value & other.value
-        return NotImplemented
-
-    def __or__(self, other):
-        if isinstance(other, TestOpOverload):
-            return self.value | other.value
-        return NotImplemented
-
-    def __xor__(self, other):
-        if isinstance(other, TestOpOverload):
-            return self.value ^ other.value
-        return NotImplemented
-
-    def __lshift__(self, other):
-        if isinstance(other, TestOpOverload):
-            return self.value << other.value
-        return NotImplemented
-
-    def __radd__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value + self.value
-        return NotImplemented
-
-    def __rsub__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value - self.value
-        return NotImplemented
-
-    def __rfloordiv__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value // self.value
-        return NotImplemented
-
-    def __rtruediv__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value / self.value
-        return NotImplemented
-
-    def __rmod__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value % self.value
-        return NotImplemented
-
-    def __rpow__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value**self.value
-        return NotImplemented
-
-    def __rrshift__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value >> self.value
-        return NotImplemented
-
-    def __rand__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value & self.value
-        return NotImplemented
-
-    def __ror__(self, other):
-        if isinstance(other, TestOpOverload):
-            return other.value | self.value
-        return NotImplemente"""

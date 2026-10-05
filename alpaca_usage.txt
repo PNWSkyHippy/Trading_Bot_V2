@@ -1,0 +1,54 @@
+C:\Users\Linda\Trading_Bot_V2\bot_engine.py:304: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\bot_engine.py:305: api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\bot_engine.py:621: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\bot_engine.py:658: api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\BreakoutScanner.py:79: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\BreakoutScanner.py:845: self.api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\dashboard.py:157: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\dashboard.py:158: api  = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\dashboard.py:253: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\dashboard.py:254: api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\web_dashboard.py:2344: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\web_dashboard.py:2347: api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\web_dashboard.py:2615: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\web_dashboard.py:2618: api = tradeapi.REST(_config.ALPACA_API_KEY, _config.ALPACA_SECRET_KEY, _config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\core\broker_manager.py:450: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\core\broker_manager.py:456: api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\core\candle_manager.py:315: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\core\candle_manager.py:317: api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\core\exchange_capabilities.py:325: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\core\exchange_capabilities.py:327: api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\core\startup_reconciler.py:80: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\core\startup_reconciler.py:81: api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\core\startup_reconciler.py:143: logger.warning("[RECONCILE] alpaca_trade_api not installed — skipping stock reconciliation")
+C:\Users\Linda\Trading_Bot_V2\core\stock_calendar_authority.py:90: parameter — `alpaca_trade_api`'s `get_bars()` has no such parameter at
+C:\Users\Linda\Trading_Bot_V2\core\trade_executor - Copy.py:15: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\core\trade_executor - Copy.py:35: self.api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\core\trade_executor.py:43: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\core\trade_executor.py:102: self.api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\Ron\Code\remove_trade.py:117: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Ron\Code\remove_trade.py:119: api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\scanners\market_scanner.py:26: logging.getLogger("alpaca_trade_api.rest").setLevel(logging.ERROR)
+C:\Users\Linda\Trading_Bot_V2\scanners\market_scanner.py:28: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\scanners\market_scanner.py:185: self.api = tradeapi.REST(
+C:\Users\Linda\Trading_Bot_V2\scanners\market_scanner.py:201: pass  # defensive — don't break on unexpected alpaca_trade_api changes
+C:\Users\Linda\Trading_Bot_V2\Scripts\_test_alpaca_keys.py:4: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Scripts\_test_alpaca_keys.py:10: api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\Scripts\cleanup_alpaca_ghosts.py:27: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Scripts\cleanup_alpaca_ghosts.py:29: print("ERROR: alpaca_trade_api not installed.")
+C:\Users\Linda\Trading_Bot_V2\Scripts\cleanup_alpaca_ghosts.py:47: api = tradeapi.REST(API_KEY, API_SECRET, BASE_URL, api_version="v2")
+C:\Users\Linda\Trading_Bot_V2\Scripts\fix_ghost_pnl.py:21: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Scripts\fix_ghost_pnl.py:24: api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\Scripts\reconcile_positions.py:34: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Scripts\reconcile_positions.py:35: api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\Scripts\reconcile_positions.py:47: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Scripts\reconcile_positions.py:48: api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\Scripts\remove_trade.py:98: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Scripts\remove_trade.py:99: api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\Scripts\test_alpaca.py:16: import alpaca_trade_api as tradeapi
+C:\Users\Linda\Trading_Bot_V2\Scripts\test_alpaca.py:26: api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_BASE_URL)
+C:\Users\Linda\Trading_Bot_V2\Scripts\test_breakout_event_durability.py:55: _alpaca_mod = types.ModuleType("alpaca_trade_api")
+C:\Users\Linda\Trading_Bot_V2\Scripts\test_breakout_event_durability.py:57: sys.modules["alpaca_trade_api"] = _alpaca_mod
+C:\Users\Linda\Trading_Bot_V2\Scripts\test_broker_routing_safety.py:44: _alpaca_mod = types.ModuleType("alpaca_trade_api")
+C:\Users\Linda\Trading_Bot_V2\Scripts\test_broker_routing_safety.py:46: sys.modules["alpaca_trade_api"] = _alpaca_mod
+C:\Users\Linda\Trading_Bot_V2\Scripts\test_candle_manager_session_hourly_resample.py:293: with mock.patch("alpaca_trade_api.REST", return_value=_TrackingApi()):

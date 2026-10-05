@@ -1,38 +1,177 @@
-// perspective (default) camera
+
 camera {
-  location  <15.000, 24.000, -12.000>
-  look_at   <2.000, 1.500, 0.000>
-  right     x*image_width/image_height
-
-  angle 40.00
+    perspective
+    location <3.66980684, 4.49686475, -1.8535155>
+    look_at  <0, 1, 0>
+    angle 40.625
 }
-// create a point "spotlight" (conical directed) light source
-light_source {
-  <0,0,0>                 // light's position (translated below)
-  color rgb <1,1,1>       // light's color
-  spotlight               // this kind of light source
-  translate <40, 80, -40> // <x y z> position of light
-  point_at <0, 0, 0>      // direction of spotlight
-  radius 5                // hotspot (inner, in degrees)
-  tightness 50            // tightness of falloff (1...100) lower is softer, higher is tighter
-  falloff 8               // intensity falloff radius (outer, in degrees)
+
+// Key Light (Warm, Primary)
+light_source { <6.0, 8.0, -6.0>, color rgb <1.0, 0.95, 0.88> * 1.2 }
+// Fill Light (Cool, Soft)
+light_source { <-6.0, 4.0, -4.0>, color rgb <0.7, 0.8, 1.0> * 0.5 shadowless }
+// Rim Light (Backlight)
+light_source { <0.0, 6.0, 8.0>, color rgb <1.0, 1.0, 1.0> * 0.8 }
+
+
+// Cylinder #8
+cylinder {
+    <0.0, 0.0, 0.0>, <0.0, 2.5, 0.0>, 0.8
+    translate <7.50, 0.0, 0.0>
+    pigment { color rgb <0.3, 0.8, 0.4> }
+    finish { ambient 0.1 diffuse 0.8 specular 0.3 }
 }
- #include "stars.inc" //------------------------
+plane {
+    y, 0
+    pigment { checker color rgb <0.776, 0.396, 0.169> color rgb <0.75, 0.75, 0.8> scale 1.5 }
+    finish { ambient 0.1 diffuse 0.8 reflection 0.1 }
+}
 
-sphere{ <0,0,0>, 1
-        texture{ Starfield1 } //  1, 2, ... , 6
-        scale 10000
-      } //end of sphere -----------------------
-//---------------------------------------------
 
- cone { <0,0,0>, 0.75, <0,2.00,0>, 0 
-       texture { pigment{ color rgb<0.1,0.4,0.10>*0.8 }                                     
-                 normal { bumps 1.25 scale 0.05} 
-                 finish { phong 1 reflection 0.00}
-               } // end of texture
+// Cone #9
+cone {
+    <0.0, 0.0, 0.0>, 1.20, <0.0, 2.5, 0.0>, 0.0
+    translate <7.60, 2.80, 0.20>
+    texture {
+    pigment { color rgb <1.0, 0.84, 0.0> }
+    finish { ambient 0.1 diffuse 0.5 reflection 0.75 metallic 0.8 specular 0.85 roughness 0.02 }
+    }
+}
 
-       scale<1,1,1>  rotate<0,0,0>  translate<0,0.25,0>  
-     }  // end of cone -------------------------------------- 
+
+
+// Torus #10
+torus {
+    1.50, 0.4
+    rotate <0, 0, 0>
+    translate <7.70, 2.50, 0.50>
+    texture {
+    pigment { color rgbf <0.2, 0.85, 0.4, 0.8> }
+    finish { ambient 0.08 diffuse 0.2 reflection 0.25 specular 0.9 roughness 0.01 }
+    }
+    interior { ior 1.58 }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

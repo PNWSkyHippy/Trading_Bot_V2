@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependenci
+dependencies = []
 line-length = 160 # Increase from 88 to 120 (or higher) to keep your lines wide and compactes = []
 
 [tool.black]
