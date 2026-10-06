@@ -11,26 +11,83 @@ class OpOverloaded:
         self.value = input
 
     def lt(self, a, b):
-        """lt(a, b) is equivalent to a < b,"""
-        return a.value < b
+        # Case 1: 'other' is another MyClass object
+        if isinstance(b, OpOverloaded):
+            return a.get_value()  < b.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(b, (int), float):
+            return a.get_value() < b
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
 
     def le(self, a, b):
-        """le(a, b) is equivalent to a <= b,"""
-        return a.value <= b
+     # Case 1: 'other' is another MyClass object
+        if isinstance(b, OpOverloaded):
+            return a.get_value()  <=  b.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(b, (int), float):
+            return a.get_value() <= b
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
 
     def eq(self, a, b):
-        """eq(a, b) is equivalent to a == b,"""
-        return a.value == b.value
+     # Case 1: 'other' is another MyClass object
+        if isinstance(b, OpOverloaded):
+            return a.get_value()  == b.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(b, (int), float):
+            return a.get_value() == b
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
 
     def ne(self, a, b):
-        """ne(a, b) is equivalent to a != b,"""
-        return a.value != b.value
+     # Case 1: 'other' is another MyClass object
+        if isinstance(b, OpOverloaded):
+            return a.get_value()  != b.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(b, (int), float):
+            return a.get_value() != b
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
 
     def ge(self, a, b):
-        """ge(a, b) is equivalent to a >= b,"""
-        return a.value >= b
+     # Case 1: 'other' is another MyClass object
+        if isinstance(b, OpOverloaded):
+            return a.get_value()  >= b.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(b, (int), float):
+            return a.get_value() >= b
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
+   
 
     def gt(self, a, b):
+     # Case 1: 'other' is another MyClass object
+        if isinstance(b, OpOverloaded):
+            return a.get_value()  >b.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(b, (int), float):
+            return a.get_value() <> b
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
         """gt(a, b) is equivalent to a > b,"""
         return a.value > b
 
@@ -59,24 +116,51 @@ class OpOverloaded:
         return self.gt(self, other)
 
     def not_(self, other):
-        """not_(self, other) is equivalent to not self == other,"""
-        return not self.eq(self, other)
+     # Case 1: 'other' is another MyClass object
+        if isinstance(other, OpOverloaded):
+            return  not self.eq(self.get_value(), other.get_value())
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(other, (int), float):
+            return not self.eq(self.get_value() < other)
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
+
 
     def __not__(self, other):
         """__not__(self, other) is equivalent to not self == other,"""
         return self.not_(other)
 
     def truth(self):
+     # Case 1: 'other' is another MyClass object
         """truth(self) is equivalent to self == self,"""
         return self.eq(self, self)
 
     def is_(self, other):
-        """is_(self, other) is equivalent to self is other,"""
-        return self is other
+     # Case 1: 'other' is another MyClass object
+        if isinstance(other, OpOverloaded):
+            return self is other
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(other, (int), float):
+            return self.get_value() is other
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
 
     def is_not(self, other):
-        """is_not(self, other) is equivalent to self is not other,"""
-        return not self.eq(self, other)
+     # Case 1: 'other' is another MyClass object
+        if isinstance(other, OpOverloaded):
+            return not self.eq(self, other)
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(other, (int), float):
+            return not self.eq(self.get_value(), other)
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
 
     def is_none(self):
         """is_none(self) is equivalent to self is None,"""
@@ -91,28 +175,62 @@ class OpOverloaded:
         return self if self.ge(self, 0) else -self
 
     def add(self, other):  # is equivalent to self + other
-        return self.value + other.value
+     # Case 1: 'other' is another MyClass object
+        if isinstance(other, OpOverloaded):
+            return self.get_value()  + other.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(other, (int), float):
+            return self.get_value() + other
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
 
     def __add__(self, other):
         """__add__(self, other) is equivalent to self + other,"""
         return self.add(other)
 
     def and_(self, other):
-        """and_(self, other) is equivalent to self and other,"""
-        return self.value and other.value
+     # Case 1: 'other' is another MyClass object
+        if isinstance(other, OpOverloaded):
+            return self.get_value() and  other.get_value()
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(other, (int), float):
+            return self.get_value() and other
 
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
+
+  
     def __and__(self, other):
         """__and__(self, other) is equivalent to self and other,"""
         return self.and_(other)
 
     def floordiv(self, other):
-        """floordiv(self, other) is equivalent to self // other,"""
-        res = 0
-        try:
-            res = self.value // other.value
-        except ZeroDivisionError:
-            res = 0
-        return res
+     # Case 1: 'other' is another MyClass object
+        rep = 0
+        if isinstance(other, OpOverloaded):
+            try:
+                rep = self.get_value() // other.get_value()
+            except ZeroDivisionError:
+                rep = 0
+            return re
+      
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(other, (int), float):
+            try:
+                rep = self.get_value() // other
+            except ZeroDivisionError:
+                rep = 0
+            return rep
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
+
+    
 
     def __floordiv__(self, other):
         """__floordiv__(self, other) is equivalent to self // other,"""
@@ -120,7 +238,16 @@ class OpOverloaded:
 
     def index(self, other):
         """index(self, other) is equivalent to self[other],"""
-        return self[other.value]
+     # Case 1: 'other' is another MyClass object
+        if isinstance(self, List) and isinstance(other, OpOverloaded):
+            return self[other.getvalue()]
+        
+        # Case 2: 'other' is an int or float (e.g., a += 5)
+        elif isinstance(other, (int), float):
+            return self[other]
+
+        # Case 3: We don't know how to handle this type
+        return NotImplemented
 
         def __index__(self, other):
             """__index__(self, other) is equivalent to self[other],"""

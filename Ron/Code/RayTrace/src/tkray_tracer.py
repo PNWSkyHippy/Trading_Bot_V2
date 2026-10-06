@@ -703,6 +703,8 @@ class LiveRayTraceViewer(ToolView):
         self.smooth_var = _CheckboxVarWrapper(False)
         self.sharpen_var = _CheckboxVarWrapper(False)
         self.debug_var = _CheckboxVarWrapper(False)
+        self.adjustments_win = None
+        self.adjustments_form = None
         self.rotation = 0.0
         self.contrast = 1.0
         self.color = 1.0
@@ -1442,10 +1444,17 @@ class LiveRayTraceViewer(ToolView):
         if form_values:
             self.form.set_values(form_values)
 
-        self.blur_var.set(self.blur)
-        self.contour_var.set(self.contour)
-        self.smooth_var.set(self.smooth)
-        self.sharpen_var.set(self.sharpen)
+        for var_name, val in (
+            ("blur_var", self.blur),
+            ("contour_var", self.contour),
+            ("smooth_var", self.smooth),
+            ("sharpen_var", self.sharpen),
+        ):
+            var = getattr(self, var_name, None)
+            if var is None:
+                setattr(self, var_name, _CheckboxVarWrapper(val))
+            else:
+                var.set(val)
 
         adjustments_form = getattr(self, "adjustments_form", None)
         if adjustments_form is not None:
@@ -1616,10 +1625,12 @@ class LiveRayTraceViewer(ToolView):
                 "aspratio": self.aspratio,
             }
         )
-        self.blur_var.set(False)
-        self.contour_var.set(False)
-        self.smooth_var.set(False)
-        self.sharpen_var.set(False)
+        for var_name in ("blur_var", "contour_var", "smooth_var", "sharpen_var"):
+            var = getattr(self, var_name, None)
+            if var is None:
+                setattr(self, var_name, _CheckboxVarWrapper(False))
+            else:
+                var.set(False)
 
         adjustments_form = getattr(self, "adjustments_form", None)
         if adjustments_form is not None:
@@ -1798,10 +1809,12 @@ class LiveRayTraceViewer(ToolView):
                 "aspratio": self.aspratio,
             }
         )
-        self.blur_var.set(False)
-        self.contour_var.set(False)
-        self.smooth_var.set(False)
-        self.sharpen_var.set(False)
+        for var_name in ("blur_var", "contour_var", "smooth_var", "sharpen_var"):
+            var = getattr(self, var_name, None)
+            if var is None:
+                setattr(self, var_name, _CheckboxVarWrapper(False))
+            else:
+                var.set(False)
 
         adjustments_form = getattr(self, "adjustments_form", None)
         if adjustments_form is not None:
