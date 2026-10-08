@@ -1,4 +1,89 @@
-class Point3d:
+import math
+from opoverloaded import OpOverloaded
+import local_functions
+import numpy as np
+
+def rotate_x_3d(point, angle_rad):
+    """
+    Rotates a 3D point or vector [x, y, z] around the X-axis by angle_rad.
+    Accepts both a single 1D array/list or a batch array of shape (N, 3).
+    """
+    v = np.array([point.get_x(), point.get_y(), point.get_z()], dtype=float)
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
+    
+    # If a single 3D coordinate/vector is passed
+    if v.ndim == 1:
+        x, y, z = point.get_xyz()
+        x_rot = x
+        y_rot = y * cos_a - z * sin_a
+        z_rot = y * sin_a + z * cos_a
+        return Point3d(x_rot, y_rot, z_rot)
+
+def rotate_y_3d(point, angle_rad):
+    """Rotates a 3D point/vector around the Y-axis."""
+    v = np.array([point.get_x(), point.get_y(), point.get_z()], dtype=float)
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
+
+    # If a single 3D coordinate/vector is passed
+    if v.ndim == 1:
+        x, y, z = point.get_xyz()
+        y_rot = y
+        x_rot = x * cos_a + z * sin_a
+        z_rot = -x * sin_a + z * cos_a
+        return Point3d(x_rot, y_rot, z_rot)
+    
+   
+def rotate_z_3d(point, angle_rad):
+    """Rotates a 3D point/vector around the Z-axis."""
+    v = np.array([point.get_x(), point.get_y(), point.get_z()], dtype=float)
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
+
+    if v.ndim == 1:
+        x, y, z = point.get_xyz()
+        z_rot = z
+        x_rot = x * cos_a - y * sin_a
+        y_rot = x * sin_a + y * cos_a
+        return Point3d(x_rot, y_rot, z_rot)
+ 
+def rotate_around_vector(point, axis_vector, angle_rad):
+    """
+    Rotates a 3D point/vector around an arbitrary 3D axis vector 
+    using Rodrigues' rotation formula.
+    """
+    v = np.array([point.get_x(), point.get_y(), point.get_z()], dtype=float)
+    # Ensure the axis vector is a unit vector (length of 1)
+    axis = np.array((axis_vector.get_x(), axis_vector.get_y(), axis_vector.get_z()), dtype=float)
+
+    axis_norm = np.linalg.norm(axis)
+    if axis_norm == 0:
+        raise ValueError("Rotation axis cannot be a zero vector.")
+    k = axis / axis_norm  # Normalized axis
+    
+    cos_a = np.cos(angle_rad)
+    sin_a = np.sin(angle_rad)
+    if v.ndim == 1:
+        # Rodrigues' formula for a single vector
+        v_rot = v * cos_a + np.cross(k, v) * sin_a + k * np.dot(k, v) * (1 - cos_a)
+        return Point3d(v_rot[0], v_rot[1], v_rot[2])
+
+
+
+def rotate_line_x_3d(line, angle_rad):
+    """
+    Rotates a 3D line around the X-axis by angle_rad.
+    Accepts both a single 1D array/list or a batch array of shape (N, 3).
+    """
+    start = line.get_start()
+    end = line.get_end()
+    start_rot = rotate_x_3d(start, angle_rad)
+    end_rot = rotate_x_3d(end, angle_rad)
+    return Line3d(start_rot, end_rot)
+
+
+class Point3d(OpOverloaded):
     """Store and manipulate a 3d X,Y,Z coordinate
     methods: get_x, get_y, get_z return x,y,or z
     move(newx,newy,newz) translates x+newx,y+newy,z+newz
@@ -11,13 +96,12 @@ class Point3d:
         self._y = y
         self._z = z
 
- 
     def set_x(self, val):
         self._x  - val
 
     # Report current color
     def get_x(self):
-        return self_x
+        return self._x
 
     @property
     def x(self):
@@ -25,24 +109,26 @@ class Point3d:
     
     @x.setter
     def x(self, val):
-        se;f._x = val 
+        self._x = val 
         
     def set_y(self, val):
         self._y - val
 
     # Report current color
     def get_y(self):
-        return self,_y
+        return self._y
+    
 
     @property
     def y(self):
-        return self_y
+        return self._y
     
     @y.setter
     def y(self, val):
         self._y = val
 
-    def set_z(self, val)
+
+    def set_z(self, val):
         self._z = val
 
     def get_z(self):
@@ -54,7 +140,15 @@ class Point3d:
     
     @z.setter
     def z(self, val):
-        seel._z = val
+        self._z = val
+
+    def get_xyz(self):
+        return (self._x, self._y, self._z)
+    
+    def set_xyz(self, newx, newy, newz):
+        self._x = newx
+        self._y = newy
+        self._z = newz
 
     # translate x,y,z to new x,y,z
     def move(self, dx, dy, dz):
@@ -62,6 +156,7 @@ class Point3d:
         self._y = self._y + dy
         self._z = self._z + dz
 
+    # Return state of Line3d object
     # Return state of point object
     def __str__(self):
         return f"Point3D(x={self._x},y={self._y},z={self._z})\n"
@@ -99,8 +194,8 @@ class ColoredPixel(Point3d):
         super().set_x(val)
 
     # Report current color
-    def get_cxr(self):
-        return suoer().get_x()
+    def get_x(self):
+        return super().get_x()
 
     @property
     def x(self):
@@ -111,7 +206,7 @@ class ColoredPixel(Point3d):
         super().set_x(val) 
         
     def set_y(self, val):
-        super().set_y(va;)
+        super().set_y(val)
 
     # Report current color
     def get_y(self):
@@ -126,11 +221,11 @@ class ColoredPixel(Point3d):
         super().set_y(val)
 
     # Change color ofpixel
-    def set_z(self, val)
+    def set_z(self, val):
         super().set_z(val)
 
     def get_z(self):
-        return parent().get_z()
+        return super().get_z()
 
     @property
     def z(self):
@@ -159,16 +254,30 @@ class Line3d:
     def get_start(self):
         return self._start_point
 
+    def length(self):
+        return math.sqrt(self.length_squared())
+
+    def length_squared(self):
+        xx = self._end_point.get_x() - self._start_point.get_x()
+        yy = self._end_point.get_y() - self._start_point.get_y()
+        zz = self._end_point.get_z() - self._start_point.get_z()
+        return xx * xx + yy * yy + zz * zz
+ 
+    # Move the line by dx, dy, dz
+    def move(self, dx, dy, dz):
+        self._start_point.move(dx, dy, dz)
+        self._end_point.move(dx, dy, dz)
+        
+    # Rotate the line around the x-axis
+    def rotate_x(self, angle):
+        # Implementation for rotating around the x-axis
+        self._start_point.rotate_x(angle)
+        self._end_point.rotate_x(angle)
+
     # Return end point
     def get_end(self):
         return self._end_point
 
-    # Translate both start and end points by dx,dy,dz
-    def move(self, dx, dy, dz):
-        self._start_point.move(dx, dy, dz)
-        self._end_point.move(dx, dy, dz)
-
-    # Return state of Line3d object
     def __str__(self):
         return f"Line3D(start=Point3d(x={self._start_point.get_x()}, y={self._start_point.get_y()}, z={self._start_point.get_z()}), end=Point3d(x={self._end_point.get_x()}, y={self._end_point.get_y()}, z={self._end_point.get_z()}))\n"
 
@@ -208,10 +317,10 @@ point1 = Point3d(1, 1, 1)
 point2 = Point3d(1, 6, 1)
 point3 = Point3d(1, 6, 1)
 point4 = Point3d(6, 6, 1)
-point5 = Point3d(6, 6, 1)
-point6 = Point3d(6, 1, 1)
-point7 = Point3d(6, 1, 1)
-point8 = Point3d(1, 1, 1)
+point5 = Point3d(6, 6, 5)
+point6 = Point3d(6, 1, 5)
+point7 = Point3d(6, 1, 5)
+point8 = Point3d(1, 1, 5)
 red_pixel = ColoredPixel(1, 1, 0, "red")
 line1 = Line3d(point1, point2)
 line2 = Line3d(point3, point4)
@@ -225,3 +334,43 @@ print(line1)
 print(plane)
 plane.move(1, 1, 1)
 print(plane)
+
+# --- Example Usage ---
+angle = 0.180  # Angle in radians
+
+# 1. Representing a 3D Line: Line = Point + t * Vector
+line_point = line2
+line_vector =  line4
+
+line_point_rot = rotate_line_x_3d(line_point, angle)
+line_vector_rot = rotate_line_x_3d(line_vector, angle)
+
+
+# --- Example Usage ---
+angle = 0.45
+arbitrary_axis = point1 # Diagonal axis
+sample_point = point7
+
+print("Original Point      :", point2)
+print("Rotated around Y    :", rotate_y_3d(point2, angle))
+print("Rotated around Z    :", rotate_z_3d(point3, angle))
+print("Rotated around Vector:", rotate_around_vector(point4, arbitrary_axis, angle))
+
+# 2. Representing a 3D Plane: Defined by a point and two spanning vectors
+#plane_point = np.array([0.0, 0.0, 5.0])
+#plane_v1 = np.array([1.0, 0.0, 0.0])
+#plane_v2 = np.array([0.0, 2.0, -1.0])
+
+#plane_point_rot = rotate_x_3d(plane_point, angle)
+#plane_v1_rot = rotate_x_3d(plane_v1, angle)
+#plane_v2_rot = rotate_x_3d(plane_v2, angle)
+
+# --- Output Verification ---
+print("--- ROTATED LINE ---")
+print(f"Original Point : {line_point}  -> Rotated: {line_point_rot}")
+print(f"Original Vector: {line_vector}  -> Rotated: {line_vector_rot}\n")
+
+#print("--- ROTATED PLANE ---")
+#print(f"Original Point : {plane_point}  -> Rotated: {plane_point_rot}")
+#print(f"Original Vector 1: {plane_v1}  -> Rotated: {plane_v1_rot}")
+#p#rint(f"Original Vector 2: {plane_v2}  -> Rotated: {plane_v2_rot}")

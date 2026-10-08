@@ -3,5 +3,6 @@
         "mycanvas",
         "padx",
         "tilesize"
-    ]
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }
