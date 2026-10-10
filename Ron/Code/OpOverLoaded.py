@@ -12,7 +12,7 @@ Supports:
 - Custom classes with get_value() / .value or custom __add__, __sub__, etc.
 - Seamless inheritance with optional wrapped result via `wrap=True`
 """
-
+from class3d import Point3d, Line3d, Square3d, Cube3d
 import math
 import operator
 from typing import Any
@@ -42,6 +42,8 @@ class OpOverloaded:
         """
         if hasattr(obj, "get_value") and callable(obj.get_value):
             return obj.get_value()
+        if hasattr(obj, "get_xyz") and callable(obj, get_xyz):
+            return obj,get_xyz()
         if hasattr(obj, "value"):
             return obj.value
         return obj
@@ -78,10 +80,13 @@ class OpOverloaded:
         """lt(self, other) is equivalent to self < other"""
         a = self._extract_value(self)
         b = self._extract_value(other)
-        try:
-            return a < b
-        except TypeError:
-            return NotImplemented
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            return (a.get_x() < b.get_x()) and (a.get_y() < b.get_y()) and (a.get_z() < b.get_z())
+        else:
+            try:
+                return a < b
+            except TypeError:
+                return NotImplemented
 
     def __lt__(self, other: Any) -> bool:
         return self.lt(other)
@@ -90,10 +95,13 @@ class OpOverloaded:
         """le(self, other) is equivalent to self <= other"""
         a = self._extract_value(self)
         b = self._extract_value(other)
-        try:
-            return a <= b
-        except TypeError:
-            return NotImplemented
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            return (a.get_x() <= b.get_x()) and (a.get_y() <= b.get_y()) and (a.get_z() <= b.get_z())
+        else:
+            try:
+                return a <= b
+            except TypeError:
+                return NotImplemented
 
     def __le__(self, other: Any) -> bool:
         return self.le(other)
@@ -102,10 +110,14 @@ class OpOverloaded:
         """gt(self, other) is equivalent to self > other"""
         a = self._extract_value(self)
         b = self._extract_value(other)
-        try:
-            return a > b
-        except TypeError:
-            return NotImplemented
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            return (a.get_x() > b.get_x()) and (a.get_y() > b.get_y()) and (a.get_z() > b.get_z())
+        else:
+            try:
+                return a > b
+            except TypeError:
+                return NotImplemented
+ 
 
     def __gt__(self, other: Any) -> bool:
         return self.gt(other)
@@ -114,10 +126,13 @@ class OpOverloaded:
         """ge(self, other) is equivalent to self >= other"""
         a = self._extract_value(self)
         b = self._extract_value(other)
-        try:
-            return a >= b
-        except TypeError:
-            return NotImplemented
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            return (a.get_x() >= b.get_x()) and (a.get_y() >= b.get_y()) and (a.get_z() >= b.get_z())
+        else:
+            try:
+                return a >= b
+            except TypeError:
+                return NotImplemented
 
     def __ge__(self, other: Any) -> bool:
         return self.ge(other)
@@ -127,7 +142,10 @@ class OpOverloaded:
     # -------------------------------------------------------------------------
     def is_(self, other: Any) -> bool:
         """is_(self, other) is equivalent to self is other"""
-        return self._extract_value(self) is self._extract_value(other)
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            return (self.get_x() is other.get_x()) and (self.get_y() is other.get_y()) and (self.get_z() is  other.get_z())
+        else:
+            return self._extract_value(self) is self._extract_value(other)
 
     def is_not(self, other: Any) -> bool:
         """is_not(self, other) is equivalent to self is not other"""
@@ -167,10 +185,13 @@ class OpOverloaded:
         if b is None:
             return a
         # 1. Direct Python addition
-        try:
-            return a + b
-        except TypeError:
-            pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            return ((a.get_x() + b.get_x()) ,(a.get_y() + b.get_y()) , (a.get_z() + b.get_z()))
+        else:
+            try:
+                return a + b
+            except TypeError:
+                pass
 
         # 2. Dict + Dict (recursive merge for dict of lists/numbers)
         if isinstance(a, dict) and isinstance(b, dict):
@@ -237,6 +258,9 @@ class OpOverloaded:
             return a - b
         except TypeError:
             pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            ret_type = tpye(a)
+            return ret_type((a.get_x() - b.get_x()), (a.get_y() - b.get_y()) ,(a.get_z() - b.get_z()))
         if isinstance(a, (set, frozenset)):
             return a - set(b) if isinstance(b, (list, tuple)) else a - {b}
         if isinstance(a, list):
@@ -274,6 +298,9 @@ class OpOverloaded:
             return a * b
         except TypeError:
             pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            ret_type = tpye(a)
+            return ret_type((a.get_x() * b.get_x()), (a.get_y() * b.get_y()) ,(a.get_z() * b.get_z()))
         if isinstance(a, dict):
             if isinstance(b, dict):
                 return {k: cls._combine_mul(a[k], b[k]) for k in a.keys() & b.keys()}
@@ -311,6 +338,9 @@ class OpOverloaded:
             return self._wrap(a @ b, wrap)
         except (TypeError, ValueError):
             pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            ret_type = tpye(a)
+            return ret_type((a.get_x() @ b.get_x()), (a.get_y() @ b.get_y()) ,(a.get_z() @ b.get_z()))
         if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
             try:
                 return self._wrap(sum(x * y for x, y in zip(a, b)), wrap)
@@ -337,6 +367,9 @@ class OpOverloaded:
             return a / b
         except (TypeError, ZeroDivisionError):
             pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            ret_type = tpye(a)
+            return ret_type((a.get_x() / b.get_x()), (a.get_y() / b.get_y()) ,(a.get_z() / b.get_z()))
         if isinstance(a, dict):
             if isinstance(b, dict):
                 return {k: cls._combine_truediv(a[k], b[k]) for k in a.keys() & b.keys()}
@@ -373,6 +406,10 @@ class OpOverloaded:
             return a // b
         except (TypeError, ZeroDivisionError):
             pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            ret_type = tpye(a)
+            return ret_type((a.get_x() // b.get_x()), (a.get_y() // b.get_y()) ,(a.get_z() // b.get_z()))
+
         if isinstance(a, dict):
             if isinstance(b, dict):
                 return {k: cls._combine_floordiv(a[k], b[k]) for k in a.keys() & b.keys()}
@@ -407,6 +444,9 @@ class OpOverloaded:
             return a % b
         except (TypeError, ZeroDivisionError):
             pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            ret_type = tpye(a)
+            return ret_type((a.get_x() % b.get_x()), (a.get_y() % b.get_y()) ,(a.get_z() % b.get_z()))
         if isinstance(a, (list, tuple)):
             return type(a)(cls._combine_mod(x, b) for x in a)
         if isinstance(a, dict):
@@ -449,6 +489,10 @@ class OpOverloaded:
             return pow(a, b, mod) if mod is not None else a ** b
         except (TypeError, ValueError):
             pass
+        if hasattr(a, "get_xyz") and callable(a, get_xyz):
+            ret_type = tpye(a)
+            return ret_type(pow(a.get_x(), b.get_x(),mod), pow(a.get_y(),b.get_y(),mod) ,pow(a.get_z() , b.get_z(),mod))
+
         if isinstance(a, (list, tuple)):
             return type(a)(cls._combine_pow(x, b) for x in a)
         if isinstance(a, dict):
@@ -691,6 +735,9 @@ class OpOverloaded:
         try:
             return -a
         except TypeError:
+            if hasattr(self, "get_xyz") and callable(self, get_xyz):
+                ret_type = tpye(self)
+                return ret_type(-a.get_x(), -a.get_y() ,a.get_z() )
             if isinstance(a, (list, tuple)):
                 return type(a)(-x for x in a)
             if isinstance(a, dict):
@@ -717,6 +764,10 @@ class OpOverloaded:
         try:
             return abs(a)
         except TypeError:
+            if hasattr(self, "get_xyz") and callable(self, get_xyz):
+                ret_type = tpye(self)
+                return ret_type(abs(a.get_x()) , abs(a.get_y()), abs(a.get_z()))
+
             if isinstance(a, (list, tuple)):
                 if all(isinstance(x, (int, float)) for x in a):
                     return math.hypot(*a)
@@ -734,6 +785,10 @@ class OpOverloaded:
         try:
             return ~a
         except TypeError:
+            if hasattr(self, "get_xyz") and callable(self, get_xyz):
+                ret_type = tpye(self)
+                return ret_type(~a.get_x(), ~a.get_y() ,~a.get_z())
+
             if isinstance(a, bool):
                 return not a
             if isinstance(a, (list, tuple, str)):
@@ -980,12 +1035,7 @@ def main():
     d2 = {"tags": ["beginner", "advanced"], "score": 10, "author": "Ron"}
     print(f"Dict of lists merge: {d1 + d2}")
 
-    # 4. Vector3D Subclass test
-    v1 = Vector3D(10, 20, 30)
-    v2 = Vector3D(1, 2, 3)
-    print(f"Vector3D + Vector3D: {v1 + v2}")
-    print(f"Vector3D + scalar: {v1 + 5}")
-    print(f"Vector3D magnitude abs(v1): {abs(v1):.2f}")
+  
 
 
 if __name__ == "__main__":

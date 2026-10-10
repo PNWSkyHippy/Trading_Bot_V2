@@ -1,0 +1,13 @@
+Name,Cost,Currency,Billing Cycle,Next Renewal,Category,Notes,Alt Weekly Price,Alt Monthly Price,Alt Quarterly Price,Alt Yearly Price,Kind,Status,Auto Pay,Reminder Days,Catalog Id,Last Paid
+Rent,700,USD,monthly,2026-11-01,CostOfLiving,,,,,,,,,1,,
+Hostinger VPS,24.49,USD,monthly,2026-10-29,,,,,,,,,,1,,
+Chatgpt,21.7,USD,monthly,2026-10-30,Trading,,,,,,,,,2,,
+Centurylink,73.5,USD,monthly,2026-12-01,Utilities,,,,,,,,,1,,2026-10-08
+Claude,21.72,USD,monthly,2026-10-29,Trading,,,,,,,,,2,,
+BoostMobile,69.44,USD,monthly,2026-10-30,Utilities,,,,,,,,,1,,
+Electric,175,USD,monthly,2026-11-01,Utilities,,,,,,,,,3,,
+Geico,79.41,USD,monthly,2026-10-28,Utilities,,,,,,,,,1,,
+Pornhub,14.99,USD,monthly,2026-10-08,New category,My test note,,,,,subscription,active,yes,3,,
+Sling TV,45.99,USD,monthly,2026-11-08,Live TV,,,,,,subscription,active,yes,3,sling,2026-10-08
+CME Group level 1,12,USD,monthly,2026-11-01,Trading,,,,,,,,,1,,
+ESPN+,11.99,USD,monthly,2026-10-08,Streaming,,,,,119.99,subscription,cancelled,yes,3,espn-plus,

@@ -33116,6 +33116,45 @@
                     drawGridLine({ x, y, z: minZ }, { x, y, z: maxZ }, isMajorAxis(x));
                 }
             }
+            renderMapAxisLines(origin, bounds, centerX, centerY, fov, drawMapLine);
+        }
+
+        // World X/Y/Z reference axes (red/green/blue) through the grid origin; shown
+        // and hidden together with the edit grid. Bright = positive half, dim = negative.
+        const MAP_AXIS_SPECS = [
+            { key: 'x', label: 'X', pos: '#ff5555', neg: 'rgba(255,85,85,0.35)' },
+            { key: 'y', label: 'Y', pos: '#55ff77', neg: 'rgba(85,255,119,0.35)' },
+            { key: 'z', label: 'Z', pos: '#5599ff', neg: 'rgba(85,153,255,0.35)' }
+        ];
+        function renderMapAxisLines(origin, bounds, centerX, centerY, fov, drawMapLine) {
+            const o = { x: origin.x, y: origin.y, z: origin.z };
+            const PIECES = 24; // chunked so the visible part still draws when an end is behind the camera
+            const half = 0.5 * Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY,
+                bounds.maxZ - bounds.minZ, MAP_EDIT_GRID_SPACING * 10);
+            ctx.font = 'bold 13px monospace';
+            ctx.textAlign = 'center';
+            for (const axis of MAP_AXIS_SPECS) {
+                const k = axis.key;
+                for (const [end, color, width, sign] of [[o[k] + half, axis.pos, 2.5, '+'], [o[k] - half, axis.neg, 1.5, '-']]) {
+                    if (!Number.isFinite(end)) continue;
+                    let lastVisible = null;
+                    for (let i = 0; i < PIECES; i++) {
+                        const a = { ...o }, b = { ...o };
+                        a[k] = o[k] + (end - o[k]) * (i / PIECES);
+                        b[k] = o[k] + (end - o[k]) * ((i + 1) / PIECES);
+                        drawMapLine(a, b, color, width, 1);
+                        const pb = projectMapPoint(b, centerX, centerY, fov);
+                        // label sits at the last on-screen piece, so it stays visible when the axis runs off the edge
+                        if (pb && pb.x > 20 && pb.x < canvas.width - 20 && pb.y > 20 && pb.y < canvas.height - 20) {
+                            lastVisible = pb;
+                        }
+                    }
+                    if (lastVisible) {
+                        ctx.fillStyle = color;
+                        ctx.fillText(sign + axis.label, lastVisible.x, lastVisible.y - 8);
+                    }
+                }
+            }
         }
 
         function rulerPlaneAxes(planeName) {

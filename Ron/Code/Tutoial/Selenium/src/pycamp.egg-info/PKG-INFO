@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: pycamp
+Version: 0.1.1
+Summary: A CLI music player for Bandcamp's Discover page using Python and Selenium
+Author-email: Martin Breuss <martin@realpython.com>, Bartosz Zaczyński <bartosz@realpython.com>
+License-Expression: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Requires-Dist: selenium==4.50.0

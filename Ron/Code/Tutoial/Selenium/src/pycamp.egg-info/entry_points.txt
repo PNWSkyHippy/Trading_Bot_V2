@@ -1,0 +1,3 @@
+[console_scripts]
+discover = bandcamp.__main__:main
+pycamp = bandcamp.__main__:main

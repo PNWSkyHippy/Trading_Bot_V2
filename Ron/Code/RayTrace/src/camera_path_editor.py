@@ -1,4 +1,4 @@
-"""A small Tk camera director: edit plain data, preview it, save it for rendering.
+    """A small Tk camera director: edit plain data, preview it, save it for rendering.
 
 The canvases are inexpensive wireframes, not a second ray tracer. Grid dragging
 changes two coordinates; the XYZ entries also let you set the hidden coordinate.
