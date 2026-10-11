@@ -384,6 +384,29 @@ class _Geometry3d:
             raise ValueError("Scale factor must be a positive number.")
         return self._transform("__imul__", factor)
 
+    def get_perpendicular_vectors(self,v):
+
+        # Make sure the input vector is normalized
+        lv = v.get_end()
+        v = np.array((lv.get_x(), lv.get_y(), lv.get_z()))
+        v = v / np.linalg.norm(v)
+    
+        # Pick the axis with the smallest absolute value to project onto cleanly
+        if abs(v[0]) < abs(v[1]):
+            # Swap Y and Z, negate one, zero out X
+            p = np.array([0, -v[2], v[1]])
+        else:
+            # Swap X and Z, negate one, zero out Y
+            p = np.array([-v[2], 0, v[0]])
+        
+        # Normalize our newly found perpendicular vector
+        p = p / np.linalg.norm(p)
+
+        # Now use the cross product of your 1st vector and the new perpendicular
+        # vector to get the third orthogonal normal axis!
+        normal = np.cross(v, p)
+    
+        return p, normal
 
 class Line3d(_Geometry3d, OpOverloaded):
     """Store and manipulate a 3d line segment methods: get_start, get_end return start or end Point3d
@@ -497,20 +520,20 @@ class Vector3d(Line3d, OpOverloaded):
         self._end_pt.set_xyz(*direction.get_xyz())
 
     def __str__(self):
-        return f"Vector3D(origin={self._start_pt}, direction={self._end_pt})\n"
+        return f"Vector:\torigin={self._start_pt}\tdirection={self._end_pt}\n"
 
     def descr(self):
-        return f"Vector3D(origin={self._start_pt}, direction={self._end_pt})\n"
+        return f"Vector:\torigin={self._start_pt}\tdirection={self._end_pt}\n"
 
     def __repr__(self):
-        return f"Vector3D(origin={self._start_pt}, direction={self._end_pt})\n"
+        return f"Vector:\torigin={self._start_pt}\tdirection={self._end_pt}\n"
 
 
 class Square3d(_Geometry3d, OpOverloaded):
     """Store and manipulate a 3d Square
     methods: get_area returns area of square
     move(newx,newy,newz) translates all four lines
-    """
+    """ 
 
     # Store four boundary edges; centers and dimensions use their current points.
     def __init__(self, line1, line2, line3, line4, bc=None,fc=None):
@@ -544,6 +567,20 @@ class Square3d(_Geometry3d, OpOverloaded):
         # Assumes four boundary edges of a square/rectangle, in order.
         return self._length * self._width
 
+
+    @_area.setter
+    def _area(self, val):
+          raise ValueError("_ar cannot be set mannually. Adjust length or width instead.")
+    
+    @_length.setter
+    def _length(self, val):
+          self._length = val
+
+    @_width.setter
+    def _width(self, val):
+          self._with = val
+
+
     # Calculate and return the area of the square
     def get_area(self):
         return self._area
@@ -576,36 +613,209 @@ class Square3d(_Geometry3d, OpOverloaded):
     def __repr__(self):
         return f"Square:\n\tArea: {self.get_area()} border color: {self.bc()} fill color: {self.fc()}\n\tLine1: {self._line1}\tLine2: {self._line2}\tLine3: {self._line3}\tLine4: {self._line4}"
 
+class Circle3d(_Geometry3d, OpOverloaded):
+    """Circle stored as real Point3d objects so inherited move/rot/scale work.
+
+    _cent, _rad_edge and _norm_tip (center + unit normal) are the only stored
+    geometry; radius, normal, vectors and border are derived on every call.
+    """
+    def __init__(self, center, rad_edge, bc= None, fc=None):
+        self._cent = center.copy()
+        self._rad_edge = rad_edge.copy()
+        radial = self._xyz(self._rad_edge) - self._xyz(self._cent)
+        if np.linalg.norm(radial) == 0:
+            raise ValueError("Circle3d center and edge point cannot be the same point.")
+        # Direction-only vector (from origin) so get_perpendicular_vectors sees end - start.
+        _, norm = self.get_perpendicular_vectors(Vector3d((0, 0, 0), tuple(radial)))
+        self._norm_tip = Point3d(*(self._xyz(self._cent) + norm))
+        self._border_color = bc
+        self._fill_color = fc
+
+    @staticmethod
+    def _xyz(point):
+        return np.array(point.get_xyz(), dtype=float)
+
+    def _points(self):
+        return [self._cent, self._rad_edge, self._norm_tip]
+
+    def get_norm(self):
+        n = self._xyz(self._norm_tip) - self._xyz(self._cent)
+        return n / np.linalg.norm(n)
+
+    def get_vec1(self):
+        return Vector3d(self._cent, self._rad_edge)
+
+    def get_vec2(self):
+        # In-plane unit vector perpendicular to vec1 (normal x vec1).
+        v1 = self._xyz(self._rad_edge) - self._xyz(self._cent)
+        v2 = np.cross(self.get_norm(), v1)
+        return v2 / np.linalg.norm(v2)
+
+    def get_center(self):
+        return self._cent
+
+    def set_center(self, new_c):
+        # Move the whole shape so its center lands on new_c.
+        d = self._xyz(new_c) - self._xyz(self._cent)
+        self.move(*d)
+
+    def get_radius(self):
+        return self.get_vec1().length()
+
+    def set_radius(self, new_r):
+        v1 = self._xyz(self._rad_edge) - self._xyz(self._cent)
+        self._rad_edge.set_xyz(*(self._xyz(self._cent) + v1 / np.linalg.norm(v1) * new_r))
+
+    def get_border(self):
+        return 2 * math.pi * self.get_radius()
+
+    def get_bc(self):
+        return self._border_color
+
+    def set_bc(self, new_bc):
+        self._border_color = new_bc
+
+    def get_fc(self):
+        return self._fill_color
+
+    def set_fc(self, nwe_fc):
+        self._fill_color = nwe_fc
+
+    def __str__(self):
+        return f'Circle3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bv={self.get_border()}'
+
+    def __repr__(self):
+        return f'Circle3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\t normal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+
+    def descr(self):
+        return f'Circle3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+
+
+class Cylinder3d(Circle3d):
+    """Circle base plus a stored _top point (center + normal * height)."""
+    def __init__(self, center, rad_edge, height, bc=None, fc=None):
+        super().__init__(center, rad_edge, bc, fc)
+        self._top = Point3d(*(self._xyz(self._cent) + self.get_norm() * height))
+
+    def _points(self):
+        return super()._points() + [self._top]
+
+    def get_top(self):
+        return self._top
+
+    def get_area(self):
+        r = self.get_radius()
+        return 2 * math.pi * r * self.get_height() + 2 * (math.pi * (r * r))
+
+    def get_height(self):
+        return float(np.linalg.norm(self._xyz(self._top) - self._xyz(self._cent)))
+
+    def get_volume(self):
+        r = self.get_radius()
+        return math.pi * (r * r) * self.get_height()
+
+    def set_height(self, new_h):
+        self._top.set_xyz(*(self._xyz(self._cent) + self.get_norm() * new_h))
+
+    def __str__(self):
+        return f'Cylinder3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+
+    def __repr__(self):
+        return f'Cylinder3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+
+    def __descr__(self):
+        return f'Cylinder3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+
+class Cone3d(Circle3d):
+    """Circle base plus a stored _top apex point (center + normal * height)."""
+    def __init__(self, center, rad_edge, height, bc=None, fc=None):
+        super().__init__(center, rad_edge, bc, fc)
+        self._top = Point3d(*(self._xyz(self._cent) + self.get_norm() * height))
+
+    def _points(self):
+        return super()._points() + [self._top]
+
+    def get_apex(self):
+        return self._top
+
+    def get_height(self):
+        return float(np.linalg.norm(self._xyz(self._top) - self._xyz(self._cent)))
+
+    def set_height(self, new_h):
+        self._top.set_xyz(*(self._xyz(self._cent) + self.get_norm() * new_h))
+
+    def get_slant_height(self):
+        r, h = self.get_radius(), self.get_height()
+        return math.sqrt((r * r) + (h * h))
+
+    def get_area(self):
+        r = self.get_radius()
+        return math.pi * r * self.get_slant_height() + math.pi * (r * r)
+
+    def get_volume(self):
+        r = self.get_radius()
+        return (1/3) * math.pi * (r * r) * self.get_height()
+
+    def __str__(self):
+        return f'Cone3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+
+    def __repl__(self):
+        return f'Cone3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+
+    def __desc__(self):
+        return f'Cone3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+
 class Plane3d(_Geometry3d, OpOverloaded):
 
-    def __init__(self,vec1,):
-        self._vector1 = vec1
-        self._vector2, self._normal = self.get_perpendicular_vectors(vec1)
+    def __init__(self,vec1,color=None, texture=None):
+        self._vector1 = Vector3d(vec1.get_start(), vec1.get_end())
+        tmp_vec, tmp_norm = self.get_perpendicular_vectors(vec1)
+        self._vector2 = Vector3d(self._vector1.get_origin(),Point3d(tmp_vec[0], tmp_vec[1], tmp_vec[2]))
+        self._normal = tmp_norm
+        self._col = color
+        self._txt = texture
 
+    def get_color(self):
+        return self._col
 
-    def get_perpendicular_vectors(self,v):
+    def set_color(self, color):
+        self._color = color
 
-        # Make sure the input vector is normalized
-        lv = v.get_origin()
-        v = np.array((lv.get_x(), lv.get_y(), lv.get_z()))
-        v = v / np.linalg.norm(v)
+    def get_texture(self):
+        return self._txt
+
+    def set_teture(self, teture):
+        self._txt = teture
+
+    def get_norm(self):
+        return self._normal
     
-        # Pick the axis with the smallest absolute value to project onto cleanly
-        if abs(v[0]) < abs(v[1]):
-            # Swap Y and Z, negate one, zero out X
-            p = np.array([0, -v[2], v[1]])
-        else:
-            # Swap X and Z, negate one, zero out Y
-            p = np.array([-v[2], 0, v[0]])
+    def set_norm(self, norm):
+        self._normal = norm
+
+    def get_vec1(self):
+        return self._vector1
+
+    def set_vec1(elf, vector):
+        self._vector1 = vector
+
+    def get_vec2(self):
+        return self._vector2
+    
+    def set_vec2(elf, vector):
+        self._vector2 = vector
         
-        # Normalize our newly found perpendicular vector
-        p = p / np.linalg.norm(p)
+    def __str__(self):
+        return f"Plane3d:\n\tVect1: {self.get_vec1()}\tvector2: {self.get_vec2()} \tnormal: {self.get_norm()}\n\tcolor: {self.get_color()}\tTexture: {self.get_texture()}\n"
 
-        # Now use the cross product of your 1st vector and the new perpendicular
-        # vector to get the third orthogonal normal axis!
-        normal = np.cross(v, p)
-    
-        return p, normal
+    def descr(self):
+        return f"Plane3d:\n\tVect1: {self.get_vec1()}\tvector2: {self.get_vec2()} \tnormal: {self.get_norm()}\n\tcolor: {self.get_color()}\tTexture: {self.get_texture()}\n"
+
+    def __repr__(self):
+       return f"Plane3d:\n\tVect1: {self.get_vec1()}\tvector2: {self.get_vec2()} \tnormal: {self.get_norm()}\n\tcolor: {self.get_color()}\tTexture: {self.get_texture()}\n"
+
+ 
+
 
 
 class Cube3d(_Geometry3d, OpOverloaded):
@@ -751,6 +961,8 @@ class Cube3d(_Geometry3d, OpOverloaded):
         return (f"{self.get_name()}:\n\t{self._square1}\n\t{self._square2}\n\t{self._square3}\n\t"
                 f"{self._square4}\n\t{self._square5}\n\t{self._square6}\n"
                 f"\tcenter= {self.get_center()}, volume: {self.get_volume()}, fill color: {self.get_fc()}, border color: {self.get_bc()}\n")
+
+#Rectangle3d = Cube3d
 
 class Sphere3d(_Geometry3d, OpOverloaded):
     """ Sphere3d represents a shpere in 3 dementions

@@ -2,6 +2,8 @@ from class3d import *
 from overloaded_inc  import *
 
 def main():
+    point25 = Point3d(0,0,0)
+    point26 = Point3d(0,0,1)
     point1 = Point3d(1, 1, 1)
     point2 = Point3d(1, 6, 1)
     point3 = Point3d(1, 6, 1)
@@ -26,6 +28,13 @@ def main():
     vec1.yrot(.35)
     print(f'vec1 after rotation: {vec1}')
 
+    circle1 = Circle3d(point25, point26, bc="red", fc="green")
+    print(circle1)
+    cylinder1 = Cylinder3d(point25, point26, 25, bc="blue", fc="yellow")
+    print(cylinder1)
+    cone1 =  Cone3d(point25, point26, 25, bc="blue", fc="yellow")
+    #cone2 = cone1.xrot(degtorad(90))
+    #print(cone1)
     red_pixel = ColoredPixel(1, 1, 0, "red")
     print(f'Orig redpixel= {red_pixel}')
     red_pixel.set_color("blue")
@@ -43,6 +52,10 @@ def main():
     
     cube_sqr = Square3d(line5, line6, line7, line8)
     cube2 = Cube3d(cube_sqr)
+    Rectangle3d = Cube3d
+    #breakpoint()
+    rectangle1 = Rectangle3d(cube_sqr, 100, name="rectangle")
+    print(rectangle1)
     print(f'Frseh Made cube2: \n{cube2}')
     cube2.yrot(degtorad(90), pivot="center")
     print(f'cube2 rotated 90 aroud y of center:\n{cube2}')
@@ -50,6 +63,8 @@ def main():
     cube1 = Cube3d(square1)
     rectangle1 = Cube3d(square1, 50, name="Rectangle3d")
     sphere1 = Sphere3d(Point3d(10,10,10), 50,name="sphere1", color="blue")
+
+ #   sphere2 = sphere1.xrot(.5)
     print(point1)
     print(red_pixel)
     print(line1)

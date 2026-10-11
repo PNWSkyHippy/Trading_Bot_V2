@@ -29,6 +29,21 @@ if HERE not in sys.path:
 
 from class3d import (Point3d, ColoredPixel, Line3d, Vector3d, Square3d,  # noqa: E402
                      Cube3d, Sphere3d, _Geometry3d, _rotation_pivot)
+import class3d  # noqa: E402
+
+Plane3d = getattr(class3d, "Plane3d", None)
+Circle3d = getattr(class3d, "Circle3d", None)
+Cylinder3d = getattr(class3d, "Cylinder3d", None)
+Cone3d = getattr(class3d, "Cone3d", None)
+ROUND_TYPES = tuple(c for c in (Circle3d, Cylinder3d, Cone3d) if c)   # Circle3d family
+
+
+def is_lib_plane(obj):
+    return Plane3d is not None and isinstance(obj, Plane3d)
+
+
+def is_round(obj):
+    return bool(ROUND_TYPES) and isinstance(obj, ROUND_TYPES)
 
 SCENE_FILE = os.path.join(HERE, "scene3d.csv")
 DEFAULT_SCRIPT = os.path.join(HERE, "test3d_lib.py")
@@ -37,10 +52,11 @@ DEFAULT_SCRIPT = os.path.join(HERE, "test3d_lib.py")
 ROT_TYPES = sorted((n for n in dir(_Geometry3d)
                     if n.endswith("rot") and callable(getattr(_Geometry3d, n))),
                    key=lambda n: (n == "vecrot", n))
-KINDS = ("point3d", "line3d", "vector3d", "plane3d", "square3d", "cube3d", "sphere3d")
+KINDS = ("point3d", "line3d", "vector3d", "plane3d", "square3d", "cube3d", "sphere3d",
+         "circle3d", "cylinder3d", "cone3d")
 ALIASES = {"rotatex": "xrot", "rotatey": "yrot", "rotatez": "zrot",
            "rotatevec": "vecrot", "rotate": "vecrot", "translate": "move"}
-GEOM_TYPES = (Point3d, Line3d, Square3d, Cube3d, Sphere3d)
+GEOM_TYPES = (Point3d, Line3d, Square3d, Cube3d, Sphere3d) + ((Plane3d,) if Plane3d else ()) + ROUND_TYPES
 WORLD_AXIS = {"xrot": (1, 0, 0), "yrot": (0, 1, 0), "zrot": (0, 0, 1)}
 
 BG = "#1b1d22"
@@ -94,18 +110,53 @@ def points_of(obj):
         return [obj]
     if isinstance(obj, Sphere3d):
         return [obj.get_center()]
+    if is_lib_plane(obj):
+        return [obj.get_vec1().get_start()]
+    if is_round(obj) and not hasattr(obj, "_points"):
+        return [obj.get_center()]
     return list({id(p): p for p in obj._points()}.values())
 
 
 def center_of(obj):
     if isinstance(obj, Point3d):
         return xyz(obj)
+    if is_lib_plane(obj):
+        return xyz(obj.get_vec1().get_start())
     return xyz(obj.get_center())
+
+
+def lib_plane_normal(obj):
+    n = obj.get_norm()
+    return tuple(float(c) for c in (xyz(n) if isinstance(n, Point3d) else n))
+
+
+def round_geom(obj):
+    """(center, unit normal, radius, height or None) of a Circle3d-family object,
+    read through the library's own getters."""
+    ctr = np.array(xyz(obj.get_center()), float)
+    n = obj.get_norm()
+    n = np.array(xyz(n) if isinstance(n, Point3d) else n, float)
+    if not np.all(np.isfinite(n)) or np.linalg.norm(n) == 0:
+        raise ValueError(f"get_norm() returned {n} - see get_perpendicular_vectors")
+    n /= np.linalg.norm(n)
+    h = float(obj.get_height()) if hasattr(obj, "get_height") else None
+    return ctr, n, float(obj.get_radius()), h
+
+
+def ring(ctr, n, r, k=48):
+    """k+1 points around a circle (closed)."""
+    u = np.cross(n, (1.0, 0, 0) if abs(n[0]) < 0.9 else (0, 1.0, 0))
+    u /= np.linalg.norm(u)
+    v = np.cross(n, u)
+    return [ctr + r * (math.cos(2 * math.pi * i / k) * u + math.sin(2 * math.pi * i / k) * v)
+            for i in range(k + 1)]
 
 
 def color_of(obj):
     """(line/border color, fill color) as stored on the object."""
-    if isinstance(obj, (Cube3d, Square3d)):
+    if is_lib_plane(obj):
+        return None, obj.get_color()
+    if isinstance(obj, (Cube3d, Square3d)) or is_round(obj):
         return obj.get_bc(), obj.get_fc()
     if isinstance(obj, (Line3d, Sphere3d, ColoredPixel)):
         return obj.get_color(), None
@@ -289,17 +340,32 @@ def build(e):
     if e.kind == "square3d":
         return make_square(chunks3(n[:12]), c1, c2)
     if e.kind == "plane3d":
-        return make_square(plane_corners(n[0:3], n[3:6], n[6]), c1, c2)
+        sq = make_square(plane_corners(n[0:3], n[3:6], n[6]), c1, c2)
+        sq._viewer_plane = True        # carrier square; drawn as an infinite plane
+        return sq
     if e.kind == "cube3d":
         return make_cube(e.name, chunks3(n[:24]), c1, c2)
     if e.kind == "sphere3d":
         return Sphere3d(Point3d(*n[0:3]), n[3], name=e.name, color=c1)
+    if e.kind in ("circle3d", "cylinder3d", "cone3d"):
+        cls = {"circle3d": Circle3d, "cylinder3d": Cylinder3d, "cone3d": Cone3d}[e.kind]
+        if cls is None:
+            raise ValueError(f"class3d has no {e.kind[:-2].title()}3d")
+        args = (Point3d(*n[0:3]), Point3d(*n[3:6])) + ((n[6],) if e.kind != "circle3d" else ())
+        return cls(*args, bc=c1, fc=c2)
     raise ValueError(f"unknown kind {e.kind}")
 
 
 def entry_from_obj(name, obj):
     """Snapshot a live library object as a scene entry (current geometry)."""
     c1, c2 = (str(c) if c else "" for c in color_of(obj))
+    if is_lib_plane(obj):
+        return Entry("plane3d", name, c2, c2, list(center_of(obj)) + list(lib_plane_normal(obj)) + [10.0])
+    if is_round(obj):                  # center, edge point (vec1's end), height
+        kind = ("cone3d" if Cone3d and isinstance(obj, Cone3d) else
+                "cylinder3d" if Cylinder3d and isinstance(obj, Cylinder3d) else "circle3d")
+        nums = list(xyz(obj.get_center())) + list(xyz(obj.get_vec1().get_end()))
+        return Entry(kind, name, c1, c2, nums + ([obj.get_height()] if kind != "circle3d" else []))
     if isinstance(obj, Sphere3d):
         return Entry("sphere3d", name, c1, "", list(center_of(obj)) + [obj.get_radius()])
     if isinstance(obj, Cube3d):
@@ -350,6 +416,7 @@ def save_scene(path, entries):
         f.write("# viewer3d scene. Object rows: kind,name,color,fill,numbers...\n"
                 "#   point3d x,y,z | line3d/vector3d x1,y1,z1,x2,y2,z2 | square3d 4 corners\n"
                 "#   plane3d px,py,pz,nx,ny,nz,size | cube3d 4 base + 4 top corners | sphere3d cx,cy,cz,r\n"
+                "#   circle3d cx,cy,cz,ex,ey,ez (center, edge point) | cylinder3d/cone3d same + height\n"
                 "# Transform rows follow their object (degrees):\n"
                 "#   xrot|yrot|zrot,deg,pivot   vecrot,deg,ax,ay,az,bx,by,bz,pivot   move,dx,dy,dz   scale,f\n"
                 "#   pivot = default | center | origin | point,x,y,z\n")
@@ -467,6 +534,12 @@ ADD_SPECS = {
     "Sphere": [("Center", "p", "xyz", (0, 0, 0)), ("Radius", "r", "num", 3),
                ("Color", "c1", "color", "dodgerblue")],
 }
+for _label, _cls, _fill in (("Circle", Circle3d, "magenta"), ("Cylinder", Cylinder3d, "orange"),
+                            ("Cone", Cone3d, "gold")):
+    if _cls is not None:
+        ADD_SPECS[_label] = ([("Center", "p", "xyz", (1, 1, 1)), ("Edge point", "e", "xyz", (4, 1, 1))]
+                             + ([("Height", "h", "num", 5)] if _label != "Circle" else [])
+                             + [("Border", "c1", "color", "white"), ("Fill", "c2", "color", _fill)])
 
 
 def add_nums(label, v):
@@ -478,6 +551,8 @@ def add_nums(label, v):
         return list(v["p"]) + list(v["n"]) + [v["s"]]
     if label == "Sphere":
         return list(v["p"]) + [v["r"]]
+    if label in ("Circle", "Cylinder", "Cone"):
+        return list(v["p"]) + list(v["e"]) + ([v["h"]] if label != "Circle" else [])
     if label == "Square":
         (cx, cy, cz), h = v["p"], v["s"] / 2
         corners = {"XY": [(cx - h, cy - h, cz), (cx + h, cy - h, cz), (cx + h, cy + h, cz), (cx - h, cy + h, cz)],
@@ -635,6 +710,12 @@ class App:
         g += 1
         self.v_to = self._xyz_row(ef, g, "Center to", ("0", "0", "0"))
         ttk.Button(ef, text="Go", command=self.move_to).grid(row=g, column=4, sticky="we")
+        g += 1
+        ttk.Label(ef, text="Scale x").grid(row=g, column=0, sticky="w")
+        self.v_scale = tk.StringVar(value="2")
+        ttk.Entry(ef, textvariable=self.v_scale, width=6).grid(row=g, column=1, sticky="we")
+        ttk.Label(ef, text="(about origin)").grid(row=g, column=2, columnspan=2, sticky="w")
+        ttk.Button(ef, text="Scale", command=self.scale_by).grid(row=g, column=4, sticky="we")
         g += 1
         ttk.Separator(ef).grid(row=g, column=0, columnspan=5, sticky="we", pady=3)
         g += 1
@@ -809,7 +890,8 @@ class App:
         label = self.v_add.get()
         spec = ADD_SPECS[label]
         kind = {"Point": "point3d", "Line": "line3d", "Vector": "vector3d", "Plane": "plane3d",
-                "Square": "square3d", "Cube": "cube3d", "Sphere": "sphere3d"}[label]
+                "Square": "square3d", "Cube": "cube3d", "Sphere": "sphere3d",
+                "Circle": "circle3d", "Cylinder": "cylinder3d", "Cone": "cone3d"}[label]
         dlg = tk.Toplevel(self.root)
         dlg.title(f"Add {label}")
         dlg.transient(self.root)
@@ -944,6 +1026,17 @@ class App:
             return
         d = tuple(t - c for t, c in zip(target, center_of(e.obj)))
         self._queue_tf(e, {"op": "move", "d": d})
+
+    def scale_by(self):
+        e = self.sel_entry()
+        if e is None or e.obj is None:
+            return
+        try:
+            f = float(self.v_scale.get())
+        except ValueError:
+            print("Scale: enter a number")
+            return
+        self._queue_tf(e, {"op": "scale", "f": f})
 
     def rotate(self):
         e = self.sel_entry()
@@ -1249,6 +1342,11 @@ class App:
                 if isinstance(obj, Sphere3d):
                     c, r = center_of(obj), obj.get_radius()
                     pts += [tuple(np.add(c, s * r * np.eye(3)[i])) for i in range(3) for s in (-1, 1)]
+                elif is_round(obj):
+                    ctr, n, r, h = round_geom(obj)
+                    pts += [tuple(q) for q in ring(ctr, n, r, 8)]
+                    if h:
+                        pts.append(tuple(ctr + n * h))
                 else:
                     pts += [xyz(p) for p in points_of(obj)]
             except Exception:
@@ -1324,11 +1422,13 @@ class App:
                 self.collect(obj, sel, fills, lines, dots)
             except Exception as exc:          # e.g. a half-built object from a script
                 c.create_text(10, 10, anchor="nw", fill="#ff7b72", text=f"{name}: {exc}")
-        for depth, coords, fill in sorted(fills, key=lambda t: -t[0]):
+        for item in sorted(fills, key=lambda t: -t[0]):
+            coords, fill = item[1], item[2]
             if len(coords) == 4:              # sphere disc: x0,y0,x1,y1
                 c.create_oval(*coords, fill=fill, outline="")
-            else:
-                c.create_polygon(*coords, fill=fill, outline="")
+            else:                             # 4th field: stipple for see-through planes
+                c.create_polygon(*coords, fill=fill, outline="",
+                                 stipple=item[3] if len(item) > 3 else "")
         for depth, coords, color, width, arrow, dash in sorted(lines, key=lambda t: -t[0]):
             c.create_line(*coords, fill=color, width=width, arrow=arrow, dash=dash,
                           arrowshape=(12, 14, 5), capstyle=tk.ROUND)
@@ -1395,8 +1495,43 @@ class App:
             lines[-1] = (depth - r, self._circle(sx, sy, r * f), color, width, None, None)
             dots.append((ctr, color, sel))
             return
+        if getattr(obj, "_viewer_plane", False) or is_lib_plane(obj):
+            self.collect_plane(obj, sel, fills, lines, dots)
+            return
+        if is_round(obj):
+            ctr, n, r, h = round_geom(obj)
+            bcol = self.safe(bc, DEFAULT_LINE)
+            fcol = self.blend(fc, FILL_ALPHA) if self.rgb(fc or "") else None
+            dim = self.blend(bcol, 0.45)
+            base = ring(ctr, n, r)
+            face(base[:-1], fcol)
+            for a, b in zip(base, base[1:]):
+                seg(tuple(a), tuple(b), bcol)
+            if Cone3d and isinstance(obj, Cone3d):
+                apex = ctr + n * h
+                for a, b in zip(base[:-1], base[1:]):
+                    face([a, b, apex], fcol)
+                for a in base[:-1:6]:
+                    pa, pb = P(a), P(apex)
+                    lines.append(((pa[2] + pb[2]) / 2, (pa[0], pa[1], pb[0], pb[1]), dim, 1, None, None))
+                dots.append((tuple(apex), bcol, sel))
+            elif Cylinder3d and isinstance(obj, Cylinder3d):
+                top = [q + n * h for q in base]
+                face(top[:-1], fcol)
+                for i in range(len(base) - 1):
+                    face([base[i], base[i + 1], top[i + 1], top[i]], fcol)
+                    seg(tuple(top[i]), tuple(top[i + 1]), bcol)
+                for a, b in zip(base[:-1:6], top[:-1:6]):
+                    pa, pb = P(a), P(b)
+                    lines.append(((pa[2] + pb[2]) / 2, (pa[0], pa[1], pb[0], pb[1]), dim, 1, None, None))
+                dots.append((tuple(ctr + n * h), bcol, sel))
+            else:                           # flat circle: short normal arrow shows which way it faces
+                pa, pb = P(ctr), P(ctr + n * r * 0.6)
+                lines.append(((pa[2] + pb[2]) / 2, (pa[0], pa[1], pb[0], pb[1]), dim, 1, tk.LAST, None))
+            dots.append((tuple(ctr), bcol, sel))
+            return
         if isinstance(obj, (Cube3d, Square3d)):
-            faces = cube_faces(obj) if isinstance(obj, Cube3d) else (obj,)
+            faces =cube_faces(obj) if isinstance(obj, Cube3d) else (obj,)
             for sq in faces:
                 fill = fc or sq.get_fc()
                 face(square_corners(sq), self.blend(fill, FILL_ALPHA) if self.rgb(fill or "") else None)
@@ -1414,6 +1549,103 @@ class App:
             return
         if isinstance(obj, Point3d):
             dots.append((xyz(obj), self.safe(bc, DEFAULT_POINT), sel))
+
+    # ------------------------------------------------- infinite plane drawing
+    def cam_d(self, p):
+        """Distance in front of the camera (same math as project())."""
+        x, y, z = p[0] - self.target[0], p[1] - self.target[1], p[2] - self.target[2]
+        y1 = x * math.sin(self.yaw) + y * math.cos(self.yaw)
+        return self.dist + y1 * math.cos(self.pitch) - z * math.sin(self.pitch)
+
+    def clip_near(self, pts):
+        """Clip a 3D polygon to the part in front of the camera."""
+        near = 0.06 * self.dist
+        d = [self.cam_d(p) for p in pts]
+        out = []
+        for i in range(len(pts)):
+            j = (i + 1) % len(pts)
+            if d[i] >= near:
+                out.append(pts[i])
+            if (d[i] >= near) != (d[j] >= near):
+                out.append(pts[i] + (near - d[i]) / (d[j] - d[i]) * (pts[j] - pts[i]))
+        return out
+
+    def clip_seg(self, a, b):
+        near = 0.06 * self.dist
+        da, db = self.cam_d(a), self.cam_d(b)
+        if da < near and db < near:
+            return None
+        if da < near:
+            a = a + (near - da) / (db - da) * (b - a)
+        elif db < near:
+            b = b + (near - db) / (da - db) * (a - b)
+        return a, b
+
+    def clip_screen(self, pts, m=40):
+        """Clip a 2D polygon to the canvas (+margin) so huge coords never reach Tk."""
+        edges = ((0, -m, 1), (0, self._w + m, -1), (1, -m, 1), (1, self._h + m, -1))
+        for axis, lim, sgn in edges:
+            src, pts = pts, []
+            for i in range(len(src)):
+                a, b = src[i], src[(i + 1) % len(src)]
+                ina, inb = (a[axis] - lim) * sgn >= 0, (b[axis] - lim) * sgn >= 0
+                if ina:
+                    pts.append(a)
+                if ina != inb:
+                    t = (lim - a[axis]) / (b[axis] - a[axis])
+                    pts.append((a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])))
+            if not pts:
+                return []
+        return pts
+
+    def collect_plane(self, obj, sel, fills, lines, dots):
+        P = self.project
+        if is_lib_plane(obj):               # your Plane3d: through vec1's start, facing get_norm()
+            ctr = np.array(center_of(obj), float)
+            n = np.array(lib_plane_normal(obj), float)
+            if np.linalg.norm(n) == 0:
+                raise ValueError("plane normal is zero")
+            n /= np.linalg.norm(n)
+            u = np.cross(n, (1.0, 0, 0) if abs(n[0]) < 0.9 else (0, 1.0, 0))
+            u /= np.linalg.norm(u)
+            v = np.cross(n, u)
+        else:                               # viewer plane: carrier square's corners
+            c = [np.array(q, float) for q in square_corners(obj)]
+            ctr = sum(c) / 4
+            u, v = c[1] - c[0], c[3] - c[0]
+            u /= np.linalg.norm(u)
+            v /= np.linalg.norm(v)
+            n = np.cross(u, v)
+            n /= np.linalg.norm(n)
+        bc, fc = color_of(obj)
+        color = self.safe(fc or bc, "#5c9dff")
+        # fill: a quad far bigger than the scene, clipped to the camera and screen
+        L = 1000 * max(self.dist, self.grid_ext, 1.0)
+        quad = [ctr + su * L * u + sv * L * v for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        poly = self.clip_near(quad)
+        if len(poly) >= 3:
+            scr = self.clip_screen([P(q)[:2] for q in poly])
+            if len(scr) >= 3:
+                fills.append((math.inf, [k for q in scr for k in q], color,
+                              "gray50" if sel else "gray25"))
+        # grid on the plane so tilt reads clearly
+        s = self.grid_step
+        k = max(int(round(self.grid_ext / s)), 1)
+        for i in range(-k, k + 1):
+            col = self.blend(color, 0.8 if sel else 0.6) if i % 5 == 0 else self.blend(color, 0.35)
+            for a, b in ((ctr + i * s * v - k * s * u, ctr + i * s * v + k * s * u),
+                         (ctr + i * s * u - k * s * v, ctr + i * s * u + k * s * v)):
+                cut = self.clip_seg(a, b)
+                if cut:
+                    pa, pb = P(cut[0]), P(cut[1])
+                    lines.append(((pa[2] + pb[2]) / 2, (pa[0], pa[1], pb[0], pb[1]), col, 1, None, None))
+        # normal arrow + center point
+        tip = self.clip_seg(ctr, ctr + n * s * 2)
+        if tip:
+            pa, pb = P(tip[0]), P(tip[1])
+            lines.append(((pa[2] + pb[2]) / 2, (pa[0], pa[1], pb[0], pb[1]),
+                          color, 3.2 if sel else 2, tk.LAST, None))
+        dots.append((tuple(ctr), color, sel))
 
     @staticmethod
     def _circle(cx, cy, r, n=48):
