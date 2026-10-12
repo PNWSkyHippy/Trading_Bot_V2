@@ -28,6 +28,10 @@ __pycache__/
 *.ico.
 *.pcx
 *.png
+
+# Whitelist Astral Drift game textures & assets
+!DecentClone/Textures/**
+!Textures/**
 junk*
 data/junk.ps1
 data/candle*
