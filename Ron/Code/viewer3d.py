@@ -609,6 +609,15 @@ class App:
         self.canvas.bind("<B1-Motion>", self._drag_move)
         self.canvas.bind("<B3-Motion>", self._drag_move)
         self.canvas.bind("<MouseWheel>", self._wheel)
+        # Fly keys (canvas must have focus: click it once). Shift = 4x step.
+        for keys, args in ((("w", "W"), ("move", 0, 1, 0)), (("s", "S"), ("move", 0, -1, 0)),
+                           (("a", "A"), ("move", -1, 0, 0)), (("d", "D"), ("move", 1, 0, 0)),
+                           (("e", "E"), ("move", 0, 0, 1)), (("q", "Q"), ("move", 0, 0, -1)),
+                           (("Left",), ("look", -1, 0)), (("Right",), ("look", 1, 0)),
+                           (("Up",), ("look", 0, -1)), (("Down",), ("look", 0, 1))):
+            for k in keys:
+                self.canvas.bind(f"<KeyPress-{k}>", lambda ev, a=args: self._fly(ev, *a))
+                self.canvas.bind(f"<Shift-KeyPress-{k}>", lambda ev, a=args: self._fly(ev, *a))
 
         panel = ttk.Frame(top, padding=6)
         top.add(panel, weight=1)
@@ -1300,7 +1309,34 @@ class App:
         self.scale, self.dist, self.target = 20.0, 60.0, (0.0, 0.0, 0.0)
 
     def _drag_start(self, ev, mode):
+        self.canvas.focus_set()              # so fly keys reach the canvas
         self._drag = (mode, ev.x, ev.y)
+
+    def _cam_axes(self):
+        """World-space forward (view dir), level forward, and right vectors."""
+        cy, sy = math.cos(self.yaw), math.sin(self.yaw)
+        cp, sp = math.cos(self.pitch), math.sin(self.pitch)
+        return (np.array((sy * cp, cy * cp, -sp)), np.array((sy, cy, 0.0)),
+                np.array((cy, -sy, 0.0)))
+
+    def _fly(self, ev, mode, a, b, c=0):
+        boost = 4 if ev.state & 0x0001 else 1          # Shift held
+        fwd, level, right = self._cam_axes()
+        if mode == "move":
+            # Step ~40 px at the focus depth; view direction stays fixed.
+            step = 40.0 / self.scale * boost
+            d = right * a + level * b + np.array((0.0, 0.0, 1.0)) * c
+            self.target = tuple(np.array(self.target) + d * step)
+        else:
+            # Turn the camera in place: keep the eye fixed, swing the focus point.
+            eye = np.array(self.target) - fwd * self.dist
+            ang = math.radians(3) * boost
+            self.yaw += a * ang
+            self.pitch = max(-1.55, min(1.55, self.pitch + b * ang))
+            fwd, _l, _r = self._cam_axes()
+            self.target = tuple(eye + fwd * self.dist)
+        self.redraw()
+        return "break"
 
     def _drag_move(self, ev):
         if not self._drag:
@@ -1336,8 +1372,13 @@ class App:
         return self._w / 2 + x1 * f, self._h / 2 - up * f, depth, f
 
     def all_points(self):
-        pts = []
+        return [p for _name, pts in self.points_by_object() for p in pts]
+
+    def points_by_object(self):
+        out = []
         for _name, obj, _sel in self.visible_objects():
+            pts = []
+            out.append((_name, pts))
             try:
                 if isinstance(obj, Sphere3d):
                     c, r = center_of(obj), obj.get_radius()
@@ -1351,11 +1392,22 @@ class App:
                     pts += [xyz(p) for p in points_of(obj)]
             except Exception:
                 pass
-        return pts
+        return [(n, p) for n, p in out if p]
 
     def fit_view(self):
         self.canvas.update_idletasks()
-        pts = self.all_points()
+        objs = self.points_by_object()
+        if len(objs) > 2:
+            # Ignore runaway objects (e.g. scaled x20 many times) so the rest stay visible.
+            centers = np.array([np.mean(p, axis=0) for _n, p in objs])
+            mid = np.median(centers, axis=0)
+            reach = np.array([np.max(np.linalg.norm(np.array(p) - mid, axis=1)) for _n, p in objs])
+            limit = max(np.median(reach), 1.0) * 50
+            far = [n for (n, _p), d in zip(objs, reach) if d > limit]
+            if far and len(far) < len(objs):
+                print(f"Fit view ignored oversized/far objects: {', '.join(far)}")
+                objs = [(n, p) for (n, p), d in zip(objs, reach) if d <= limit]
+        pts = [q for _n, p in objs for q in p]
         w, h = max(self.canvas.winfo_width(), 200), max(self.canvas.winfo_height(), 200)
         if pts:
             arr = np.array(pts)
@@ -1454,7 +1506,8 @@ class App:
                 c.create_oval(sx - 5, sy - 5, sx + 5, sy + 5, outline=color, width=2)
                 c.create_text(sx + 8, sy + 9, anchor="w", fill=color, text=text, font=("Segoe UI", 8))
         c.create_text(8, self._h - 8, anchor="sw", fill="#5c6370", font=("Segoe UI", 8),
-                      text="left-drag orbit  |  right-drag pan  |  wheel zoom")
+                      text="left-drag orbit  |  right-drag pan  |  wheel zoom  |  "
+                           "WASD move  Q/E down/up  arrows look  (Shift = faster, click view first)")
 
     def collect(self, obj, sel, fills, lines, dots):
         P = self.project
@@ -1478,7 +1531,7 @@ class App:
             sx, sy, depth, f = P(ctr)
             fills.append((depth, (sx - r * f, sy - r * f, sx + r * f, sy + r * f),
                           self.blend(color, FILL_ALPHA)))
-            ring = self.blend(color, 0.55)
+            ring_col = self.blend(color, 0.55)
             for e1, e2 in ((0, 1), (0, 2), (1, 2)):
                 coords, dsum = [], 0.0
                 for k in range(37):
@@ -1489,7 +1542,7 @@ class App:
                     px, py, pd, _ = P(q)
                     coords += [px, py]
                     dsum += pd
-                lines.append((dsum / 37, coords, ring, 1, None, None))
+                lines.append((dsum / 37, coords, ring_col, 1, None, None))
             lines.append((depth - r, (sx - r * f, sy - r * f, sx + r * f, sy + r * f, sx - r * f, sy - r * f),
                           color, width, None, None))
             lines[-1] = (depth - r, self._circle(sx, sy, r * f), color, width, None, None)

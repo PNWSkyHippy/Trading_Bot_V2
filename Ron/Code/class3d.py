@@ -85,10 +85,17 @@ class Point3d(OpOverloaded):
     """
 
     # intitialie and store x,y, z
-    def __init__(self, x, y, z, color=None):
+    def __init__(self, x, y, z, color=None,name="Point3d"):
         self._x = x
         self._y = y
         self._z = z
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
 
     def deepcopy(self):
         return Point3d(self.get_x(), self.get_y(), self.get_z())
@@ -158,13 +165,13 @@ class Point3d(OpOverloaded):
 
     # Return state of point object
     def __str__(self):
-        return f"Point3D(x={self._x:.2f},y={self._y:.2f},z={self._z:.2f})\n"
+        return f"{self.get_name()}:Point3D(x={self._x:.2f},y={self._y:.2f},z={self._z:.2f})\n"
 
     def descr(self):
-        return f"Point3D(x={self._x:.2f},y={self._y:.2f},z={self._z:.2f})\n"
+        return f"{self.get_name()}:Point3D(x={self._x:.2f},y={self._y:.2f},z={self._z:.2f})\n"
 
     def __repr__(self):
-        return f"Point3D(x={self._x:.2f},y={self._y:.2f},z={self._z:.2f})\n"
+        return f"{self.get_name()}:Point3D(x={self._x:.2f},y={self._y:.2f},z={self._z:.2f})\n"
 
     def __neg__(self):
         return -self._x, -self._y, -self._z
@@ -294,9 +301,16 @@ class ColoredPixel(Point3d, OpOverloaded):
     """
 
     # Initialize, store x,y,z in Point3d and color locally
-    def __init__(self, x, y, z, color):
+    def __init__(self, x, y, z, color,name="ColoredPixel"):
         super().__init__(x, y, z)  # initialize parent Point3d
         self._color = color
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self,name):
+        self._name = name
 
     # Change color of pixel
     def set_color(self, color):
@@ -315,14 +329,14 @@ class ColoredPixel(Point3d, OpOverloaded):
         self._color = val
 
     def __str__(self):
-        return f"ColoredPixel(x={self._x:.2f}, y={self._y:.2f}, z={self._z:.2f}, color={self._color})\n"
+        return f"{self.get_name()}:ColoredPixel(x={self._x:.2f}, y={self._y:.2f}, z={self._z:.2f}, color={self._color})\n"
 
     # Return state of ColoredPixel object
     def descr(self):
-        return f"ColoredPixel(x={self._x:.2f}, y={self._y:.2f}, z={self._z:.2f}, color={self._color})\n"
+        return f"{self.get_name()}:ColoredPixel(x={self._x:.2f}, y={self._y:.2f}, z={self._z:.2f}, color={self._color})\n"
 
     def __repr__(self):
-        return f"ColoredPixel(x={self._x:.2f}, y={self._y:.2f}, z={self._z:.2f}, color={self._color})\n"
+        return f"{self.get_name()}:ColoredPixel(x={self._x:.2f}, y={self._y:.2f}, z={self._z:.2f}, color={self._color})\n"
 
 
 class _Geometry3d:
@@ -414,17 +428,26 @@ class Line3d(_Geometry3d, OpOverloaded):
     """
 
     # Initialize and store start and end Point3d objects
-    def __init__(self, start, end, color=None):
+    def __init__(self, start, end, color=None, name="Line3d"):
         if isinstance(start, Point3d):
             self._start_pt = Point3d(start.get_x(), start.get_y(), start.get_z())
             self._end_pt = Point3d(end.get_x(), end.get_y(), end.get_z())
             self._color = color
+            self._name = name
         elif isinstance(start, (list, tuple)):
             self._start_pt = Point3d(start[0], start[1], start[2])
             self._end_pt = Point3d(end[0], end[1], end[2])
             self._color = color
+            self._name = name
         else:
             raise ValueError("Error Line3d arguments mut be Pomt3d or x,y,z,")
+ 
+    def get_name(self):
+        return self._name
+
+    def set_name(self,name):
+        self._name = name
+
     def _points(self):
         return [self._start_pt, self._end_pt]
 
@@ -466,13 +489,13 @@ class Line3d(_Geometry3d, OpOverloaded):
         self._color = val
 
     def __str__(self):
-        return f"Line3D(start=Point3d(x={self._start_pt.get_x():.2f}, y={self._start_pt.get_y():.2f}, z={self._start_pt.get_z():.2f}), end=Point3d(x={self._end_pt.get_x():.2f}, y={self._end_pt.get_y():.2f}, z={self._end_pt.get_z():.2f}), color={self._color})\n"
+        return f"{self.get_name()}:Line3D(start=Point3d(x={self._start_pt.get_x():.2f}, y={self._start_pt.get_y():.2f}, z={self._start_pt.get_z():.2f}), end=Point3d(x={self._end_pt.get_x():.2f}, y={self._end_pt.get_y():.2f}, z={self._end_pt.get_z():.2f}), color={self._color})\n"
 
     def descr(self):
-        return f"Line3D(start=Point3d(x={self._start_pt.get_x():.2f}, y={self._start_pt.get_y():.2f}, z={self._start_pt.get_z():.2f}), end=Point3d(x={self._end_pt.get_x():.2f}, y={self._end_pt.get_y():.2f}, z={self._end_pt.get_z():.2f}), color={self._color})\n"
+        return f"{self.get_name()}:Line3D(start=Point3d(x={self._start_pt.get_x():.2f}, y={self._start_pt.get_y():.2f}, z={self._start_pt.get_z():.2f}), end=Point3d(x={self._end_pt.get_x():.2f}, y={self._end_pt.get_y():.2f}, z={self._end_pt.get_z():.2f}), color={self._color})\n"
 
     def __repr__(self):
-        return f"Line3D(start=Point3d(x={self._start_pt.get_x():.2f}, y={self._start_pt.get_y():.2f}, z={self._start_pt.get_z():.2f}), end=Point3d(x={self._end_pt.get_x():.2f}, y={self._end_pt.get_y():.2f}, z={self._end_pt.get_z():.2f}), color={self._color})\n"
+        return f"{self.get_name()}:Line3D(start=Point3d(x={self._start_pt.get_x():.2f}, y={self._start_pt.get_y():.2f}, z={self._start_pt.get_z():.2f}), end=Point3d(x={self._end_pt.get_x():.2f}, y={self._end_pt.get_y():.2f}, z={self._end_pt.get_z():.2f}), color={self._color})\n"
 
 class Vector3d(Line3d, OpOverloaded):
     """Store and manipulate a 3d vector
@@ -483,9 +506,16 @@ class Vector3d(Line3d, OpOverloaded):
     """
 
     # intitialie and store x,y, z
-    def __init__(self, origin, direction):
+    def __init__(self, origin, direction, name="Vector3d"):
         super().__init__(origin, direction)
         # Use the same points as Line3d so inherited transforms stay visible.
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self,name):
+        self._name = name
 
     def at(self, t):
         return self.origin + t * self.direction
@@ -520,13 +550,13 @@ class Vector3d(Line3d, OpOverloaded):
         self._end_pt.set_xyz(*direction.get_xyz())
 
     def __str__(self):
-        return f"Vector:\torigin={self._start_pt}\tdirection={self._end_pt}\n"
+        return f"{self.get_name()}:origin={self._start_pt}direction={self._end_pt}\n"
 
     def descr(self):
-        return f"Vector:\torigin={self._start_pt}\tdirection={self._end_pt}\n"
+        return f"{self.get_name()}:origin={self._start_pt}direction={self._end_pt}\n"
 
     def __repr__(self):
-        return f"Vector:\torigin={self._start_pt}\tdirection={self._end_pt}\n"
+        return f"{self.get_name()}:origin={self._start_pt}direction={self._end_pt}\n"
 
 
 class Square3d(_Geometry3d, OpOverloaded):
@@ -534,15 +564,21 @@ class Square3d(_Geometry3d, OpOverloaded):
     methods: get_area returns area of square
     move(newx,newy,newz) translates all four lines
     """ 
-
     # Store four boundary edges; centers and dimensions use their current points.
-    def __init__(self, line1, line2, line3, line4, bc=None,fc=None):
+    def __init__(self, line1, line2, line3, line4, bc=None,fc=None, name="Square3d"):
         self._line1 = line1.deepcopy()
         self._line2 = line2.deepcopy()
         self._line3 = line3.deepcopy()
         self._line4 = line4.deepcopy()
         self._border_col = bc
         self._fill_col = fc
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self,name):
+        self._name = name
 
     def _points(self):
         return [point for line in (self._line1, self._line2, self._line3, self._line4)
@@ -567,7 +603,6 @@ class Square3d(_Geometry3d, OpOverloaded):
         # Assumes four boundary edges of a square/rectangle, in order.
         return self._length * self._width
 
-
     @_area.setter
     def _area(self, val):
           raise ValueError("_ar cannot be set mannually. Adjust length or width instead.")
@@ -579,7 +614,6 @@ class Square3d(_Geometry3d, OpOverloaded):
     @_width.setter
     def _width(self, val):
           self._with = val
-
 
     # Calculate and return the area of the square
     def get_area(self):
@@ -605,13 +639,13 @@ class Square3d(_Geometry3d, OpOverloaded):
 
     # Return state of Square object
     def __str__(self):
-        return f"Square:\n\tArea: {self.get_area()} border color: {self.bc()} fill color: {self.fc()}\n\tLine1: {self._line1}\tLine2: {self._line2}\tLine3: {self._line3}\tLine4: {self._line4}"
+        return f"{self.get_name()}:\n\tArea: {self.get_area()} border color: {self.bc()} fill color: {self.fc()}\n\tLine1: {self._line1}\tLine2: {self._line2}\tLine3: {self._line3}\tLine4: {self._line4}"
 
     def descr(self):
-        return f"Square:\n\tArea: {self.get_area()} border color: {self.bc()} fill color: {self.fc()}\n\tLine1: {self._line1}\tLine2: {self._line2}\tLine3: {self._line3}\tLine4: {self._line4}"
+        return f"{self.get_name()}:\n\tArea: {self.get_area()} border color: {self.bc()} fill color: {self.fc()}\n\tLine1: {self._line1}\tLine2: {self._line2}\tLine3: {self._line3}\tLine4: {self._line4}"
 
     def __repr__(self):
-        return f"Square:\n\tArea: {self.get_area()} border color: {self.bc()} fill color: {self.fc()}\n\tLine1: {self._line1}\tLine2: {self._line2}\tLine3: {self._line3}\tLine4: {self._line4}"
+        return f"{self.get_name()}:\n\tArea: {self.get_area()} border color: {self.bc()} fill color: {self.fc()}\n\tLine1: {self._line1}\tLine2: {self._line2}\tLine3: {self._line3}\tLine4: {self._line4}"
 
 class Circle3d(_Geometry3d, OpOverloaded):
     """Circle stored as real Point3d objects so inherited move/rot/scale work.
@@ -619,7 +653,7 @@ class Circle3d(_Geometry3d, OpOverloaded):
     _cent, _rad_edge and _norm_tip (center + unit normal) are the only stored
     geometry; radius, normal, vectors and border are derived on every call.
     """
-    def __init__(self, center, rad_edge, bc= None, fc=None):
+    def __init__(self, center, rad_edge, bc= None, fc=None, name="Circle3d"):
         self._cent = center.copy()
         self._rad_edge = rad_edge.copy()
         radial = self._xyz(self._rad_edge) - self._xyz(self._cent)
@@ -630,6 +664,13 @@ class Circle3d(_Geometry3d, OpOverloaded):
         self._norm_tip = Point3d(*(self._xyz(self._cent) + norm))
         self._border_color = bc
         self._fill_color = fc
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self,name):
+        self._name = name
 
     @staticmethod
     def _xyz(point):
@@ -682,20 +723,26 @@ class Circle3d(_Geometry3d, OpOverloaded):
         self._fill_color = nwe_fc
 
     def __str__(self):
-        return f'Circle3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_border()}'
 
     def __repr__(self):
-        return f'Circle3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\t normal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_border()}'
 
     def descr(self):
-        return f'Circle3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
-
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_border()}'
 
 class Cylinder3d(Circle3d):
     """Circle base plus a stored _top point (center + normal * height)."""
-    def __init__(self, center, rad_edge, height, bc=None, fc=None):
+    def __init__(self, center, rad_edge, height, bc=None, fc=None, name="Cylinder3d"):
         super().__init__(center, rad_edge, bc, fc)
         self._top = Point3d(*(self._xyz(self._cent) + self.get_norm() * height))
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self,name):
+        self._name = name
 
     def _points(self):
         return super()._points() + [self._top]
@@ -718,19 +765,27 @@ class Cylinder3d(Circle3d):
         self._top.set_xyz(*(self._xyz(self._cent) + self.get_norm() * new_h))
 
     def __str__(self):
-        return f'Cylinder3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
 
     def __repr__(self):
-        return f'Cylinder3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
 
     def __descr__(self):
-        return f'Cylinder3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
 
 class Cone3d(Circle3d):
     """Circle base plus a stored _top apex point (center + normal * height)."""
-    def __init__(self, center, rad_edge, height, bc=None, fc=None):
+    def __init__(self, center, rad_edge, height, bc=None, fc=None, name="Cone3"):
         super().__init__(center, rad_edge, bc, fc)
         self._top = Point3d(*(self._xyz(self._cent) + self.get_norm() * height))
+        self._name = name
+
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self,name):
+        self._name = name
 
     def _points(self):
         return super()._points() + [self._top]
@@ -757,23 +812,30 @@ class Cone3d(Circle3d):
         return (1/3) * math.pi * (r * r) * self.get_height()
 
     def __str__(self):
-        return f'Cone3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
 
     def __repl__(self):
-        return f'Cone3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
 
     def __desc__(self):
-        return f'Cone3d:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
 
 class Plane3d(_Geometry3d, OpOverloaded):
 
-    def __init__(self,vec1,color=None, texture=None):
+    def __init__(self,vec1,color=None, texture=None, name="Plane3d"):
         self._vector1 = Vector3d(vec1.get_start(), vec1.get_end())
         tmp_vec, tmp_norm = self.get_perpendicular_vectors(vec1)
         self._vector2 = Vector3d(self._vector1.get_origin(),Point3d(tmp_vec[0], tmp_vec[1], tmp_vec[2]))
-        self._normal = tmp_norm
+        self._normal = Point3d(tmp_norm[0], tmp_norm[1], tmp_norm[2])
         self._col = color
         self._txt = texture
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
 
     def get_color(self):
         return self._col
@@ -806,24 +868,19 @@ class Plane3d(_Geometry3d, OpOverloaded):
         self._vector2 = vector
         
     def __str__(self):
-        return f"Plane3d:\n\tVect1: {self.get_vec1()}\tvector2: {self.get_vec2()} \tnormal: {self.get_norm()}\n\tcolor: {self.get_color()}\tTexture: {self.get_texture()}\n"
+        return f"{self.get_name()}:\nVect1:\t{self.get_vec1()}vector2:{self.get_vec2()}normal: {self.get_norm()}color: {self.get_color()}Texture: {self.get_texture()}\n"
 
     def descr(self):
-        return f"Plane3d:\n\tVect1: {self.get_vec1()}\tvector2: {self.get_vec2()} \tnormal: {self.get_norm()}\n\tcolor: {self.get_color()}\tTexture: {self.get_texture()}\n"
+        return f"{self.get_name()}:\nVect1:\t{self.get_vec1()}vector2:{self.get_vec2()}normal: {self.get_norm()}color: {self.get_color()}Texture: {self.get_texture()}\n"
 
     def __repr__(self):
-       return f"Plane3d:\n\tVect1: {self.get_vec1()}\tvector2: {self.get_vec2()} \tnormal: {self.get_norm()}\n\tcolor: {self.get_color()}\tTexture: {self.get_texture()}\n"
-
- 
-
-
+        return f"{self.get_name()}:\nVect1:\t{self.get_vec1()}vector2:{self.get_vec2()}normal: {self.get_norm()}color: {self.get_color()}Texture: {self.get_texture()}\n"
 
 class Cube3d(_Geometry3d, OpOverloaded):
     """Six rectangular boundary faces of a cube or rectangular box."""
     def __init__(self, square1, square2=None, square3=None, square4=None,
                  square5=None, square6=None, name="Cube3d",bc=None, fc=None, *, height=None):
         """Accept six faces, one square, or one rectangular face plus height.
-
         Cube3d(base) uses the square's side as height. Cube3d(base, 10) and
         Cube3d(base, height=10) extrude toward the positive normal; negative
         height reverses it. The positive normal has its largest-magnitude
@@ -969,7 +1026,7 @@ class Sphere3d(_Geometry3d, OpOverloaded):
         as arguments it takes a Point3d center ahd a radius. and optionally a name,
         a matrial and a color
     """
-    def __init__(self, center, radius, name=None,mat=None, color=None):
+    def __init__(self, center, radius, mat=None, color=None,name="Sphere3d"):
         # Stationary Sphere
         self._static_center= center.deepcopy()
         self._radius = max(0,radius)
@@ -1015,7 +1072,7 @@ class Sphere3d(_Geometry3d, OpOverloaded):
     def __str__(self):
         return (f"{self.get_name()}:\n\tcenter= {self.get_center()}\tradius: {self.get_radius()}, color: {self.get_color()}\n")
 
-    def __repr__(self):
+    def __repr__(self):     
         return (f"{self.get_name()}:\n\tcenter= {self.get_center()}\tradius: {self.get_radius()}, color: {self.get_color()}\n")
 
     def descr(self):
