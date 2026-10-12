@@ -1,13 +1,13 @@
 
 camera {
     perspective
-    location <3.66980684, 4.49686475, -1.8535155>
-    look_at  <0, 1, 0>
-    angle 40.625
+    location <-2, 3, 0.0>
+    look_at  <0, 3, 0>
+    angle 55.625
 }
 
 // Key Light (Warm, Primary)
-light_source { <6.0, 8.0, -6.0>, color rgb <1.0, 0.95, 0.88> * 1.2 }
+light_source { <6.0, 8.0, -6.0>, color rgb <1.0, 0.55, 0.48> * 1.2 }
 // Fill Light (Cool, Soft)
 light_source { <-6.0, 4.0, -4.0>, color rgb <0.7, 0.8, 1.0> * 0.5 shadowless }
 // Rim Light (Backlight)

@@ -550,13 +550,13 @@ class Vector3d(Line3d, OpOverloaded):
         self._end_pt.set_xyz(*direction.get_xyz())
 
     def __str__(self):
-        return f"{self.get_name()}:origin={self._start_pt}direction={self._end_pt}\n"
+        return f"{self.get_name()}:origin={self._start_pt}\n\tdirection={self._end_pt}\n"
 
     def descr(self):
-        return f"{self.get_name()}:origin={self._start_pt}direction={self._end_pt}\n"
+        return f"{self.get_name()}:origin={self._start_pt}\n\tdirection={self._end_pt}\n"
 
     def __repr__(self):
-        return f"{self.get_name()}:origin={self._start_pt}direction={self._end_pt}\n"
+        return f"{self.get_name()}:origin={self._start_pt}\n\tdirection={self._end_pt}\n"
 
 
 class Square3d(_Geometry3d, OpOverloaded):
@@ -653,14 +653,21 @@ class Circle3d(_Geometry3d, OpOverloaded):
     _cent, _rad_edge and _norm_tip (center + unit normal) are the only stored
     geometry; radius, normal, vectors and border are derived on every call.
     """
-    def __init__(self, center, rad_edge, bc= None, fc=None, name="Circle3d"):
+    def __init__(self, center, rad_edge, bc= None, fc=None, name="Circle3d", normal=None):
+        """normal: optional facing direction (3 numbers); None picks one perpendicular to the radius."""
         self._cent = center.copy()
         self._rad_edge = rad_edge.copy()
         radial = self._xyz(self._rad_edge) - self._xyz(self._cent)
         if np.linalg.norm(radial) == 0:
             raise ValueError("Circle3d center and edge point cannot be the same point.")
-        # Direction-only vector (from origin) so get_perpendicular_vectors sees end - start.
-        _, norm = self.get_perpendicular_vectors(Vector3d((0, 0, 0), tuple(radial)))
+        if normal is not None:
+            norm = np.array(normal, dtype=float)
+            if np.linalg.norm(norm) == 0:
+                raise ValueError("Circle3d normal cannot be a zero vector.")
+            norm = norm / np.linalg.norm(norm)
+        else:
+            # Direction-only vector (from origin) so get_perpendicular_vectors sees end - start.
+            _, norm = self.get_perpendicular_vectors(Vector3d((0, 0, 0), tuple(radial)))
         self._norm_tip = Point3d(*(self._xyz(self._cent) + norm))
         self._border_color = bc
         self._fill_color = fc
@@ -723,18 +730,18 @@ class Circle3d(_Geometry3d, OpOverloaded):
         self._fill_color = nwe_fc
 
     def __str__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
     def __repr__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
     def descr(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()}\n\tvecto1={self.get_vec1()}\n\tnormal={self.get_norm()}\n\t fc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
 class Cylinder3d(Circle3d):
     """Circle base plus a stored _top point (center + normal * height)."""
-    def __init__(self, center, rad_edge, height, bc=None, fc=None, name="Cylinder3d"):
-        super().__init__(center, rad_edge, bc, fc)
+    def __init__(self, center, rad_edge, height, bc=None, fc=None, name="Cylinder3d", normal=None):
+        super().__init__(center, rad_edge, bc, fc, name, normal)
         self._top = Point3d(*(self._xyz(self._cent) + self.get_norm() * height))
         self._name = name
 
@@ -765,18 +772,447 @@ class Cylinder3d(Circle3d):
         self._top.set_xyz(*(self._xyz(self._cent) + self.get_norm() * new_h))
 
     def __str__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
     def __repr__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
     def __descr__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  area={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
+
+import numpy as np
+
+class Torus3d(_Geometry3d, OpOverloaded):
+    def __init__(self, center, tor_rad, tube_rad, bc=None, fc=None, name=None):
+        """
+        :param center_point: Point3d representing the center of the torus hole
+        :param normal_vector: Vector3d defining the orientation of the torus ring
+        :param major_radius: Distance from hole center to tube center (R)
+        :param minor_radius: Thickness radius of the tube itself (r)
+        """
+        self._cent = center.copy()
+        self._rad_edge = tor_rad.copy()
+        self._tube_rad = tube_rad.copy()
+        self._fill_color = fc
+        self._border_color = bc
+        self._name = name
+
+        radial = self._xyz(self._rad_edge) - self._xyz(self._cent)
+        tube_radial = self._xyz(self._tube_rad) - self._xyz(self._rad_edge)
+        if np.linalg.norm(radial) == 0:
+            raise ValueError("Circle3d center and edge point cannot be the same point.")
+        # Direction-only vector (from origin) so get_perpendicular_vectors sees end - start.
+        _, normal = self.get_perpendicular_vectors(Vector3d((0, 0, 0), tuple(radial)))
+        self._norm_tip = Point3d(*(self._xyz(self._cent) + normal))
+        self._cyl_list = self.get_segments()
+
+    def _points(self):
+        # Torus's own defining points plus every segment's points, so inherited
+        # move/rot/scale turn the whole ring about one shared pivot.
+        pts = [self._cent, self._rad_edge, self._tube_rad, self._norm_tip]
+        for cyl in self.get_cyllist():
+            pts += cyl._points()
+        return pts
+
+    def get_center(self):
+        return self._cent
+
+    def get_norm(self):
+        n = self._xyz(self._norm_tip) - self._xyz(self._cent)
+        return n / np.linalg.norm(n)
+
+    def get_major_radius(self):
+        return self.length(self._cent, self._rad_edge)
+
+    def get_minor_radius(self):
+        return self.length(self._rad_edge, self._tube_rad)
+
+    def length(self, start, end):
+        return math.sqrt(self.len_sqr(start, end))
+    
+    def len_sqr(self, start, end):
+        xx = end.get_x() - start.get_x()
+        yy = end.get_y() - start.get_y()
+        zz = end.get_z() - start.get_z()
+        return xx * xx + yy * yy + zz * zz
+
+    @staticmethod
+    def _xyz(point):
+        return np.array(point.get_xyz(), dtype=float)
+
+    def get_cyllist(self):
+        return self._cyl_list
+
+    def set_cyllist(self):
+        self._cyl_list = self.get_segments()
+    
+    def get_name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
+
+    def get_fc(self):
+        return self._fill_color
+    
+    def set_fc(self, color):
+        self._fill_color = color
+
+    def get_bc(self):
+        return self._border_color
+
+    def set_bc(self, color):
+        self._border_color = color
+
+    def __str__(self):
+        ret_str =  f'{self.get_name()}:\n'
+        for cyl in self.get_cyllist():
+            ret_str += f'\t{cyl}\n\n'
+        return ret_str
+
+    def __repr__(self):
+        ret_str =  f'{self.get_name()}:\n'
+        for cyl in self.get_cyllist():
+            ret_str += f'\t{cyl}\n\n'
+        return ret_str
+ 
+    def desc(self):
+        ret_str =  f'{self.get_name()}:\n'
+        for cyl in self.get_cyllist():
+            ret_str += f'\t{cyl}\n\n'
+        return ret_str
+
+    def get_segments(self, num_segments=24):
+        """
+        Generates a chained list of pre-initialized Cylinder3d objects 
+        approximating the torus ring.
+        """
+        segment_list = []
+        
+        # 1. Map the 2D local plane of the major torus ring from its normal
+        n = self.get_norm()
+        R, r = self.get_major_radius(), self.get_minor_radius()
+        helper = np.array([1, 0, 0]) if abs(n[0]) < 0.9 else np.array([0, 1, 0])
+        u = np.cross(n, helper)
+        u /= np.linalg.norm(u)
+        v = np.cross(n, u)
+        
+        cx, cy, cz = self._cent.get_x(), self._cent.get_y(), self._cent.get_z()
+        
+        # Generate the centerline ring path positions
+        theta_vals = np.linspace(0, 2 * np.pi, num_segments + 1)
+        centerline_points = []
+        
+        for theta in theta_vals:
+            dir_vec = u * np.cos(theta) + v * np.sin(theta)
+            px = cx + R * dir_vec[0]
+            py = cy + R * dir_vec[1]
+            pz = cz + R * dir_vec[2]
+            centerline_points.append(Point3d(px, py, pz))
+        fill = self.get_fc()
+        # 2. Loop through and chain the segments end-to-end
+        for i in range(num_segments):
+            base_center = centerline_points[i]
+            top_center = centerline_points[i+1]
+            
+            # Compute segment direction and height
+            seg_vector = np.array([
+                top_center.get_x() - base_center.get_x(),
+                top_center.get_y() - base_center.get_y(),
+                top_center.get_z() - base_center.get_z()
+            ])
+            height = np.linalg.norm(seg_vector)
+            
+            if height <= 0:
+                continue
+            seg_normal = seg_vector / height
+                
+            # 3. Calculate an outward RadialEdgePoint to prevent joints from twisting
+            outward_vec = np.array([
+                base_center.get_x() - cx,
+                base_center.get_y() - cy,
+                base_center.get_z() - cz
+            ])
+            
+            # Make the radial vector perfectly perpendicular to the segment spine
+            radial_dir = outward_vec - np.dot(outward_vec, seg_normal) * seg_normal
+            radial_dir /= np.linalg.norm(radial_dir)
+            
+            radial_edge = Point3d(
+                base_center.get_x() + radial_dir[0] * r,
+                base_center.get_y() + radial_dir[1] * r,
+                base_center.get_z() + radial_dir[2] * r
+            )
+            
+            # 4. Instantiate and store (points auto-generate inside Cylinder3d)
+            nam = f'cylinder{i}'
+            segment_list.append(Cylinder3d(base_center, radial_edge, height, bc=self.get_bc(), fc=fill,
+                                           name=nam, normal=seg_normal))
+            
+        return segment_list
+
+ 
+class CurvedCylinder3d(_Geometry3d, OpOverloaded):
+    """A tube bent around a circular arc (a slice of a torus) - the "banana".
+
+    Stored as real Point3d objects so inherited move/rot/scale work:
+        _bend_cent  center the tube curves around
+        _start      start of the tube's center line (spine); |start - bend_cent| = bend radius R
+        _edge       a point on the tube surface at the start, r outward from _start
+        _norm_tip   bend_cent + unit normal of the bend plane
+    _angle (radians) is a plain number - rotate/move/uniform scale never change it.
+    The spine sweeps counter-clockwise about the normal (right-hand rule).
+    """
+    def __init__(self, bend_center, spine_start, tube_radius, angle, bc=None, fc=None,
+                 name="CurvedCylinder3d", normal=None):
+        if not 0 < angle <= 2 * math.pi + 1e-9:
+            raise ValueError("CurvedCylinder3d angle must be in (0, 2*pi] radians.")
+        self._bend_cent = bend_center.copy()
+        self._start = spine_start.copy()
+        radial = self._xyz(self._start) - self._xyz(self._bend_cent)
+        R = np.linalg.norm(radial)
+        if R == 0:
+            raise ValueError("CurvedCylinder3d bend center and spine start cannot be the same point.")
+        if not 0 < tube_radius < R:
+            raise ValueError(f"CurvedCylinder3d tube radius ({tube_radius}) must be > 0 and smaller than the "
+                             f"bend radius ({R:.4g} = distance from bend center to spine start).")
+        e1 = radial / R
+        if normal is None:
+            _, n = self.get_perpendicular_vectors(Vector3d((0, 0, 0), tuple(radial)))
+        else:
+            # Keep only the part of the normal that is perpendicular to the radius.
+            n = np.array(normal, dtype=float)
+            n = n - np.dot(n, e1) * e1
+            if np.linalg.norm(n) < 1e-9:
+                raise ValueError("CurvedCylinder3d normal cannot be parallel to the radius.")
+        n = n / np.linalg.norm(n)
+        self._edge = Point3d(*(self._xyz(self._start) + e1 * tube_radius))
+        self._norm_tip = Point3d(*(self._xyz(self._bend_cent) + n))
+        self._angle = float(angle)
+        self._border_color = bc
+        self._fill_color = fc
+        self._name = name
+
+    @staticmethod
+    def _xyz(point):
+        return np.array(point.get_xyz(), dtype=float)
+
+    def _points(self):
+        return [self._bend_cent, self._start, self._edge, self._norm_tip]
+
+    # ---- frame: e1 = radial at the start, e2 = sweep direction at the start
+    def _frame(self):
+        c = self._xyz(self._bend_cent)
+        e1 = self._xyz(self._start) - c
+        e1 = e1 / np.linalg.norm(e1)
+        n = self.get_norm()
+        return c, e1, np.cross(n, e1), n
+
+    def get_norm(self):
+        n = self._xyz(self._norm_tip) - self._xyz(self._bend_cent)
+        return n / np.linalg.norm(n)
+
+    def get_bend_center(self):
+        return self._bend_cent
+
+    def get_bend_radius(self):
+        return float(np.linalg.norm(self._xyz(self._start) - self._xyz(self._bend_cent)))
+
+    def get_tube_radius(self):
+        return float(np.linalg.norm(self._xyz(self._edge) - self._xyz(self._start)))
+
+    def get_angle(self):
+        return self._angle
+
+    def set_angle(self, angle):
+        if not 0 < angle <= 2 * math.pi + 1e-9:
+            raise ValueError("CurvedCylinder3d angle must be in (0, 2*pi] radians.")
+        self._angle = float(angle)
+
+    def radial_dir(self, t):
+        """Unit vector from the bend center toward the spine at fraction t (0..1)."""
+        _c, e1, e2, _n = self._frame()
+        th = t * self._angle
+        return math.cos(th) * e1 + math.sin(th) * e2
+
+    def tangent(self, t):
+        """Unit direction the tube is heading at fraction t (0..1)."""
+        _c, e1, e2, _n = self._frame()
+        th = t * self._angle
+        return -math.sin(th) * e1 + math.cos(th) * e2
+
+    def spine_point(self, t):
+        """Point3d on the tube's center line at fraction t (0..1)."""
+        return Point3d(*(self._xyz(self._bend_cent) + self.get_bend_radius() * self.radial_dir(t)))
+
+    def surface_point(self, t, phi):
+        """Point3d on the tube surface: t along the bend (0..1), phi around the tube (radians)."""
+        R, r = self.get_bend_radius(), self.get_tube_radius()
+        p = (self._xyz(self._bend_cent) + (R + r * math.cos(phi)) * self.radial_dir(t)
+             + r * math.sin(phi) * self.get_norm())
+        return Point3d(*p)
+
+    def get_spine_start(self):
+        return self._start
+
+    def get_spine_end(self):
+        return self.spine_point(1.0)
+
+    def get_center(self):
+        # Middle of the bend's center line, so pivot="center" spins the banana about its middle.
+        return self.spine_point(0.5)
+
+    def get_arc_length(self):
+        return self.get_bend_radius() * self._angle
+
+    def get_volume(self):
+        r = self.get_tube_radius()
+        return math.pi * (r * r) * self.get_arc_length()
+
+    def get_area(self):
+        # Side area (Pappus) plus the two end caps unless the bend closes on itself.
+        r = self.get_tube_radius()
+        caps = 0 if self._angle >= 2 * math.pi - 1e-9 else 2 * math.pi * (r * r)
+        return 2 * math.pi * r * self.get_arc_length() + caps
+
+    def make_next(self, angle, twist=0.0, bend_radius=None, tube_radius=None,
+                  bc=None, fc=None, name=None):
+        """New CurvedCylinder3d that continues smoothly from this one's end.
+
+        angle   how far the new piece bends (radians)
+        twist   rolls the new bend about the tube's direction (radians):
+                0 keeps curling the same way, pi curls back the other way (S-bend),
+                pi/2 turns it up/down out of this bend's plane
+        """
+        R2 = self.get_bend_radius() if bend_radius is None else bend_radius
+        r2 = self.get_tube_radius() if tube_radius is None else tube_radius
+        p = self._xyz(self.get_spine_end())
+        T = self.tangent(1.0)
+        inward = -self.radial_dir(1.0)                  # from spine end toward this bend's center
+        d = inward * math.cos(twist) + np.cross(T, inward) * math.sin(twist)
+        center = Point3d(*(p + R2 * d))
+        normal = np.cross(-d, T)                        # makes the new sweep start along T
+        return CurvedCylinder3d(center, Point3d(*p), r2, angle,
+                                bc=self._border_color if bc is None else bc,
+                                fc=self._fill_color if fc is None else fc,
+                                name=name or f"{self._name}+", normal=normal)
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
+
+    def get_bc(self):
+        return self._border_color
+
+    def set_bc(self, bc):
+        self._border_color = bc
+
+    def get_fc(self):
+        return self._fill_color
+
+    def set_fc(self, fc):
+        self._fill_color = fc
+
+    def __str__(self):
+        return (f'{self.get_name()}:\n\tbend center={self.get_bend_center()}\tbend radius={self.get_bend_radius()},'
+                f'  tube radius={self.get_tube_radius()},  angle={math.degrees(self._angle)} deg\n'
+                f'\tstart={self.get_spine_start()}\tend={self.get_spine_end()}\tnormal={self.get_norm()}\n'
+                f'\tvolume={self.get_volume()},  area={self.get_area()},  fc={self.get_fc()}, bc={self.get_bc()}')
+
+    def __repr__(self):
+        return self.__str__()
+
+    def descr(self):
+        return self.__str__()
+
+
+class CurvedTorus3d(_Geometry3d, OpOverloaded):
+    """Torus built from `segments` CurvedCylinder3d bends chained end to end (smooth joints)."""
+    def __init__(self, center, ring_point, tube_radius, segments=4, bc=None, fc=None,
+                 name="CurvedTorus3d", normal=None):
+        if segments < 1:
+            raise ValueError("CurvedTorus3d needs at least one segment.")
+        ring_r = float(np.linalg.norm(np.array(ring_point.get_xyz(), float) - np.array(center.get_xyz(), float)))
+        if not 0 < tube_radius < ring_r:
+            raise ValueError(f"CurvedTorus3d tube radius ({tube_radius}) must be > 0 and smaller than the "
+                             f"ring radius ({ring_r:.4g} = distance from center to ring point).")
+        self._segments = int(segments)
+        self._tube_r = float(tube_radius)
+        self._border_color = bc
+        self._fill_color = fc
+        self._name = name
+        first = CurvedCylinder3d(center, ring_point, tube_radius, 2 * math.pi / self._segments,
+                                 bc, fc, f"{name}_bend0", normal)
+        self._bends = [first]
+        for i in range(1, self._segments):
+            self._bends.append(self._bends[-1].make_next(2 * math.pi / self._segments,
+                                                         name=f"{name}_bend{i}"))
+
+    def _points(self):
+        return [p for bend in self._bends for p in bend._points()]
+
+    def get_bends(self):
+        return self._bends
+
+    def get_center(self):
+        return self._bends[0].get_bend_center()
+
+    def get_norm(self):
+        return self._bends[0].get_norm()
+
+    def get_major_radius(self):
+        return self._bends[0].get_bend_radius()
+
+    def get_minor_radius(self):
+        return self._bends[0].get_tube_radius()
+
+    def get_volume(self):
+        return sum(b.get_volume() for b in self._bends)
+
+    def get_area(self):
+        r = self.get_minor_radius()
+        return 2 * math.pi * r * 2 * math.pi * self.get_major_radius()
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
+
+    def get_bc(self):
+        return self._border_color
+
+    def set_bc(self, bc):
+        self._border_color = bc
+        for b in self._bends:
+            b.set_bc(bc)
+
+    def get_fc(self):
+        return self._fill_color
+
+    def set_fc(self, fc):
+        self._fill_color = fc
+        for b in self._bends:
+            b.set_fc(fc)
+
+    def __str__(self):
+        return (f'{self.get_name()}:\n\tcenter={self.get_center()}\tR={self.get_major_radius()},  '
+                f'r={self.get_minor_radius()},  segments={len(self._bends)},  volume={self.get_volume()},  '
+                f'area={self.get_area()}\n\tnormal={self.get_norm()}\tfc={self.get_fc()}, bc={self.get_bc()}')
+
+    def __repr__(self):
+        return self.__str__()
+
+    def descr(self):
+        return self.__str__()
+
 
 class Cone3d(Circle3d):
     """Circle base plus a stored _top apex point (center + normal * height)."""
-    def __init__(self, center, rad_edge, height, bc=None, fc=None, name="Cone3"):
-        super().__init__(center, rad_edge, bc, fc)
+    def __init__(self, center, rad_edge, height, bc=None, fc=None, name="Cone3", normal=None):
+        super().__init__(center, rad_edge, bc, fc, name, normal)
         self._top = Point3d(*(self._xyz(self._cent) + self.get_norm() * height))
         self._name = name
 
@@ -812,13 +1248,13 @@ class Cone3d(Circle3d):
         return (1/3) * math.pi * (r * r) * self.get_height()
 
     def __str__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
     def __repl__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
     def __desc__(self):
-        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bv={self.get_border()}'
+        return f'{self.get_name()}:\n\tcenter={self.get_center()}\tradius={self.get_radius()},  height={self.get_height()},  volume={self.get_volume()},  sarea={self.get_area()}\n\tvecto1={self.get_vec1()}\tnormal={self.get_norm()}\n\tfc={self.get_fc()}, bc={self.get_bc()}, border={self.get_border()}'
 
 class Plane3d(_Geometry3d, OpOverloaded):
 

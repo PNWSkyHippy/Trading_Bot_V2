@@ -36,6 +36,18 @@ Circle3d = getattr(class3d, "Circle3d", None)
 Cylinder3d = getattr(class3d, "Cylinder3d", None)
 Cone3d = getattr(class3d, "Cone3d", None)
 ROUND_TYPES = tuple(c for c in (Circle3d, Cylinder3d, Cone3d) if c)   # Circle3d family
+CurvedCylinder3d = getattr(class3d, "CurvedCylinder3d", None)
+CurvedTorus3d = getattr(class3d, "CurvedTorus3d", None)
+TUBE_TYPES = tuple(c for c in (CurvedCylinder3d, CurvedTorus3d) if c)  # bent tubes
+
+
+def tube_bends(obj):
+    """The CurvedCylinder3d pieces of a bend or curved torus, else None."""
+    if CurvedTorus3d and isinstance(obj, CurvedTorus3d):
+        return obj.get_bends()
+    if CurvedCylinder3d and isinstance(obj, CurvedCylinder3d):
+        return [obj]
+    return None
 
 
 def is_lib_plane(obj):
@@ -53,10 +65,10 @@ ROT_TYPES = sorted((n for n in dir(_Geometry3d)
                     if n.endswith("rot") and callable(getattr(_Geometry3d, n))),
                    key=lambda n: (n == "vecrot", n))
 KINDS = ("point3d", "line3d", "vector3d", "plane3d", "square3d", "cube3d", "sphere3d",
-         "circle3d", "cylinder3d", "cone3d")
+         "circle3d", "cylinder3d", "cone3d", "curvedcylinder3d", "curvedtorus3d")
 ALIASES = {"rotatex": "xrot", "rotatey": "yrot", "rotatez": "zrot",
            "rotatevec": "vecrot", "rotate": "vecrot", "translate": "move"}
-GEOM_TYPES = (Point3d, Line3d, Square3d, Cube3d, Sphere3d) + ((Plane3d,) if Plane3d else ()) + ROUND_TYPES
+GEOM_TYPES = (Point3d, Line3d, Square3d, Cube3d, Sphere3d) + ((Plane3d,) if Plane3d else ()) + ROUND_TYPES + TUBE_TYPES
 WORLD_AXIS = {"xrot": (1, 0, 0), "yrot": (0, 1, 0), "zrot": (0, 0, 1)}
 
 BG = "#1b1d22"
@@ -156,7 +168,7 @@ def color_of(obj):
     """(line/border color, fill color) as stored on the object."""
     if is_lib_plane(obj):
         return None, obj.get_color()
-    if isinstance(obj, (Cube3d, Square3d)) or is_round(obj):
+    if isinstance(obj, (Cube3d, Square3d) + TUBE_TYPES) or is_round(obj):
         return obj.get_bc(), obj.get_fc()
     if isinstance(obj, (Line3d, Sphere3d, ColoredPixel)):
         return obj.get_color(), None
@@ -353,6 +365,14 @@ def build(e):
             raise ValueError(f"class3d has no {e.kind[:-2].title()}3d")
         args = (Point3d(*n[0:3]), Point3d(*n[3:6])) + ((n[6],) if e.kind != "circle3d" else ())
         return cls(*args, bc=c1, fc=c2)
+    if e.kind in ("curvedcylinder3d", "curvedtorus3d"):
+        cls = CurvedCylinder3d if e.kind == "curvedcylinder3d" else CurvedTorus3d
+        if cls is None:
+            raise ValueError(f"class3d has no {e.kind}")
+        normal = tuple(n[8:11]) if len(n) >= 11 else None
+        third = math.radians(n[7]) if cls is CurvedCylinder3d else int(round(n[7]))
+        return cls(Point3d(*n[0:3]), Point3d(*n[3:6]), n[6], third, bc=c1, fc=c2,
+                   name=e.name, normal=normal)
     raise ValueError(f"unknown kind {e.kind}")
 
 
@@ -366,6 +386,14 @@ def entry_from_obj(name, obj):
                 "cylinder3d" if Cylinder3d and isinstance(obj, Cylinder3d) else "circle3d")
         nums = list(xyz(obj.get_center())) + list(xyz(obj.get_vec1().get_end()))
         return Entry(kind, name, c1, c2, nums + ([obj.get_height()] if kind != "circle3d" else []))
+    if tube_bends(obj) is not None:    # bend center/start, tube r, angle deg or segments, normal
+        first = tube_bends(obj)[0]
+        torus = CurvedTorus3d is not None and isinstance(obj, CurvedTorus3d)
+        nums = (list(xyz(first.get_bend_center())) + list(xyz(first.get_spine_start()))
+                + [first.get_tube_radius(),
+                   len(obj.get_bends()) if torus else math.degrees(first.get_angle())]
+                + [float(v) for v in first.get_norm()])
+        return Entry("curvedtorus3d" if torus else "curvedcylinder3d", name, c1, c2, nums)
     if isinstance(obj, Sphere3d):
         return Entry("sphere3d", name, c1, "", list(center_of(obj)) + [obj.get_radius()])
     if isinstance(obj, Cube3d):
@@ -417,6 +445,8 @@ def save_scene(path, entries):
                 "#   point3d x,y,z | line3d/vector3d x1,y1,z1,x2,y2,z2 | square3d 4 corners\n"
                 "#   plane3d px,py,pz,nx,ny,nz,size | cube3d 4 base + 4 top corners | sphere3d cx,cy,cz,r\n"
                 "#   circle3d cx,cy,cz,ex,ey,ez (center, edge point) | cylinder3d/cone3d same + height\n"
+                "#   curvedcylinder3d bend cx,cy,cz, spine start x,y,z, tube r, angle deg, normal x,y,z\n"
+                "#   curvedtorus3d cx,cy,cz, ring point x,y,z, tube r, segments, normal x,y,z\n"
                 "# Transform rows follow their object (degrees):\n"
                 "#   xrot|yrot|zrot,deg,pivot   vecrot,deg,ax,ay,az,bx,by,bz,pivot   move,dx,dy,dz   scale,f\n"
                 "#   pivot = default | center | origin | point,x,y,z\n")
@@ -540,6 +570,20 @@ for _label, _cls, _fill in (("Circle", Circle3d, "magenta"), ("Cylinder", Cylind
         ADD_SPECS[_label] = ([("Center", "p", "xyz", (1, 1, 1)), ("Edge point", "e", "xyz", (4, 1, 1))]
                              + ([("Height", "h", "num", 5)] if _label != "Circle" else [])
                              + [("Border", "c1", "color", "white"), ("Fill", "c2", "color", _fill)])
+if CurvedCylinder3d is not None:
+    ADD_SPECS["Bend"] = [("Bend center", "p", "xyz", (0, 0, 0)), ("Spine start", "e", "xyz", (5, 0, 0)),
+                         ("Normal", "n", "xyz", (0, 0, 1)), ("Tube radius", "r", "num", 1),
+                         ("Bend angle (deg)", "a", "num", 90),
+                         ("Chain from (skips the 3 xyz rows)", "src", "bendsrc", ""),
+                         ("Twist (deg, chain)", "tw", "num", 0),
+                         ("Bend radius (blank = center to start / same as chain)", "R", "num", ""),
+                         ("Border", "c1", "color", "white"), ("Fill", "c2", "color", "orchid")]
+if CurvedTorus3d is not None:
+    ADD_SPECS["CurvedTorus"] = [("Center", "p", "xyz", (0, 0, 0)), ("Ring point", "e", "xyz", (5, 0, 0)),
+                                ("Normal", "n", "xyz", (0, 0, 1)), ("Tube radius", "r", "num", 1),
+                                ("Ring radius (must be > tube radius)", "R", "num", 5),
+                                ("Segments", "s", "num", 4),
+                                ("Border", "c1", "color", "white"), ("Fill", "c2", "color", "deepskyblue")]
 
 
 def add_nums(label, v):
@@ -553,6 +597,14 @@ def add_nums(label, v):
         return list(v["p"]) + [v["r"]]
     if label in ("Circle", "Cylinder", "Cone"):
         return list(v["p"]) + list(v["e"]) + ([v["h"]] if label != "Circle" else [])
+    if label in ("Bend", "CurvedTorus"):
+        start = np.array(v["e"], float)
+        if v["R"]:   # bend/ring radius given: slide spine start / ring point out or in to that distance
+            d = start - np.array(v["p"], float)
+            if np.linalg.norm(d) == 0:
+                raise ValueError("Spine start must differ from bend center (it sets the direction)")
+            start = np.array(v["p"], float) + d / np.linalg.norm(d) * v["R"]
+        return list(v["p"]) + list(start) + [v["r"], v["a"] if label == "Bend" else v["s"]] + list(v["n"])
     if label == "Square":
         (cx, cy, cz), h = v["p"], v["s"] / 2
         corners = {"XY": [(cx - h, cy - h, cz), (cx + h, cy - h, cz), (cx + h, cy + h, cz), (cx - h, cy + h, cz)],
@@ -588,6 +640,10 @@ class App:
         self.reset_camera()
         self.grid_step, self.grid_ext = 1.0, 10.0
         self._build_ui()
+        if self._mac:   # started from Terminal, macOS can leave keyboard input with Terminal
+            root.lift()
+            root.attributes("-topmost", True)
+            root.after(300, lambda: (root.attributes("-topmost", False), root.focus_force()))
         sys.stdout = PaneWriter(self.out)
         sys.stderr = PaneWriter(self.out, "err")
         root.report_callback_exception = lambda *exc: traceback.print_exception(*exc)
@@ -609,15 +665,26 @@ class App:
         self.canvas.bind("<B1-Motion>", self._drag_move)
         self.canvas.bind("<B3-Motion>", self._drag_move)
         self.canvas.bind("<MouseWheel>", self._wheel)
-        # Fly keys (canvas must have focus: click it once). Shift = 4x step.
+        try:                           # Tk 9: two-finger trackpad scroll arrives as its own event
+            self.canvas.bind("<TouchpadScroll>", self._touch_scroll)
+        except tk.TclError:
+            pass
+        self._mac = self.root.tk.call("tk", "windowingsystem") == "aqua"
+        if self._mac:                  # Mac: right button is Button-2; Ctrl-click also pans
+            for b in ("<ButtonPress-2>", "<Control-ButtonPress-1>"):
+                self.canvas.bind(b, lambda e: self._drag_start(e, "pan"))
+            self.canvas.bind("<B2-Motion>", self._drag_move)
+            self.canvas.bind("<Control-B1-Motion>", self._drag_move)
+        # Fly keys are bound on the window (Mac Tk won't give a canvas keyboard focus);
+        # _fly ignores them while typing in an entry box. Shift = 4x step.
         for keys, args in ((("w", "W"), ("move", 0, 1, 0)), (("s", "S"), ("move", 0, -1, 0)),
                            (("a", "A"), ("move", -1, 0, 0)), (("d", "D"), ("move", 1, 0, 0)),
                            (("e", "E"), ("move", 0, 0, 1)), (("q", "Q"), ("move", 0, 0, -1)),
                            (("Left",), ("look", -1, 0)), (("Right",), ("look", 1, 0)),
                            (("Up",), ("look", 0, -1)), (("Down",), ("look", 0, 1))):
             for k in keys:
-                self.canvas.bind(f"<KeyPress-{k}>", lambda ev, a=args: self._fly(ev, *a))
-                self.canvas.bind(f"<Shift-KeyPress-{k}>", lambda ev, a=args: self._fly(ev, *a))
+                self.root.bind(f"<KeyPress-{k}>", lambda ev, a=args: self._fly(ev, *a))
+                self.root.bind(f"<Shift-KeyPress-{k}>", lambda ev, a=args: self._fly(ev, *a))
 
         panel = ttk.Frame(top, padding=6)
         top.add(panel, weight=1)
@@ -646,7 +713,7 @@ class App:
         r1.pack(fill=tk.X, pady=2)
         ttk.Label(r1, text="Add:").pack(side=tk.LEFT)
         self.v_add = tk.StringVar(value="Cube")
-        ttk.Combobox(r1, textvariable=self.v_add, values=list(ADD_SPECS), width=9,
+        ttk.Combobox(r1, textvariable=self.v_add, values=list(ADD_SPECS), width=11,
                      state="readonly").pack(side=tk.LEFT, padx=3)
         ttk.Button(r1, text="Add...", command=self.add_dialog).pack(side=tk.LEFT)
 
@@ -900,7 +967,8 @@ class App:
         spec = ADD_SPECS[label]
         kind = {"Point": "point3d", "Line": "line3d", "Vector": "vector3d", "Plane": "plane3d",
                 "Square": "square3d", "Cube": "cube3d", "Sphere": "sphere3d",
-                "Circle": "circle3d", "Cylinder": "cylinder3d", "Cone": "cone3d"}[label]
+                "Circle": "circle3d", "Cylinder": "cylinder3d", "Cone": "cone3d",
+                "Bend": "curvedcylinder3d", "CurvedTorus": "curvedtorus3d"}[label]
         dlg = tk.Toplevel(self.root)
         dlg.title(f"Add {label}")
         dlg.transient(self.root)
@@ -922,6 +990,14 @@ class App:
                 ttk.Entry(frm, textvariable=v, width=12).grid(row=r, column=1, columnspan=2, sticky="we")
                 ttk.Button(frm, text="...", width=3, command=lambda v=v: self.pick(v)).grid(row=r, column=3)
                 fields[key] = ("color", v)
+            elif ftype == "bendsrc":       # existing bends to continue from
+                names = ["(none)"] + [e.name for e in self.entries
+                                      if CurvedCylinder3d and isinstance(e.obj, CurvedCylinder3d)]
+                cur = self.selected[1].name if self.selected and self.selected[0] == "s" else ""
+                v = tk.StringVar(value=cur if cur in names else "(none)")
+                ttk.Combobox(frm, textvariable=v, values=names, width=14, state="readonly").grid(
+                    row=r, column=1, columnspan=3, sticky="w")
+                fields[key] = ("choice", v)
             elif isinstance(ftype, tuple):
                 v = tk.StringVar(value=default)
                 ttk.Combobox(frm, textvariable=v, values=ftype, width=6, state="readonly").grid(
@@ -947,7 +1023,16 @@ class App:
                 name = v_name.get().strip() or label.lower()
                 if any(e.name == name for e in self.entries):
                     raise ValueError(f"name '{name}' already used")
-                e = Entry(kind, name, vals.get("c1", ""), vals.get("c2", ""), add_nums(label, vals))
+                src = vals.get("src", "(none)")
+                if label == "Bend" and src not in ("", "(none)"):
+                    # Continue smoothly off the end of an existing bend; store the new bend's own geometry.
+                    prev = next(o.obj for o in self.entries if o.name == src)
+                    nxt = prev.make_next(math.radians(vals["a"]), math.radians(vals["tw"] or 0),
+                                         bend_radius=vals["R"], tube_radius=vals["r"])
+                    nums = entry_from_obj(name, nxt).nums
+                else:
+                    nums = add_nums(label, vals)
+                e = Entry(kind, name, vals.get("c1", ""), vals.get("c2", ""), nums)
                 self.rebuild(e)
                 if e.obj is None:
                     return
@@ -1320,6 +1405,8 @@ class App:
                 np.array((cy, -sy, 0.0)))
 
     def _fly(self, ev, mode, a, b, c=0):
+        if ev.widget.winfo_class() in ("Entry", "TEntry", "Text", "TCombobox", "Listbox", "Spinbox", "TSpinbox"):
+            return None                                # typing, not flying
         boost = 4 if ev.state & 0x0001 else 1          # Shift held
         fwd, level, right = self._cam_axes()
         if mode == "move":
@@ -1355,8 +1442,20 @@ class App:
             self.target = tuple(np.array(self.target) - right * dx / self.scale + up * dy / self.scale)
         self.redraw()
 
+    def _touch_scroll(self, ev):
+        """Two-finger trackpad scroll (Tk 9): vertical swipe zooms."""
+        try:
+            _dx, dy = (float(v) for v in self.root.tk.splitlist(
+                self.root.tk.call("tk::PreciseScrollDeltas", ev.delta)))
+        except (tk.TclError, ValueError):
+            return
+        self.scale *= 1.01 ** max(-20, min(20, -dy))
+        self.redraw()
+
     def _wheel(self, ev):
-        self.scale *= 1.1 ** (ev.delta / 120)
+        # Windows and Tk 9 send +-120 per notch; older Mac Tk sends small counts (+-1..+-10).
+        steps = ev.delta / 120 if abs(ev.delta) >= 120 else max(-3, min(3, ev.delta * 0.5))
+        self.scale *= 1.1 ** steps
         self.redraw()
 
     def project(self, p):
@@ -1383,6 +1482,9 @@ class App:
                 if isinstance(obj, Sphere3d):
                     c, r = center_of(obj), obj.get_radius()
                     pts += [tuple(np.add(c, s * r * np.eye(3)[i])) for i in range(3) for s in (-1, 1)]
+                elif tube_bends(obj) is not None:
+                    for b in tube_bends(obj):
+                        pts += [xyz(b.surface_point(t / 4, f * math.pi / 2)) for t in range(5) for f in range(4)]
                 elif is_round(obj):
                     ctr, n, r, h = round_geom(obj)
                     pts += [tuple(q) for q in ring(ctr, n, r, 8)]
@@ -1551,6 +1653,9 @@ class App:
         if getattr(obj, "_viewer_plane", False) or is_lib_plane(obj):
             self.collect_plane(obj, sel, fills, lines, dots)
             return
+        if tube_bends(obj) is not None:
+            self.collect_tube(obj, sel, fills, lines, dots)
+            return
         if is_round(obj):
             ctr, n, r, h = round_geom(obj)
             bcol = self.safe(bc, DEFAULT_LINE)
@@ -1602,6 +1707,77 @@ class App:
             return
         if isinstance(obj, Point3d):
             dots.append((xyz(obj), self.safe(bc, DEFAULT_POINT), sel))
+
+    # ------------------------------------------------------ bent tube drawing
+    def collect_tube(self, obj, sel, fills, lines, dots):
+        """Shaded tube surface for a CurvedCylinder3d or every bend of a CurvedTorus3d.
+        Faces turned away from the camera are skipped; the outline is where seen meets unseen."""
+        P = self.project
+        bc, fc = color_of(obj)
+        bcol = self.safe(bc, DEFAULT_LINE)
+        base = fc if self.rgb(fc or "") else bcol
+        dim = self.blend(bcol, 0.35)
+        width = 3.2 if sel else 1.6
+        fwd, _lv, _rt = self._cam_axes()
+        eye = np.array(self.target, float) - fwd * self.dist
+        bends = tube_bends(obj)
+        single = len(bends) == 1
+        K = 16                                          # facets around the tube
+
+        def line(a, b, color, w):
+            pa, pb = P(a), P(b)
+            lines.append(((pa[2] + pb[2]) / 2, (pa[0], pa[1], pb[0], pb[1]), color, w, None, None))
+
+        for bend in bends:
+            c = np.array(xyz(bend.get_bend_center()), float)
+            n = np.array(bend.get_norm(), float)
+            R, r, ang = bend.get_bend_radius(), bend.get_tube_radius(), bend.get_angle()
+            M = max(4, int(math.ceil(48 * ang / (2 * math.pi))))     # steps along the bend
+            rad = [np.array(bend.radial_dir(i / M), float) for i in range(M + 1)]
+            phis = [2 * math.pi * j / K for j in range(K + 1)]
+            nrm = [[math.cos(f) * rd + math.sin(f) * n for f in phis] for rd in rad]
+            grid = [[c + R * rd + r * q for q in row] for rd, row in zip(rad, nrm)]
+            vis = [[False] * K for _ in range(M)]
+            for i in range(M):
+                for j in range(K):
+                    quad = [grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]]
+                    mid = sum(quad) / 4
+                    to_eye = eye - mid
+                    facing = float(np.dot(nrm[i][j] + nrm[i + 1][j + 1], to_eye)) / (
+                        2 * np.linalg.norm(to_eye) + 1e-12)
+                    if facing <= 0:
+                        continue
+                    vis[i][j] = True
+                    proj = [P(q) for q in quad]
+                    fills.append((sum(q[2] for q in proj) / 4, [v for q in proj for v in q[:2]],
+                                  self.blend(base, 0.15 + 0.55 * min(facing * 1.2, 1.0))))
+            ring_every = max(1, M // 4)
+            for i in range(M + 1):
+                for j in range(K):
+                    a_vis = vis[i - 1][j] if i > 0 else False
+                    b_vis = vis[i][j] if i < M else False
+                    if (i == 0 or i == M) and single and (a_vis or b_vis):
+                        line(grid[i][j], grid[i][j + 1], bcol, width)        # open end ring
+                    elif i % ring_every == 0 and (a_vis or b_vis):
+                        line(grid[i][j], grid[i][j + 1], dim, 1)
+            for i in range(M):
+                for j in range(K):
+                    left, right = vis[i][j - 1], vis[i][j]
+                    if left != right:
+                        line(grid[i][j], grid[i + 1][j], bcol, width)          # silhouette
+                    elif left and j % 4 == 0:
+                        line(grid[i][j], grid[i + 1][j], dim, 1)
+            if single:
+                for i, t in ((0, 0.0), (M, 1.0)):                      # flat end caps
+                    cap = [P(q) for q in grid[i][:-1]]
+                    to_eye = eye - np.array(xyz(bend.spine_point(t)))
+                    out = -np.array(bend.tangent(0.0)) if i == 0 else np.array(bend.tangent(1.0))
+                    if float(np.dot(out, to_eye)) > 0:
+                        fills.append((sum(q[2] for q in cap) / K, [v for q in cap for v in q[:2]],
+                                      self.blend(base, 0.45)))
+                dots.append((xyz(bend.get_spine_start()), bcol, sel))
+                dots.append((xyz(bend.get_spine_end()), bcol, sel))
+        dots.append((xyz(obj.get_center()), bcol, sel))
 
     # ------------------------------------------------- infinite plane drawing
     def cam_d(self, p):

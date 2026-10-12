@@ -2,8 +2,9 @@ from class3d import *
 from overloaded_inc  import *
 
 def main():
-    point25 = Point3d(0,0,0)
-    point26 = Point3d(0,0,1)
+    centerpt = Point3d(0,0,0)
+    edgept = Point3d(0,0,20)
+    tube_edgept = Point3d(0,0,25)
     point1 = Point3d(1, 1, 1)
     point2 = Point3d(1, 6, 1)
     point3 = Point3d(1, 6, 1)
@@ -27,12 +28,15 @@ def main():
     print(f'vec1: {vec1}')
     vec1.yrot(.35)
     print(f'vec1 after rotation: {vec1}')
-
-    circle1 = Circle3d(point25, point26, bc="red", fc="green")
+    torus1 = Torus3d(centerpt, edgept, tube_edgept, fc="blue", bc="blue", name="Torus1")
+    print(torus1)
+    torus1.zrot(degtorad(45), pivot="center")
+    print(f'torus rotated 45 around z:\n{torus1}')
+    circle1 = Circle3d(centerpt, edgept, bc="red", fc="green")
     print(circle1)
-    cylinder1 = Cylinder3d(point25, point26, 25, bc="blue", fc="yellow")
+    cylinder1 = Cylinder3d(centerpt, edgept, 25, bc="blue", fc="yellow")
     print(cylinder1)
-    cone1 =  Cone3d(point25, point26, 25, bc="blue", fc="yellow")
+    cone1 =  Cone3d(centerpt, edgept, 25, bc="blue", fc="yellow")
     #cone2 = cone1.xrot(degtorad(90))
     #print(cone1)
     red_pixel = ColoredPixel(1, 1, 0, "red")
