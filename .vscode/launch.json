@@ -9,8 +9,25 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "args": "${command:pickArgs}",
+            "args": [
+                "-i",
+                "-v",
+                "${input:filename}",
+                "${input:searchPath}"
+            ],
             "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "filename",
+            "type": "promptString",
+            "description": "Filename to search for"
+        },
+        {
+            "id": "searchPath",
+            "type": "promptString",
+            "description": "Directory to search"
         }
     ]
 }

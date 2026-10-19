@@ -40,7 +40,7 @@ from data.database import db
 logger = logging.getLogger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────────────
-CLAUDE_MODEL         = "claude-haiku-4-5"
+CLAUDE_MODEL         = "claude-haiku-5-5"
 REVIEW_TIMEOUT_SEC   = 12
 BRIEFING_TIMEOUT_SEC = 30
 MAX_TOKENS_REVIEW    = 512

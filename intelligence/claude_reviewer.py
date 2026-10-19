@@ -31,7 +31,7 @@ import config
 logger = logging.getLogger(__name__)
 
 # ── Model & limits ────────────────────────────────────────────────────────────
-CLAUDE_MODEL          = "claude-haiku-4-5"
+CLAUDE_MODEL          = "claude-haiku-5-5"
 BATCH_SIZE            = 5
 REVIEW_TIMEOUT_SEC    = 15
 BRIEFING_TIMEOUT_SEC  = 30

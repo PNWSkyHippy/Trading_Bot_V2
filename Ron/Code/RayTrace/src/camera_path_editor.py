@@ -143,13 +143,16 @@ class CameraPathEditor(tk.Toplevel):
         ttk.Combobox(toolbar, textvariable=self.place, state="readonly", width=15,
                      values=["Start A", "Through B", "End", "Aim start", "Aim end", "Object", "Light"]).pack(side="left", padx=5)
         ttk.Button(toolbar, text="Fit", command=self.fit).pack(side="left")
-        ttk.Label(toolbar, text="Click to place / drag a marker. Wheel = zoom.").pack(side="left", padx=6)
+        ttk.Label(toolbar, text="Click to place / drag a marker. Wheel = zoom (Shift faster), right-drag = pan.").pack(side="left", padx=6)
         self.map_canvas = tk.Canvas(right, background="#141b27", highlightthickness=0)
         self.map_canvas.grid(row=1, column=0, sticky="nsew", pady=6)
         self.map_canvas.bind("<Button-1>", self.press)
         self.map_canvas.bind("<B1-Motion>", self.drag)
         self.map_canvas.bind("<ButtonRelease-1>", lambda event: setattr(self, "dragging", False))
         self.map_canvas.bind("<MouseWheel>", self.zoom)
+        for button in ("2", "3"):              # middle or right drag pans the map
+            self.map_canvas.bind(f"<Button-{button}>", self.pan_start)
+            self.map_canvas.bind(f"<B{button}-Motion>", self.pan)
         self.map_canvas.bind("<Configure>", lambda event: self.draw())
         ttk.Label(right, text="Through the camera — wireframe (same aim and vertical FOV as export)").grid(row=2, column=0, sticky="w")
         self.camera_canvas = tk.Canvas(right, background="#0c111b", highlightthickness=0)
@@ -251,6 +254,7 @@ class CameraPathEditor(tk.Toplevel):
             frames = cp.sample_shot(shot)
         except (ValueError, TypeError, KeyError, OverflowError) as exc:
             self.status.set(f"Check settings: {exc}")
+            self.bell()                        # clicks/adds are blocked until this is fixed
             return False
         self.shot, self.frames = shot, frames
         self.frame_index = min(self.frame_index, len(frames)-1)
@@ -288,7 +292,9 @@ class CameraPathEditor(tk.Toplevel):
             return
         last = self.shot["segments"][-1]
         a = list(last["c"])
-        c = list(cp.add(a, (5, 0, 0)))
+        # Step about half the last move's length so it shows at any scene size.
+        size = max(5.0, 0.5*math.dist(last["a"], last["c"]))
+        c = list(cp.add(a, (size, 0, 0)))
         self.shot["segments"].append({"kind": "Line", "a": a, "b": list(cp.mix(a, c, .5)), "c": c,
             "target_a": last["target_c"][:], "target_c": last["target_c"][:],
             "steps": 24, "fov_a": last["fov_c"], "fov_c": last["fov_c"]})
@@ -376,7 +382,25 @@ class CameraPathEditor(tk.Toplevel):
         self.apply()
 
     def zoom(self, event):
-        self.scale = min(1000, max(.01, self.scale*(1.15 if event.delta > 0 else 1/1.15)))
+        # Keep the world point under the mouse fixed; Shift = 4x faster.
+        i, j = self.axes()
+        w, h = self.map_canvas.winfo_width(), self.map_canvas.winfo_height()
+        under = (self.center[i] + (event.x - w/2)/self.scale, self.center[j] - (event.y - h/2)/self.scale)
+        step = 1.6 if event.state & 0x0001 else 1.15
+        self.scale = min(1000, max(1e-5, self.scale*(step if event.delta > 0 else 1/step)))
+        self.center[i] = under[0] - (event.x - w/2)/self.scale
+        self.center[j] = under[1] + (event.y - h/2)/self.scale
+        self.draw()
+
+    def pan_start(self, event):
+        self._pan = (event.x, event.y, list(self.center))
+
+    def pan(self, event):
+        x0, y0, center = self._pan
+        i, j = self.axes()
+        self.center = list(center)
+        self.center[i] -= (event.x - x0)/self.scale
+        self.center[j] += (event.y - y0)/self.scale
         self.draw()
 
     def fit(self):

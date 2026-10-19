@@ -1,4 +1,18 @@
+
+# pyrefly.toml
+
+# 1. What to include for type checking
 project-includes = [
     "**/*.py*",
     "**/*.ipynb",
 ]
+
+# 2. What to exclude from type checking
+project-excludes = ["**/*venv/**","**/.*", "dist", "build"]
+use-ignore-files = true
+
+# 3. Where Pyrefly should look to resolve your internal imports
+search-path = [".."]
+
+# 4. Target environment variables
+python-version = "3.14"

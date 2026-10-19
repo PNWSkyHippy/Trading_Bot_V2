@@ -3,7 +3,7 @@
   CLAUDE AI CHAT INTERFACE
   Lets you talk to your trading bot in plain English.
 
-  Model: claude-haiku-4-5 (cheapest Claude, fast)
+  Model: claude-haiku-5-5 (cheapest Claude, fast)
   Cost controls:
     - max_tokens capped at 512
     - context trimmed to essentials only
@@ -49,7 +49,7 @@ from core.position_monitor import monitor
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = "claude-haiku-4-5"
+CLAUDE_MODEL = "claude-haiku-5-5"
 
 # All valid strategy names — used by pre-parser
 STRATEGY_NAMES = [

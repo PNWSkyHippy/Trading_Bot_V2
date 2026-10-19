@@ -15,6 +15,14 @@ data/futures_history/
 watchlist/
 claud-skills/
 .claude\worktrees\
+.bun/
+.gradle/
+.archon/
+.cache/
+.vscode/
+AppData/
+Zcode*
+OneDrive/
 *.exe
 # Comprehensive Nuitka & Python cleaning
 __pycache__/
@@ -54,12 +62,16 @@ Deesigns/
 Opus.Audit/
 OverHaul/
 prompts/
+SubPulse/
+subscription-tracker/
+SubscriptionTracker/
 .env
 .tmp.driveupload/
 *.db
 *.pkl
 logs/
 __pycache__/
+venv*
 venv311/
 venv312/
 venv314/

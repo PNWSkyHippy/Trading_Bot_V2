@@ -44,3 +44,9 @@ git commit -m "Merge remote branch safely"
 
 git push origin main
 
+# Reset afer unwanted files comited causig errors
+git reset --mixed origin/main
+git rm -r --cached .
+git add .
+git commit -m "chore: wipe binary bloat and add fresh files"
+git push origin main
