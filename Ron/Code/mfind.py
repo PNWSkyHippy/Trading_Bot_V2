@@ -7,6 +7,19 @@ import yaml
 from local_functions import colorize, Timed, bytes_to_str, str_to_bytes
 from TkFileTool import MyFileUtilityTool
 
+"""
+To Code Yet
+    filter by type of file
+    filter by extention of file
+    sort by bytesize
+    forward or reverse the sort method chosen
+    show and sort by timestamp on file (recent command)
+    exlude pattern m add more of whats already skipped via .gitignore
+    xecute command on each file found
+    Xecute a command on entire list of files found IE program | wc -l that takes a list of files on stdin 
+"""
+
+
 class Manipulate_files(MyFileUtilityTool):
     """_summary_ mainengine behind an all around file finding class
         methods:
@@ -56,19 +69,20 @@ class Manipulate_files(MyFileUtilityTool):
         else:
             found_files = self.find_files(self.directory, self.filename)
             if found_files:
-                if self.do_long:
+                if self.verbose or self.do_long:
                     self.write_out(f'{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
-
+                elif self.size:
+                    self.write_out(f'{"Size":<12}{"File Path"}')
                 if self.sorted == "forward":
                     found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold())
                 elif self.sorted == "reverse":
                     found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold(), reverse=True)
                 for found in found_files:
                     path, size, lines, words, chars = found
-                    if self.verbose:
-                        print(f"Found: {path} | Size: {size} | Lines: {lines} | Words: {words} | Characters: {chars}")
-                    if self.do_long:
+                    if self.verbose or self.do_long:
                         self.write_out(f'{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
+                    elif self.size:
+                        self.write_out(f'{size:<12}{colorize(found[0], "blue")}')
                     else:
                         self.write_out(colorize(found[0], "blue"))
 
@@ -87,9 +101,15 @@ class Manipulate_files(MyFileUtilityTool):
     def parse_arguments(self):
         """_summary_ parses command line arguments and sets the corresponding attributes."""
         parser = argparse.ArgumentParser(
-            description="List PnL based on search criteria",
+            description="Search for files on various criteria",
             epilog="""\
-    Usage examples:
+    Usage: mfind.py [OPTIONS] [pattern] [path]
+
+    Arguments:
+        [pattern]  the search pattern (a regular expression, unless '--glob' is used; optional)
+        [path]...  the root directories for the filesystem search (optional)
+
+    Options:
         mfind.py [opt. switches] <file name> [path] current directory used if not given
         mfind.py -f <file to search for>
         mfind.py "view*.py" (wildcards * ? [abc] for partial names - quote them on Mac/Linux)
@@ -105,7 +125,20 @@ class Manipulate_files(MyFileUtilityTool):
         mfind.py -s <forward/reverse> List of files sorted forward or reverse
         mfind.py -m Set maximum search depth (default: none) -m 0 for no recursion pat starting location
         mfind.py -e Exclude entries that match the given glob pattern
-        mfind.py -S Limit results based on the size of files
+        mfind.py -S Limit results based on the size of files using the format <+-><NUM><UNIT>. 
+                  '+': file size must be greater than or equal to this
+                  '-': file size must be less than or equal to this
+
+                  If neither '+' nor '-' is specified, file size must be exactly equal to this.
+                     'NUM':  The numeric size (e.g. 500)
+                     'UNIT': The units for NUM. They are not case-sensitive.
+                  Allowed unit values:
+                      'Bs':  bytes
+                      'KB':  kilobytes (base ten, 10^3 = 1000 bytes)
+                      'MB':  megabytes
+                      'GB':  gigabytes
+                      'TB':  terabytes
+                      'PB': petabytes       
         mfind.py -x Execute a command for each search result
         mfind.py -X Execute a command with all search results at once
         mfind.py -t Filter by type: file (f), directory (d/dir), symlink (l),
@@ -243,21 +276,8 @@ class Manipulate_files(MyFileUtilityTool):
             "-S",
             "--size",
             metavar="",
-            help="""<size>            Limit results based on the size of files using the format <+-><NUM><UNIT>. 
-             '+': file size must be greater than or equal to this
-             '-': file size must be less than or equal to this
-
-          If neither '+' nor '-' is specified, file size must be exactly equal to this.
-             'NUM':  The numeric size (e.g. 500)
-             'UNIT': The units for NUM. They are not case-sensitive.
-          Allowed unit values:
-              'Bs':  bytes
-              'KB':  kilobytes (base ten, 10^3 = 1000 bytes)
-              'MB':  megabytes
-              'GB':  gigabytes
-              'TB':  terabytes
-              'PB': petabytes
-            """,
+            help="-S [+/-]bytes[TB|GB|MB|KB|BS]"
+            ,
         )
 
         parser.add_argument(
@@ -523,10 +543,10 @@ class Manipulate_files(MyFileUtilityTool):
                         sys.stderr.write(f'Hidden file marked: ({path})')
                 if self.size != None:
                     if self.sizegt is True:
-                        if (self.size != None) and (file_sz >= self.size):
+                        if (self.size != None) and (file_sz < self.size):
                             continue
                     elif self.sizegt is False:
-                        if (self.size != None) and (file_sz <= self.size):
+                        if (self.size != None) and (file_sz >= self.size):
                             continue                        
                     else:
                         if (self.size != None) and (file_sz != self.size):

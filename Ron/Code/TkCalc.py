@@ -111,7 +111,31 @@ class TkCalc(ToolView):
 
         # Show Standard mode by default
         self.show_mode("Standard")
+        self.setup_menus()
 
+
+    def setup_menus(self):
+        # 1. FILE MENU (Fluent Chained Style)
+       # 1. FILE MENU (Fluent Chained Style)
+        file_menu = self.menu("File")
+        file_menu.add_item("Exit Application", self.app.root.quit, shortcut="Alt+F4")
+ 
+        # Cascading Submenu: File > Export > ...
+        export_sub = file_menu.add_submenu("About")
+        export_sub.add_item(
+            "TKCalc 09/2026", lambda: self.log_action("Exported data to CSV")
+        )
+        export_sub.add_item(
+            "Coded By: Ron Hensley", lambda: self.log_action("Exported data to CSV")
+        )
+        export_sub.add_item(
+            "ronkhensley@gmail.com", lambda: self.log_action("Exported data to CSV")
+        )
+       
+    def log_action(self, msg):
+        pass
+
+    
     def show_mode(self, mode_name: str):
         target_frame = self.mode_frames.get(mode_name)
         if target_frame:

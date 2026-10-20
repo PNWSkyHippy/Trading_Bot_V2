@@ -434,7 +434,8 @@ def main():
                                 ("Delete selected  (Del)", "KEY delete"), ("Select all", "CMD select_all"),
                                 ("Select none", "CMD select_none"), ("Properties...", "CMD props"),
                                 ("Group selected...", "CMD tag"), ("Ungroup", "CMD untag"),
-                                ("Replicate...", "CMD replicate")):
+                                ("Replicate...", "CMD replicate"),
+                                ("Ring copy (around a pivot)...", "CMD ring")):
                 if g.button(label):
                     send(line)
         if section("add", "Add"):

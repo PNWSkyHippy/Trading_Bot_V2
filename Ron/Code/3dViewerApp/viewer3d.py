@@ -1543,6 +1543,11 @@ class App:
         self.v_rep_step = self._xyz_row(ef, g, "  step", ("2", "0", "0"))
         ttk.Button(ef, text="Replicate", command=self.replicate).grid(row=g, column=4, sticky="we")
         g += 1
+        self.v_rep_size = tk.StringVar(value="1")
+        ttk.Label(ef, text="  size each x").grid(row=g, column=0, sticky="w")
+        ttk.Entry(ef, textvariable=self.v_rep_size, width=6).grid(row=g, column=1, sticky="we")
+        ttk.Label(ef, text="(0.8 = each copy 80% of the last)").grid(row=g, column=2, columnspan=3, sticky="w")
+        g += 1
         ttk.Label(ef, text="  copies the selection (whole groups, CSG, twin, hollow), each one step further;"
                            " group box optional", foreground="#7a828e").grid(row=g, column=0, columnspan=5, sticky="w")
         g += 1
@@ -1580,6 +1585,25 @@ class App:
         g += 1
         ttk.Button(ef, text="Rotate  >", command=self.rotate).grid(row=g, column=0, columnspan=5,
                                                                     sticky="we", pady=3)
+        g += 1
+        # ring copy: Replicate, but each copy turned about the pivot above (chandelier arms, rings)
+        self.v_ring_n, self.v_ring_a0, self.v_ring_a1 = \
+            tk.StringVar(value="8"), tk.StringVar(value="0"), tk.StringVar(value="360")
+        ttk.Label(ef, text="Ring copy").grid(row=g, column=0, sticky="w")
+        ttk.Spinbox(ef, from_=1, to=500, textvariable=self.v_ring_n, width=4).grid(row=g, column=1, sticky="we")
+        ttk.Entry(ef, textvariable=self.v_ring_a0, width=6).grid(row=g, column=2, sticky="we")
+        ttk.Entry(ef, textvariable=self.v_ring_a1, width=6).grid(row=g, column=3, sticky="we")
+        ttk.Button(ef, text="Ring copy", command=self.ring_copy).grid(row=g, column=4, sticky="we")
+        g += 1
+        self.v_ring_step = self._xyz_row(ef, g, "  step", ("0", "0", "0"))
+        g += 1
+        self.v_ring_size = tk.StringVar(value="1")
+        ttk.Label(ef, text="  size each x").grid(row=g, column=0, sticky="w")
+        ttk.Entry(ef, textvariable=self.v_ring_size, width=6).grid(row=g, column=1, sticky="we")
+        g += 1
+        ttk.Label(ef, text="  copies, from / to deg, about Rotate's pivot + axis (360: even ring, 0 deg ="
+                           " the original); step = also move each copy (spiral); Replicate's group box",
+                  foreground="#7a828e", wraplength=330).grid(row=g, column=0, columnspan=5, sticky="w")
         g += 1
         ttk.Label(ef, text="Transforms (saved under the object):").grid(row=g, column=0, columnspan=5,
                                                                          sticky="w")
@@ -2586,42 +2610,71 @@ class App:
         try:
             n = max(1, min(500, int(float(self.v_rep_n.get()))))
             step = np.array(self._floats(self.v_rep_step), float)
+            size = float(self.v_rep_size.get() or 1)
+            if size <= 0:
+                raise ValueError
         except ValueError:
-            print("Replicate: copies and step need numbers")
+            print("Replicate: copies, step and size need numbers (size above 0)")
             return
+        new, whole, segs, outer = self._make_copies(
+            src, ids, [[{"op": "move", "d": tuple(float(v) for v in step * i)}] for i in range(1, n + 1)],
+            [size ** i for i in range(1, n + 1)])
+        print(f"Replicated {len(src)} object(s) x{n}, step ({', '.join(fmt(v) for v in step)})"
+              + (f", size x{fmt(size)} each" if size != 1 else "")
+              + (f" - new groups {', '.join(sorted({g for c in new for g in gsegs(c)} - set(segs)))}"
+                 if whole else "") + (f" - all in group {outer}" if outer else ""))
+
+    def _make_copies(self, src, ids, per_copy, sizes=None):
+        """One copy of src per list of transforms in per_copy (added after each source's own), CSG
+        links and whole groups renamed per copy; 'into group' wraps it all. sizes: a scale per copy,
+        about that copy's own middle (rings shrinking up a fountain). Saves + refreshes.
+        Returns (new entries, groups renamed per copy, source groups, outer group)."""
         # groups wholly inside the selection get new names per copy; outer ones are shared
         segs = list(dict.fromkeys(g for e in src for g in gsegs(e)))
         whole = [g for g in segs if all(id(o) in ids for o in self.entries if g in gsegs(o))]
         gtaken = {g for e in self.entries for g in gsegs(e)}
         ntaken = {e.name for e in self.entries}
         new = []
-        for i in range(1, n + 1):
+        for ci, tfs in enumerate(per_copy):
             smap = {g: self._fresh(g, gtaken) for g in whole}
             nmap = {e.name: self._fresh(e.name, ntaken) for e in src}
             for e in src:
                 c = copy.copy(e)
                 c.name = nmap[e.name]
                 c.nums = list(e.nums)
-                c.transforms = [list(r) for r in e.transforms] + \
-                    [tf_to_row({"op": "move", "d": tuple(float(v) for v in step * i)})]
+                c.transforms = [list(r) for r in e.transforms] + [tf_to_row(t) for t in tfs]
                 c.group = "/".join(smap.get(g, g) for g in gsegs(e))
                 if e.csg:
                     op, tgt, g = e.csg
                     tgt = "@" + smap.get(tgt[1:], tgt[1:]) if tgt.startswith("@") else nmap.get(tgt, tgt)
                     c.csg = (op, tgt, smap.get(g, g) if g else "")
                 c.obj = c.twin_obj = None
-                try:                               # the built source, moved: same as replaying every step
+                try:                               # the built source, transformed: same as replaying every step
                     if e.obj is None:
                         raise ValueError
-                    mv = {"op": "move", "d": tuple(float(v) for v in step * i)}
                     c.obj = copy.deepcopy(e.obj)
-                    run_tf(c.obj, mv, 1.0)
                     if e.twin_obj is not None:
                         c.twin_obj = copy.deepcopy(e.twin_obj)
-                        run_tf(c.twin_obj, mv, 1.0)
+                    for t in tfs:
+                        run_tf(c.obj, t, 1.0)
+                        if c.twin_obj is not None:
+                            run_tf(c.twin_obj, t, 1.0)
                 except Exception:                  # noqa: BLE001
                     self.rebuild(c)
                 new.append(c)
+            f = sizes[ci] if sizes else 1.0
+            batch = new[-len(src):]
+            built = [c for c in batch if c.obj is not None]
+            if abs(f - 1.0) > 1e-12 and built:     # one shared middle keeps the copy's shape
+                t = {"op": "scale", "f": f, "pivot": tuple(float(v) for v in self.group_center(built))}
+                for c in batch:
+                    c.transforms.append(tf_to_row(t))
+                    if c.obj is None:
+                        self.rebuild(c)
+                        continue
+                    for o in (c.obj, c.twin_obj):
+                        if o is not None:
+                            run_tf(o, t, 1.0)
         self.entries += new
         outer = self.v_rep_group.get().strip().replace(",", "_").replace("/", "_")
         if outer:                                  # wrap originals + copies in one group
@@ -2630,9 +2683,7 @@ class App:
                     e.group = "/".join([outer] + gsegs(e))
         self.save()
         self.refresh()
-        print(f"Replicated {len(src)} object(s) x{n}, step ({', '.join(fmt(v) for v in step)})"
-              + (f" - new groups {', '.join(sorted({g for c in new for g in gsegs(c)} - set(segs)))}"
-                 if whole else "") + (f" - all in group {outer}" if outer else ""))
+        return new, whole, segs, outer
 
     # ------------------------------------------------- view / camera key panel
     def _show_view(self, eye, look, fov):
@@ -2878,30 +2929,7 @@ class App:
         if it is None and (e is None or e.obj is None):
             return
         try:
-            deg = float(self.v_deg.get())
-            choice = self.v_pivot.get()
-            if choice == "default":
-                pivot = None
-            elif choice == "center":
-                pivot = "center"
-            elif choice == "origin":
-                pivot = (0.0, 0.0, 0.0)
-            elif choice.startswith("obj:"):
-                other = next(o for o in self.entries if o.name == choice[4:])
-                pivot = center_of(other.obj)
-            else:
-                pivot = self._floats(self.v_pxyz)
-            tf = {"op": self.v_rot.get(), "deg": deg, "pivot": pivot}
-            if tf["op"] == "vecrot":
-                axis = self.v_axis.get()
-                if axis == "custom":
-                    a, b = self._floats(self.v_axa), self._floats(self.v_axb)
-                else:
-                    line = next(o for o in self.entries if o.name == axis).obj
-                    a, b = xyz(line.get_start()), xyz(line.get_end())
-                if np.allclose(a, b):
-                    raise ValueError("axis start and end are the same point")
-                tf["axis"] = (a, b)
+            tf = self._rot_tf(float(self.v_deg.get()))
         except (ValueError, StopIteration) as exc:
             print(f"Rotate: {exc or 'bad input'}")
             return
@@ -2911,6 +2939,73 @@ class App:
             self._dir_rotate(it, tf)
             return
         self._queue_tf(e, tf)
+
+    def _rot_tf(self, deg):
+        """The Rotate panel's turn (type, pivot, axis) by deg; raises ValueError / StopIteration."""
+        choice = self.v_pivot.get()
+        if choice == "default":
+            pivot = None
+        elif choice == "center":
+            pivot = "center"
+        elif choice == "origin":
+            pivot = (0.0, 0.0, 0.0)
+        elif choice.startswith("obj:"):
+            other = next(o for o in self.entries if o.name == choice[4:])
+            pivot = center_of(other.obj)
+        else:
+            pivot = self._floats(self.v_pxyz)
+        tf = {"op": self.v_rot.get(), "deg": deg, "pivot": pivot}
+        if tf["op"] == "vecrot":
+            axis = self.v_axis.get()
+            if axis == "custom":
+                a, b = self._floats(self.v_axa), self._floats(self.v_axb)
+            else:
+                line = next(o for o in self.entries if o.name == axis).obj
+                a, b = xyz(line.get_start()), xyz(line.get_end())
+            if np.allclose(a, b):
+                raise ValueError("axis start and end are the same point")
+            tf["axis"] = (a, b)
+        return tf
+
+    def ring_copy(self):
+        """Replicate around a pivot: copies spread from one angle to another (Rotate's type / pivot /
+        axis), each also stepped by Step. A full 360 doesn't repeat its end, and a copy that would
+        land on 0 deg is skipped - the original is already there."""
+        ids = {id(o) for s in self._sets_of_selection() for o in s}
+        src = [e for e in self.entries if id(e) in ids]
+        if not src:
+            print("Ring copy: select an object (whole group on to copy the group)")
+            return
+        try:
+            n = max(1, min(500, int(float(self.v_ring_n.get()))))
+            a0, a1 = float(self.v_ring_a0.get()), float(self.v_ring_a1.get())
+            step = np.array(self._floats(self.v_ring_step), float)
+            size = float(self.v_ring_size.get() or 1)
+            if size <= 0:
+                raise ValueError("size must be above 0")
+            tf = self._rot_tf(0.0)
+        except (ValueError, StopIteration) as exc:
+            print(f"Ring copy: {exc or 'copies, angles and step need numbers'}")
+            return
+        built = [e.obj for e in src if e.obj is not None]
+        if tf["pivot"] == "center":            # the selection's middle, the same for every copy
+            tf["pivot"] = tuple(self.group_center(src)) if built else (0.0, 0.0, 0.0)
+        elif tf["pivot"] is None:              # library default, made one fixed point for all
+            tf["pivot"] = tuple(tf["axis"][0]) if tf["op"] == "vecrot" else (0.0, 0.0, 0.0)
+        full = abs(a1 - a0) >= 360 - 1e-9
+        span = n if full else max(n - 1, 1)
+        angles = [a0 + (a1 - a0) * i / span for i in range(n)] if n > 1 else [a0]
+        copies = [(k, ang) for k, ang in enumerate(angles, 1)
+                  if abs(ang % 360) > 1e-9 or np.any(step) or size != 1]
+        if not copies:
+            print("Ring copy: every copy would land on the original")
+            return
+        new = self._make_copies(src, ids, [
+            [dict(tf, deg=ang)] + ([{"op": "move", "d": tuple(float(v) for v in step * k)}]
+                                   if np.any(step) else [])
+            for k, ang in copies], [size ** k for k, _ang in copies])[0]
+        print(f"Ring copy: {len(src)} object(s) x{len(new) // len(src)} from {fmt(a0)} to {fmt(a1)} deg, "
+              + tf_text(dict(tf, deg=a1 - a0)))
 
     def undo_tf(self):
         if self.dir_item():
@@ -3951,7 +4046,18 @@ class App:
         elif cmd == "replicate":
             self._ask("Replicate", [("Copies", self.v_rep_n), ("Step X", self.v_rep_step[0]),
                                     ("Step Y", self.v_rep_step[1]), ("Step Z", self.v_rep_step[2]),
+                                    ("Size each copy x  (0.8 = 80% of the last)", self.v_rep_size),
                                     ("Into group (optional)", self.v_rep_group)], self.replicate)
+        elif cmd == "ring":
+            self._ask("Ring copy", [("Copies", self.v_ring_n), ("From deg", self.v_ring_a0),
+                                    ("To deg", self.v_ring_a1), ("Rotate", self.v_rot, ROT_TYPES),
+                                    ("Pivot", self.v_pivot, self.cb_pivot["values"]),
+                                    ("  point  (pivot = point)", self.v_pxyz),
+                                    ("Axis  (vecrot)", self.v_axis, self.cb_axis["values"]),
+                                    ("  from", self.v_axa), ("  to", self.v_axb),
+                                    ("Step each copy  (spiral)", self.v_ring_step),
+                                    ("Size each copy x", self.v_ring_size),
+                                    ("Into group (optional)", self.v_rep_group)], self.ring_copy)
         elif cmd == "move_by":
             self._ask("Move by", [("X  Y  Z", self.v_mv)], self.move_by)
         elif cmd == "move_to":
