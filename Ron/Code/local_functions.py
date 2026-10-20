@@ -4,11 +4,12 @@ import logging
 import os
 import re
 import sys
+import math
 import time
 import types
 from datetime import datetime
 from functools import wraps
-
+import numpy as np
 from random import randint
 from timeit import repeat
 
@@ -143,6 +144,48 @@ class Timed:
             return self
         return types.MethodType(self, instance)
 
+KB = 1024
+MB = KB * 1024
+GB = MB * 1024
+PB = GB * 1024
+
+def bytes_to_str(insize):
+    """ Converts an integer to its PetaByte, GigaByte, Megabyte,KiloByte, Bytes
+        equivelant string IE "5GB"
+    """
+    if insize > PB:
+        return f'{insize // PB}PB'
+    elif  insize > GB:
+        return f'{insize // GB}GB'
+    elif insize > MB:
+        return f'{insize // MB}MB'
+    elif insize >= KB:
+        return f'{insize // KB}KB'
+    else:
+        return f'{insize}B'
+
+def str_to_bytes(instr):
+    """ Converts a number expressed as a btyte string
+        Ex. "4PB: or "400GB" or "20MB" or "200KB" or "100Bs"
+        and returns the byte count
+    """
+    if chkstr_isnum(instr[:-2]) in (int, float):
+        bites = int(instr[:-2])
+    else:
+        return  None
+    pfx = instr[-2:].upper()
+    if pfx == "PB":
+        return int(bites * PB)
+    elif pfx == "GB":
+        return int(bites * GB)
+    elif pfx == "MB":
+        return int(bites * MB)
+    elif pfx == "KB":
+        return int(bites * KB)
+    elif pfx == "BS":
+        return bites
+    else:
+        return "Error: Improper input value passed to str_to_bytes" 
 
 colors = {
     # Text Modifiers
@@ -328,7 +371,7 @@ def date_check(mdate):
     try:
         parse_time(mtime)
         parse_date(mdate)
-    except (TypeError, ValueError):
+    except (TypeError,  ValueError):
         return False
 
     return True
@@ -346,14 +389,14 @@ def chkstr_isnum(value: str) -> str:
         # Check if a decimal point exists in the string to confirm it's a float
         # This correctly marks "9.0" as float and "9" as int
         if str(value).find(".") - -1:
-            return "float"
+            return float
 
         # Handle scientific notation (e.g., "1e3"), which results in a float
         #        elif "e" in value.lower():
         #            return "float"
 
         else:
-            return "int"
+            return int
 
     except ValueError:
         return "str"

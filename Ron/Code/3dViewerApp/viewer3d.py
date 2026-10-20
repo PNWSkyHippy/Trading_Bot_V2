@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import traceback
 import tkinter as tk
 from tkinter import ttk, colorchooser, filedialog
@@ -304,8 +305,53 @@ def pivot_point(obj, tf):
     return tuple(piv)
 
 
+_BEND_CACHE = {}
+
+
+def _bend_samples(b):
+    """b.surface_point(t/4, f*pi/2) for t 0..4, f 0..3 - the same sum, but the bend's frame worked
+    out once, and remembered by its four points + angle (hundreds of bends made every refresh,
+    save and grid update take seconds)."""
+    try:
+        c, s, e, nt = (tuple(float(v) for v in p.get_xyz()) for p in b._points())
+        key = (c, s, e, nt, b.get_angle())
+    except Exception:                         # noqa: BLE001 - not the bend we know: ask it
+        return [xyz(b.surface_point(t / 4, f * math.pi / 2)) for t in range(5) for f in range(4)]
+    hit = _BEND_CACHE.get(key)
+    if hit is None:
+        c, s, e, nt = (np.array(p) for p in (c, s, e, nt))
+        e1 = s - c
+        R = float(np.linalg.norm(e1))
+        e1 = e1 / R
+        n = (nt - c) / np.linalg.norm(nt - c)
+        e2 = np.cross(n, e1)
+        r = float(np.linalg.norm(e - s))
+        hit = []
+        for t in range(5):
+            th = t / 4 * key[4]
+            rd = math.cos(th) * e1 + math.sin(th) * e2
+            hit += [tuple(float(v) for v in c + (R + r * math.cos(f * math.pi / 2)) * rd
+                          + r * math.sin(f * math.pi / 2) * n) for f in range(4)]
+        if len(_BEND_CACHE) > 50000:
+            _BEND_CACHE.clear()
+        _BEND_CACHE[key] = hit
+    return list(hit)
+
+
+_SP_MEMO = None                               # {id(obj): (obj, points)} while nothing can move (update_grid)
+
+
 def sample_points(obj):
     """A handful of points spanning obj (fit view, grid size, twin extents)."""
+    if _SP_MEMO is None:
+        return _sample_points(obj)
+    hit = _SP_MEMO.get(id(obj))
+    if hit is None or hit[0] is not obj:
+        hit = _SP_MEMO[id(obj)] = (obj, _sample_points(obj))
+    return list(hit[1])
+
+
+def _sample_points(obj):
     pts = []
     if isinstance(obj, Sphere3d):
         c, r = center_of(obj), obj.get_radius()
@@ -316,7 +362,7 @@ def sample_points(obj):
         pts += [tuple(q) for q in obj.mesh()[0].reshape(-1, 3)]
     elif tube_bends(obj) is not None:
         for b in tube_bends(obj):
-            pts += [xyz(b.surface_point(t / 4, f * math.pi / 2)) for t in range(5) for f in range(4)]
+            pts += _bend_samples(b)
     elif is_round(obj):
         ctr, n, r, h = round_geom(obj)
         pts += [tuple(q) for q in ring(ctr, n, r, 8)]
@@ -796,6 +842,21 @@ def snapshot_rows(e):
     key = (e.kind, tuple(e.nums), e.twin, tuple(tuple(r) for r in rows))
     if key in _SNAP_CACHE:
         return _SNAP_CACHE[key]
+    k = len(rows)
+    while k and ALIASES.get(rows[k - 1][0].lower(), rows[k - 1][0].lower()) == "move":
+        k -= 1
+    if 0 < k < len(rows):                     # steps + trailing moves (a Replicate copy, a drag):
+        head = copy.copy(e)                   # snapshot the steps, add the moves on - exact, and
+        head.transforms = rows[:k]            # the steps are usually cached already
+        out = [list(r) for r in snapshot_rows(head)]
+        d = np.sum([parse_row(r)["d"] for r in rows[k:]], axis=0)
+        if out and out[-1][0] == "move":
+            d = d + np.array(parse_row(out.pop())["d"])
+        if np.any(np.abs(d) > 1e-12):
+            out.append(["move"] + [_n12(v) for v in d])
+        out = out if len(out) < len(rows) else rows
+        _SNAP_CACHE[key] = out
+        return out
     out = rows
     try:
         net = _net_steps(e)
@@ -1303,6 +1364,9 @@ class App:
         ttk.Button(r5, text="POV GUI", command=self.open_pov_gui).pack(side=tk.LEFT, padx=2)
         ttk.Button(r5, text="Camera Director [F8]", command=self.open_director).pack(side=tk.LEFT, padx=2)
         ttk.Button(r5, text="Taichi preview [F10]", command=self.open_preview).pack(side=tk.LEFT, padx=2)
+        self.v_tk_draw = tk.BooleanVar(value=False)
+        ttk.Checkbutton(r5, text="Draw here too", variable=self.v_tk_draw,
+                        command=self.redraw).pack(side=tk.LEFT, padx=2)
         self.root.bind("<F10>", lambda _e: self.open_preview())
         self.root.bind("<F9>", lambda _e: self.render_pov())
         self.root.bind("<F8>", lambda _e: self.open_director())
@@ -1651,9 +1715,19 @@ class App:
         n_before = len(self.entries)
         self._undo_busy = True
         try:
+            def same(e):                      # what the built object depends on
+                return (tuple(e.row()), e.twin, tuple(tuple(r) for r in snapshot_rows(e)))
+            built = {}                        # one undo usually changes one object: keep the rest
+            for e in self.entries:
+                if e.obj is not None:
+                    built.setdefault(same(e), []).append((e.obj, e.twin_obj))
             self.entries = load_scene(SCENE_FILE)
             for e in self.entries:
-                self.rebuild(e)
+                hit = built.get(same(e))
+                if hit:
+                    e.obj, e.twin_obj = hit.pop()
+                else:
+                    self.rebuild(e)
             self.selected = None
             self.refresh()
             self.preview_refresh()
@@ -1964,7 +2038,9 @@ class App:
             return
         if self._props is None:
             dlg = tk.Toplevel(self.root)
-            dlg.transient(self.root)
+            proc = getattr(self, "_ti_proc", None)
+            if proc is None or proc.poll() is not None:
+                dlg.transient(self.root)       # not over the preview: a minimized viewer would hide it
             body = ttk.Frame(dlg, padding=8)
             body.pack(fill=tk.BOTH, expand=True)
             bar = ttk.Frame(dlg, padding=(8, 0, 8, 8))
@@ -2534,7 +2610,17 @@ class App:
                     tgt = "@" + smap.get(tgt[1:], tgt[1:]) if tgt.startswith("@") else nmap.get(tgt, tgt)
                     c.csg = (op, tgt, smap.get(g, g) if g else "")
                 c.obj = c.twin_obj = None
-                self.rebuild(c)
+                try:                               # the built source, moved: same as replaying every step
+                    if e.obj is None:
+                        raise ValueError
+                    mv = {"op": "move", "d": tuple(float(v) for v in step * i)}
+                    c.obj = copy.deepcopy(e.obj)
+                    run_tf(c.obj, mv, 1.0)
+                    if e.twin_obj is not None:
+                        c.twin_obj = copy.deepcopy(e.twin_obj)
+                        run_tf(c.twin_obj, mv, 1.0)
+                except Exception:                  # noqa: BLE001
+                    self.rebuild(c)
                 new.append(c)
         self.entries += new
         outer = self.v_rep_group.get().strip().replace(",", "_").replace("/", "_")
@@ -3297,6 +3383,14 @@ class App:
         self.redraw()
 
     def update_grid(self):
+        global _SP_MEMO
+        _SP_MEMO = {}                          # world width + grid both walk every object: sample once
+        try:
+            self._update_grid()
+        finally:
+            _SP_MEMO = None
+
+    def _update_grid(self):
         if hasattr(self, "l_world"):
             try:
                 self.l_world.configure(text=f"now {fmt(round(self.world_width(), 3))}")
@@ -3578,12 +3672,17 @@ class App:
         row = {id(e): i for i, e in enumerate(self.entries)}
         moves = []                                  # per tree row: what dragging it moves (a group label), -1 = can't
         pivots = []                                 # ... and the middle it turns / scales about
+        by_group = {}                               # a 400-member group: work its middle out once, not 400 times
         for iid in iids:
             if iid.startswith("s"):
                 es = self.group_entries(self.entries[int(iid[1:])])
-                mates = [index.get(f"s{row[id(m)]}") for m in es]
-                moves.append(min(k for k in mates + [index[iid]] if k is not None))
-                pivots.append(self.group_center(es))
+                key = tuple(id(m) for m in es)
+                if key not in by_group:
+                    mates = [index.get(f"s{row[id(m)]}") for m in es]
+                    by_group[key] = ([k for k in mates if k is not None], self.group_center(es))
+                mates, mid = by_group[key]
+                moves.append(min(mates + [index[iid]]))
+                pivots.append(mid)
             else:
                 moves.append(-1)                    # script objects come from the script
                 pivots.append((0.0, 0.0, 0.0))
@@ -3611,6 +3710,24 @@ class App:
         center = (lo + hi) / 2
         cam = self.pov_camera()
         h = max(self.canvas.winfo_height(), 2)
+        # the tree, for the preview's Objects menu: folders and the rows in them
+        tsel = set(self.tree.selection())
+        tops = list(self.tree.get_children("scene")) if self.tree.exists("scene") else []
+        tops += [k for k in ("script", "director") if self.tree.exists(k)]
+        l_iid, l_name, l_fold = [], [], []
+        for fi, k in enumerate(tops):
+            for c in self.tree.get_children(k):
+                l_iid.append(c)
+                l_name.append(self.tree.item(c, "text"))
+                l_fold.append(fi)
+        menu = {"list_fids": np.array(tops, dtype=str),
+                "list_folders": np.array([self.tree.item(k, "text") for k in tops], dtype=str),
+                "list_iid": np.array(l_iid, dtype=str), "list_name": np.array(l_name, dtype=str),
+                "list_fold": np.array(l_fold, np.int32),
+                "list_sel": np.array([c in tsel for c in l_iid], bool),
+                "obj_sel": np.array([i in tsel for i in iids] or [False], bool),
+                "add_kinds": np.array(list(ADD_SPECS), dtype=str),
+                "grid_on": bool(self.v_grid.get())}
         return {"verts": V.astype(np.float32),
                 "normals": (np.concatenate(tn).reshape(-1, 3) if tn else V).astype(np.float32),
                 "colors": (np.concatenate(tc).reshape(-1, 3) if tc else V).astype(np.float32),
@@ -3630,7 +3747,7 @@ class App:
                 "center": center, "radius": max(float(np.linalg.norm(hi - lo)) / 2, 1.0),
                 "cam_id": getattr(self, "_ti_cam", 0), "play_id": getattr(self, "_ti_play", 0),
                 "moves_done": getattr(self, "_ti_moves", 0),
-                "start_play": bool(getattr(self, "_ti_start_play", False)), **path}
+                "start_play": bool(getattr(self, "_ti_start_play", False)), **path, **menu}
 
     def preview_path(self):
         """The Camera Director's frames (eye, look-at, up, vfov) for playing in the preview."""
@@ -3700,12 +3817,12 @@ class App:
     def _no_window():
         return {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
-    def open_preview(self, play=False):
+    def open_preview(self, play=False, resume=False):
         """Open the Taichi GPU window: at the viewer's current camera, or (play) running
-        the Camera Director's path."""
+        the Camera Director's path, or (resume) where it was before it closed."""
         if play:
             self._ti_play = getattr(self, "_ti_play", 0) + 1
-        else:
+        elif not resume:
             self._ti_cam = getattr(self, "_ti_cam", 0) + 1
         self._ti_start_play = play                  # a fresh window: start playing right away?
         path = self.write_preview()
@@ -3721,21 +3838,24 @@ class App:
             return
         log = open(os.path.join(POV_DIR, "_preview.log"), "w", encoding="utf-8")
         self._ti_proc = proc = subprocess.Popen(
-            py + ["-u", os.path.join(HERE, "taichi_preview.py"), path],
+            py + ["-u", os.path.join(HERE, "taichi_preview.py"), path] + (["--resume"] if resume else []),
             stdout=subprocess.PIPE, stderr=log, text=True, encoding="utf-8", errors="replace",
             **self._no_window())
         self._ti_picks = picks = queue.SimpleQueue()
+        self._ti_started, self._ti_done = time.time(), False
 
-        def read():                                 # thread: PICK / XF lines -> queue, the rest -> log
+        def read():                                 # thread: PICK / XF / KEY / CMD lines -> queue, the rest -> log
             for line in proc.stdout:
-                if line.startswith(("PICK ", "XF ", "KEY ")):
+                if line.startswith(("PICK ", "XF ", "KEY ", "CMD ")):
                     picks.put(line.split())
                 else:
                     log.write(line)
                     log.flush()
             log.close()
-        threading.Thread(target=read, daemon=True).start()
+        self._ti_reader = threading.Thread(target=read, daemon=True)
+        self._ti_reader.start()
         self.root.after(50, self._preview_picks)
+        self.redraw()                               # (the 3D view pauses while it's open)
         print(f"Taichi preview: starting (log: {log.name})")
 
     def _preview_moved(self):
@@ -3759,6 +3879,9 @@ class App:
                           "delete": self.delete_selected}.get(iid)
                     if fn is not None:           # queued, so moves sent before it land first
                         self.enqueue(self._call_job(fn))
+                    continue
+                if kind == "CMD":                # a button in the preview's menu
+                    self.enqueue(self._call_job(lambda c=iid, a=rest[:-1]: self._preview_cmd(c, a)))
                     continue
                 if kind == "XF":                 # every XF gets its ticket done, even a bad one,
                     try:                         # or the preview keeps drawing it "on its way"
@@ -3787,8 +3910,128 @@ class App:
             traceback.print_exc()
         finally:
             proc = getattr(self, "_ti_proc", None)
-            if proc is not None and proc.poll() is None and picks is self._ti_picks:
-                self.root.after(50, self._preview_picks)
+            if proc is not None and picks is self._ti_picks:
+                if proc.poll() is None:
+                    self.root.after(50, self._preview_picks)
+                elif not self._ti_done:
+                    self._ti_done = True
+                    self._ti_reader.join(1.0)
+                    self._preview_picks()        # what it sent just before it closed
+                    if not self._preview_crashed(proc.returncode):
+                        self.redraw()            # closed for good: the 3D view draws again
+
+    def _preview_crashed(self, rc):
+        """Taichi 1.7's ImGui aborts the window ("Mismatching io.KeyCtrl ... vs io.KeyMods") when it
+        misses a Ctrl / Shift / Alt press or release (switching windows with one held). Not our code,
+        so reopen it where it was. Closing the window normally exits 0 and stays closed.
+        True = reopening."""
+        if rc == 0:
+            return False
+        if time.time() - self._ti_started < 10:
+            print(f"Taichi preview closed (exit {rc}) right after starting - not reopening; see pov/_preview.log")
+            return False
+        print(f"Taichi preview crashed (exit {rc}, Taichi's own key-state bug) - reopening where you were")
+        self._ti_reopen_at = time.time()
+        self.root.after(300, lambda: self.open_preview(resume=True))
+        return True
+
+    def _preview_cmd(self, cmd, args):
+        """A button in the preview's menu. Things that need typing open a Tk box in front."""
+        before = set(self.root.winfo_children())
+        target = None
+        if cmd == "add" and args and args[0].isdigit() and int(args[0]) < len(ADD_SPECS):
+            self.v_add.set(list(ADD_SPECS)[int(args[0])])
+            self.add_dialog()
+        elif cmd == "grid":
+            self.v_grid.set(bool(args) and args[0] == "1")
+            self.redraw()
+            self.preview_refresh()
+        elif cmd == "tag":
+            self._ask("Group", [("Group name", self.v_group)], self.tag_group)
+        elif cmd == "replicate":
+            self._ask("Replicate", [("Copies", self.v_rep_n), ("Step X", self.v_rep_step[0]),
+                                    ("Step Y", self.v_rep_step[1]), ("Step Z", self.v_rep_step[2]),
+                                    ("Into group (optional)", self.v_rep_group)], self.replicate)
+        elif cmd == "move_by":
+            self._ask("Move by", [("X  Y  Z", self.v_mv)], self.move_by)
+        elif cmd == "move_to":
+            self._ask("Center to", [("X  Y  Z", self.v_to)], self.move_to)
+        elif cmd == "scale":
+            self._ask("Scale", [("Scale x  (group: its center)", self.v_scale)], self.scale_by)
+        elif cmd == "rotate":
+            self._ask("Rotate", [("Rotate", self.v_rot, ROT_TYPES), ("Degrees", self.v_deg),
+                                 ("Pivot", self.v_pivot, self.cb_pivot["values"]),
+                                 ("  point  (pivot = point)", self.v_pxyz),
+                                 ("Axis  (vecrot)", self.v_axis, self.cb_axis["values"]),
+                                 ("  from", self.v_axa), ("  to", self.v_axb)], self.rotate)
+        elif cmd == "viewer":
+            target = self.root
+        else:
+            fn = {"props": self.open_props, "lathe": self.open_lathe, "director": self.open_director,
+                  "render": self.render_pov, "select_all": self.select_all,
+                  "select_none": self.select_none, "untag": self.untag_group}.get(cmd)
+            if fn is None:
+                print(f"Taichi preview: unknown menu command {cmd}")
+                return
+            fn()
+            target = {"props": (self._props or [None])[0], "director": self.director,
+                      "lathe": self.lathe_tool}.get(cmd)
+        for w in self.root.winfo_children():
+            if isinstance(w, tk.Toplevel) and w not in before:
+                self._to_front(w)
+        if isinstance(target, tk.Misc):
+            self._to_front(target)
+
+    @staticmethod
+    def _to_front(w):
+        """Over the preview window (it has the focus, so just asking Windows isn't enough)."""
+        try:
+            if not w.winfo_exists():
+                return
+            w.deiconify()
+            w.lift()
+            w.attributes("-topmost", True)
+            w.focus_force()
+            w.after(400, lambda: w.winfo_exists() and w.attributes("-topmost", False))
+        except tk.TclError:
+            pass
+
+    def _ask(self, title, fields, then):
+        """Small box to type values in (for the preview's menu): OK puts them in the panel's
+        boxes, then runs then() - same as filling the panel and pressing its button.
+        A field is (label, var), (label, var, choices) for a drop-down, or (label, [x, y, z vars])."""
+        top = tk.Toplevel(self.root)
+        top.title(title)
+        top.resizable(False, False)
+        boxes = []
+        for r, (label, var, *choices) in enumerate(fields):
+            ttk.Label(top, text=label).grid(row=r, column=0, sticky="w", padx=6, pady=2)
+            row = ttk.Frame(top)
+            row.grid(row=r, column=1, padx=6, pady=2, sticky="we")
+            for one in (var if isinstance(var, (list, tuple)) else [var]):
+                v = tk.StringVar(value=one.get())
+                if choices:
+                    ent = ttk.Combobox(row, textvariable=v, values=list(choices[0]), width=16)
+                else:
+                    ent = ttk.Entry(row, textvariable=v, width=14 if one is var else 6)
+                ent.pack(side=tk.LEFT, padx=1)
+                boxes.append((one, v, ent))
+
+        def ok(_e=None):
+            for var, v, _ent in boxes:
+                var.set(v.get())
+            top.destroy()
+            self.enqueue(self._call_job(then))
+        bf = ttk.Frame(top)
+        bf.grid(row=len(fields), column=0, columnspan=2, pady=4)
+        ttk.Button(bf, text="OK", command=ok).pack(side=tk.LEFT, padx=4)
+        ttk.Button(bf, text="Cancel", command=top.destroy).pack(side=tk.LEFT, padx=4)
+        top.bind("<Return>", ok)
+        top.bind("<Escape>", lambda _e: top.destroy())
+        boxes[0][2].focus_set()
+        boxes[0][2].select_range(0, "end")
+        self._to_front(top)
+        return top
 
     # -------------------------------------------------------------- drawing
     def rgb(self, color):
@@ -3851,7 +4094,23 @@ class App:
             self._w, self._h = self.canvas.winfo_width(), self.canvas.winfo_height()
 
     def redraw(self):
+        if self.tk_paused():
+            c = self.canvas
+            c.delete("all")
+            c.create_text(c.winfo_width() // 2, c.winfo_height() // 2, fill="#5c6370", font=("Segoe UI", 11),
+                          text="3D view paused while the Taichi preview is open\n"
+                               "(tick \"Draw here too\" in the POV-Ray row to draw it here as well)",
+                          justify=tk.CENTER)
+            return
         self._paint(self.v_grid.get(), extras=True)
+
+    def tk_paused(self):
+        """A big scene takes this canvas ~30 s to draw (90k items); with the Taichi window open it's
+        the same picture twice, and every edit froze the viewer. So skip it unless asked."""
+        proc = getattr(self, "_ti_proc", None)
+        v = getattr(self, "v_tk_draw", None)
+        open_ = proc is not None and (proc.poll() is None or time.time() - getattr(self, "_ti_reopen_at", 0) < 15)
+        return open_ and not (v is not None and v.get())
 
     def nav_redraw(self):
         """Redraw for camera moves.  A full redraw of a big scene takes over a second; drawing on

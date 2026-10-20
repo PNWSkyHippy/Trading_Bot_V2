@@ -5,7 +5,9 @@ The viewer rewrites the .npz whenever the scene is saved; this window reloads it
 Plain colors only - no image textures, CSG cuts or hollows (POV-Ray render has those).
 
     right-drag   look around          W A S D   move        Q / E   down / up
-    Shift        5x faster            R         back to the viewer's camera
+    arrow keys   look around          Shift     faster      R       back to the viewer's camera
+    left-drag on empty space: orbit   middle-drag or Ctrl+left-drag on empty space: pan
+    F            fly to what's selected                     Tab     menu on / off (right side)
     left-click   select it in the viewer's tree (Shift adds); selected objects show lighter
     left-drag    do the current tool to it (and its group); on release the viewer does it as a
                  transform (saved + listed, like Move by / Rotate / Scale)
@@ -15,7 +17,11 @@ Plain colors only - no image textures, CSG cuts or hollows (POV-Ray render has t
     P            play / stop the Camera Director's path (Director: "Play in Taichi" starts it too)
     Ctrl+Z / Ctrl+Y   undo / redo (the viewer's whole-scene undo)
     Delete / Backspace   delete what's selected
+Menu buttons send CMD lines; anything that needs typing opens a box from the viewer (Taichi 1.7's
+GUI has buttons, checkboxes and sliders only). If Taichi's GUI crashes (its own Ctrl/Shift
+key-state bug), the viewer reopens it with --resume: same camera, tool and menu (_preview_cam.json).
 """
+import json
 import os
 import sys
 import time
@@ -141,6 +147,20 @@ def rot(op, deg):
     return np.eye(3) + np.sin(t) * K + (1 - np.cos(t)) * K @ K
 
 
+def angles(v):
+    """(heading, elevation) in radians of direction v (Z up)."""
+    v = np.asarray(v, float)
+    return np.arctan2(v[1], v[0]), np.arcsin(np.clip(v[2] / max(np.linalg.norm(v), 1e-12), -1, 1))
+
+
+def direction(az, el):
+    return np.array([np.cos(el) * np.cos(az), np.cos(el) * np.sin(az), np.sin(el)])
+
+
+MENU_X = 0.79                                # the menu's left edge (0..1 of the window width)
+MENU_BTN = (0.11, 0.08)                      # the "Menu" button box while the menu is hidden (w, h)
+
+
 def main():
     path = sys.argv[1]
     win = ti.ui.Window("viewer3d - Taichi preview", (1280, 800), vsync=True)
@@ -148,9 +168,52 @@ def main():
     cam = ti.ui.Camera()
     tris, lines = Buf(), Buf()
     data, stamp, cam_id, play_id, radius = None, None, None, None, 1.0
-    play_t0 = None                           # time the camera path started playing, or None
+    play = [None]                            # time the camera path started playing, or None
     fov = [45.0]                             # vertical, degrees (the Camera doesn't report it back)
     test = os.environ.get("TI_PICK_TEST")    # self-test: compare picks against the drawn image
+    cam_file = os.path.join(os.path.dirname(os.path.abspath(path)), "_preview_cam.json")
+    resume = None                            # --resume: where the last window was (after a crash)
+    if "--resume" in sys.argv[2:]:
+        try:
+            with open(cam_file, encoding="utf-8") as f:
+                resume = json.load(f)
+        except (OSError, ValueError):
+            resume = None
+    saved = [None]                           # what's in cam_file now
+    menu = {"show": True, "sections": {"tools", "edit", "view", "objects"}, "folders": set()}
+
+    def cam_state():
+        return {"eye": [float(v) for v in cam.curr_position], "look": [float(v) for v in cam.curr_lookat],
+                "up": [float(v) for v in cam.curr_up], "fov": fov[0], "tool": tool[0], "snap": snap[0],
+                "menu": menu["show"], "sections": sorted(menu["sections"]), "folders": sorted(menu["folders"])}
+
+    def save_cam():
+        st = cam_state()
+        if st != saved[0]:
+            saved[0] = st
+            try:
+                with open(cam_file + ".tmp", "w", encoding="utf-8") as f:
+                    json.dump(st, f)
+                os.replace(cam_file + ".tmp", cam_file)
+            except OSError:
+                pass
+
+    def set_cam(st):
+        cam.position(*st["eye"])
+        cam.lookat(*st["look"])
+        cam.up(*st["up"])
+        set_fov(st["fov"])
+        tool[0], snap[0], menu["show"] = st.get("tool", "move"), bool(st.get("snap")), bool(st.get("menu", True))
+        menu["sections"] = set(st.get("sections", menu["sections"]))
+        menu["folders"] = set(st.get("folders", ()))
+
+    def on_ui(cx, cy):
+        """Is window point (cx, cy) on the HUD box or the menu?"""
+        return ((cx < 0.53 and cy > 1 - 0.16) or (menu["show"] and cx >= MENU_X)
+                or (not menu["show"] and cx >= 1 - MENU_BTN[0] and cy > 1 - MENU_BTN[1]))
+
+    def send(line):
+        print(line, flush=True)
 
     def set_fov(f):
         fov[0] = float(f)
@@ -240,6 +303,185 @@ def main():
                 p = (p - c) @ M.T + c + t
         return p
 
+    nav = [None]                             # orbit / pan of the view in progress (empty-space drag)
+    fly = [None]                             # fly-to in progress: from, to, start time
+
+    def eye_look():
+        eye = np.array([float(v) for v in cam.curr_position])
+        f = np.array([float(v) for v in cam.curr_lookat]) - eye
+        return eye, f / max(np.linalg.norm(f), 1e-12)
+
+    def start_nav(how, button, cx, cy):
+        """Orbit about / pan at the point straight ahead: what's under the middle of the
+        window, else level with the scene's middle."""
+        eye, f = eye_look()
+        _k, dist = pick(view[0] or data, eye, f, 0.002)
+        if not np.isfinite(dist):
+            dist = float(np.clip((data["center"] - eye) @ f, radius * 0.05, radius * 4))
+        nav[0] = {"how": how, "button": button, "at": (cx, cy), "eye": eye, "f": f,
+                  "pivot": eye + f * dist, "dist": dist}
+
+    def do_nav():
+        n = nav[0]
+        if not win.is_pressed(n["button"]):
+            nav[0] = None
+            return
+        cx, cy = win.get_cursor_pos()
+        w, h = win.get_window_shape()
+        dx, dy = (cx - n["at"][0]) * w, (cy - n["at"][1]) * h          # pixels, y up
+        if n["how"] == "orbit":                  # right: turn the scene right; up: see it from lower
+            az, el = angles(n["eye"] - n["pivot"])
+            eye = n["pivot"] + n["dist"] * direction(az - dx * 0.006, np.clip(el - dy * 0.006, -1.55, 1.55))
+            look = n["pivot"]
+        else:                                    # pan: the point you grabbed stays under the mouse
+            r = np.cross(n["f"], [0.0, 0.0, 1.0])
+            r = r / np.linalg.norm(r) if np.linalg.norm(r) > 1e-9 else np.array([1.0, 0, 0])
+            u = np.cross(r, n["f"])
+            s = n["dist"] * 2 * np.tan(np.radians(fov[0]) / 2) / h
+            shift = -(dx * r + dy * u) * s
+            eye, look = n["eye"] + shift, n["pivot"] + shift
+        cam.position(*eye)
+        cam.lookat(*look)
+        cam.up(0.0, 0.0, 1.0)
+
+    walk = {"t": None, "mouse": None}
+
+    def walk_look(speed):
+        """WASD QE move, right-drag look. Taichi's own track_user_inputs scales both by the
+        frame time, so one slow frame (scene reload, another window starting) flung the view."""
+        now = time.perf_counter()
+        dt = min(now - walk["t"], 0.05) if walk["t"] is not None else 0.0
+        walk["t"] = now
+        eye, f = eye_look()
+        side = np.cross([0.0, 0.0, 1.0], f)
+        side = side / np.linalg.norm(side) if np.linalg.norm(side) > 1e-9 else np.array([0.0, 1.0, 0])
+        step = speed * dt * 60.0
+        mv = sum((s * v for k, s, v in (("w", 1, f), ("s", -1, f), ("a", 1, side), ("d", -1, side),
+                                        ("e", 1, np.array([0.0, 0, 1])), ("q", -1, np.array([0.0, 0, 1])))
+                  if win.is_pressed(k)), np.zeros(3))
+        eye = eye + mv * step
+        cur = win.get_cursor_pos()
+        if win.is_pressed(ti.ui.RMB) and walk["mouse"] is not None:
+            az, el = angles(f)
+            f = direction(az - (cur[0] - walk["mouse"][0]) * 2.0,
+                          np.clip(el + (cur[1] - walk["mouse"][1]) * 2.0, -1.55, 1.55))
+        walk["mouse"] = cur if win.is_pressed(ti.ui.RMB) else None
+        cam.position(*eye)
+        cam.lookat(*(eye + f))
+        cam.up(0.0, 0.0, 1.0)
+
+    def arrow_look():
+        yaw = int(win.is_pressed(ti.ui.LEFT)) - int(win.is_pressed(ti.ui.RIGHT))
+        pitch = int(win.is_pressed(ti.ui.UP)) - int(win.is_pressed(ti.ui.DOWN))
+        if yaw or pitch:
+            step = np.radians(1.2 * (3.0 if win.is_pressed(ti.ui.SHIFT) else 1.0))
+            eye, f = eye_look()
+            az, el = angles(f)
+            cam.lookat(*(eye + direction(az + yaw * step, np.clip(el + pitch * step, -1.55, 1.55))))
+            cam.up(0.0, 0.0, 1.0)
+
+    def fly_to(lo, hi):
+        """Glide to frame the box lo..hi, keeping the viewing direction."""
+        eye, f = eye_look()
+        ctr = (lo + hi) / 2
+        size = max(float(np.linalg.norm(hi - lo)) / 2, radius * 0.005)
+        dist = size / np.tan(np.radians(fov[0]) / 2) * 1.3
+        d0 = max(float((ctr - eye) @ f), dist * 0.1)
+        fly[0] = (eye, eye + f * d0, ctr - f * dist, ctr, time.time())
+
+    def do_fly():
+        e0, l0, e1, l1, t0 = fly[0]
+        s = min((time.time() - t0) / 0.5, 1.0)
+        s = s * s * (3 - 2 * s)
+        cam.position(*(e0 + (e1 - e0) * s))
+        cam.lookat(*(l0 + (l1 - l0) * s))
+        cam.up(0.0, 0.0, 1.0)
+        if s >= 1:
+            fly[0] = None
+
+    def selected_box():
+        """(lo, hi) around the selected objects as drawn, or None."""
+        src = view[0] or data
+        sel = np.append(data.get("obj_sel", np.zeros(0, bool)), False)
+        if len(sel) < len(data["obj_iids"]) + 1:
+            return None
+        pts = [src["verts"].reshape(-1, 3, 3)[sel[data["tri_obj"]]].reshape(-1, 3),
+               src["lverts"].reshape(-1, 2, 3)[sel[data["seg_obj"]]].reshape(-1, 3),
+               np.asarray(data["obj_pivot"], float).reshape(-1, 3)[sel[:-1]]]    # points have no faces
+        pts = np.concatenate(pts).astype(float)
+        return (pts.min(0), pts.max(0)) if len(pts) else None
+
+    def fit_all():
+        fly_to(data["center"] - radius * 0.7, data["center"] + radius * 0.7)
+
+    def draw_menu(g):
+        def section(key, title):
+            opened = key in menu["sections"]
+            if g.button(f"{'-' if opened else '+'} {title}##sec_{key}"):
+                menu["sections"] ^= {key}
+            return opened
+        if section("tools", "Tools"):
+            for key, name, letter in (("move", "Move", "M"), ("rotate", "Turn", "T"), ("scale", "Size", "B")):
+                if g.button(f"{'>' if tool[0] == key else ' '} {name}  ({letter})##tool_{key}") and drag is None:
+                    tool[0] = key
+            snap[0] = g.checkbox("Snap  (G)", snap[0])
+            for label, cmd in (("Properties - exact coords  (Enter)", "props"), ("Move by numbers...", "move_by"), ("Center to...", "move_to"),
+                               ("Rotate by numbers...", "rotate"), ("Scale by numbers...", "scale")):
+                if g.button(label):
+                    send(f"CMD {cmd}")
+        if section("edit", "Edit"):
+            for label, line in (("Undo  (Ctrl+Z)", "KEY undo"), ("Redo  (Ctrl+Y)", "KEY redo"),
+                                ("Delete selected  (Del)", "KEY delete"), ("Select all", "CMD select_all"),
+                                ("Select none", "CMD select_none"), ("Properties...", "CMD props"),
+                                ("Group selected...", "CMD tag"), ("Ungroup", "CMD untag"),
+                                ("Replicate...", "CMD replicate")):
+                if g.button(label):
+                    send(line)
+        if section("add", "Add"):
+            for i, kind in enumerate(data.get("add_kinds", [])):
+                if g.button(f"{kind}...##add{i}"):
+                    send(f"CMD add {i}")
+        if section("view", "View"):
+            if g.button("Fly to selected  (F)"):
+                box = selected_box()
+                if box is not None:
+                    fly_to(*box)
+            if g.button("Fit all"):
+                fit_all()
+            if g.button("Viewer's view  (R)"):
+                to_view(data)
+            grid = bool(data.get("grid_on", True))
+            if g.checkbox("Grid", grid) != grid:
+                send(f"CMD grid {0 if grid else 1}")
+            if n_path() and g.button("Stop camera path  (P)##path" if play[0] is not None
+                                     else "Play camera path  (P)##path"):
+                toggle_play()
+        if section("windows", "Windows"):
+            for label, cmd in (("Camera Director", "director"), ("Lathe tool", "lathe"),
+                               ("Render POV-Ray", "render"), ("Viewer window", "viewer")):
+                if g.button(label):
+                    send(f"CMD {cmd}")
+        if section("objects", "Objects"):
+            fids, names = data.get("list_fids", []), data.get("list_folders", [])
+            l_iid, l_fold = data.get("list_iid", []), data.get("list_fold", [])
+            l_name, l_sel = data.get("list_name", []), data.get("list_sel", [])
+            for fi, (fid, label) in enumerate(zip(fids, names)):
+                fid = str(fid)
+                opened = fid in menu["folders"]
+                if g.button(f"{'-' if opened else '+'} {label}##f_{fid}"):
+                    menu["folders"] ^= {fid}
+                if opened:
+                    for j in np.nonzero(l_fold == fi)[0]:
+                        if g.button(f"   {'* ' if l_sel[j] else ''}{l_name[j]}##o_{l_iid[j]}"):
+                            send(f"PICK {l_iid[j]} {'add' if win.is_pressed(ti.ui.SHIFT) else 'set'}")
+        if g.button("Hide menu  (Tab)"):
+            menu["show"] = False
+
+    def toggle_play():
+        play[0] = None if play[0] is not None else time.time()
+        if play[0] is None:
+            cam.up(0.0, 0.0, 1.0)
+
     frame = 0
     while win.running:
         if frame % 15 == 0:                  # ~4 times a second: has the viewer saved?
@@ -265,34 +507,49 @@ def main():
                     cam.z_far(radius * 20)
                     if int(d["cam_id"]) != cam_id:     # viewer asked to jump to its view
                         cam_id = int(d["cam_id"])
-                        to_view(d)
+                        if resume is not None:         # (reopened after a crash: where it was)
+                            set_cam(resume)
+                            resume = None
+                        else:
+                            to_view(d)
                     pid = int(d.get("play_id", 0))
                     if (play_id is None and bool(d.get("start_play", False))) or \
                             (play_id is not None and pid != play_id):
-                        play_t0 = time.time() if n_path() else None   # director: "Play in Taichi"
+                        play[0] = time.time() if n_path() else None   # director: "Play in Taichi"
                     play_id = pid
         frame += 1
 
         for e in win.get_events(ti.ui.PRESS):
             if e.key == "p" and n_path():                 # (re)play the camera path
-                play_t0 = None if play_t0 is not None else time.time()
-                if play_t0 is None:
-                    cam.up(0.0, 0.0, 1.0)
+                toggle_play()
             elif e.key == "r" and data is not None:
-                play_t0 = None
+                play[0] = fly[0] = None
                 to_view(data)
+            elif e.key == "f" and data is not None and "tri_obj" in data:
+                box = selected_box()
+                if box is not None:
+                    fly_to(*box)
+            elif e.key == ti.ui.TAB:
+                menu["show"] = not menu["show"]
             elif e.key in ("m", "t", "b") and drag is None:
                 tool[0] = {"m": "move", "t": "rotate", "b": "scale"}[e.key]
             elif e.key == "g":
                 snap[0] = not snap[0]
+            elif e.key == ti.ui.RETURN and drag is None:
+                send("CMD props")
             elif e.key in ("z", "y") and win.is_pressed(ti.ui.CTRL) and drag is None:
                 redo = e.key == "y" or win.is_pressed(ti.ui.SHIFT)
                 print(f"KEY {'redo' if redo else 'undo'}", flush=True)
             elif e.key in (ti.ui.BACKSPACE, "Delete") and drag is None:
                 print("KEY delete", flush=True)
+            elif e.key == ti.ui.MMB and data is not None and "tri_obj" in data and drag is None:
+                cx, cy = win.get_cursor_pos()
+                if not on_ui(cx, cy):
+                    play[0] = fly[0] = None
+                    start_nav("pan", ti.ui.MMB, cx, cy)
             elif e.key == ti.ui.LMB and data is not None and "tri_obj" in data:
                 cx, cy = win.get_cursor_pos()
-                if cx < 0.53 and cy > 1 - 0.14:           # on the HUD box
+                if on_ui(cx, cy):                         # the HUD box / the menu's buttons
                     continue
                 o, d, px = ray(cx, cy)
                 if pending:
@@ -310,6 +567,9 @@ def main():
                                 "raw": np.zeros(3), "delta": np.zeros(3), "amt": 0.0,
                                 "op": tool[0], "pivot": drawn_pivot(k),
                                 "at": (cx, cy), "moved": False}
+                elif not win.is_pressed(ti.ui.SHIFT):        # empty space: orbit (Ctrl: pan) the view
+                    play[0] = fly[0] = None
+                    start_nav("pan" if win.is_pressed(ti.ui.CTRL) else "orbit", ti.ui.LMB, cx, cy)
 
         if drag is not None:
             cx, cy = win.get_cursor_pos()
@@ -382,17 +642,25 @@ def main():
                     drag["amt"] = max(round(f, 1), 0.1) if snap[0] else f
         if data is not None and "tri_obj" in data and (pending or drag or shown[0] is not None):
             show_offsets()
-        if play_t0 is not None:
-            i = int((time.time() - play_t0) * float(data["path_fps"]))
+        if play[0] is not None:
+            i = int((time.time() - play[0]) * float(data["path_fps"]))
             if i >= n_path():
-                play_t0 = None
+                play[0] = None
                 i = n_path() - 1
             path_frame(i)
-            if play_t0 is None:
+            if play[0] is None:
                 cam.up(0.0, 0.0, 1.0)                     # done: free flying again from the last frame
         else:
             fast = 5.0 if win.is_pressed(ti.ui.SHIFT) else 1.0
-            cam.track_user_inputs(win, movement_speed=radius * 0.004 * fast, hold_key=ti.ui.RMB)
+            walk_look(radius * 0.004 * fast)
+            if nav[0] is not None:
+                do_nav()
+            elif fly[0] is not None:
+                do_fly()
+            else:
+                arrow_look()
+        if frame % 30 == 0:                               # for --resume after a crash
+            save_cam()
 
         scene.set_camera(cam)
         scene.ambient_light((0.35, 0.35, 0.35))
@@ -408,9 +676,10 @@ def main():
             scene.lines(lv, width=2, per_vertex_color=lc, vertex_count=lines.n)
         canvas.set_background_color((0.11, 0.12, 0.14))
         canvas.scene(scene)
-        with gui.sub_window("preview", 0.01, 0.01, 0.52, 0.13) as g:
+        with gui.sub_window("preview", 0.01, 0.01, 0.52, 0.15) as g:
             g.text(f"{tris.n // 3:,} triangles   GPU: {ARCH}")
-            g.text("right-drag look | WASD move | Q/E down/up | Shift fast | R reset")
+            g.text("right-drag / arrows look | WASD QE move | left-drag empty: orbit (Ctrl / middle: pan)")
+            g.text("Shift fast | F fly to selected | R viewer's view | Tab menu")
             sn = f"snap ON (move {float(data.get('snap', 0)):g})" if snap[0] and data is not None else "snap off"
             if drag and drag["moved"] and drag["op"] == "move":
                 dv = drag["delta"]
@@ -423,11 +692,18 @@ def main():
                 hint = {"move": "move (Ctrl: up/down)", "rotate": "rotate Z (Ctrl: tip X/Y)",
                         "scale": "scale (up / down)"}[tool[0]]
                 g.text(f"tool M/T/B: {hint} | G {sn}")
-            if play_t0 is not None:
-                i = min(int((time.time() - play_t0) * float(data["path_fps"])), n_path() - 1)
+            if play[0] is not None:
+                i = min(int((time.time() - play[0]) * float(data["path_fps"])), n_path() - 1)
                 g.text(f"camera path: frame {i + 1} / {n_path()}   (P stop)")
             elif n_path():
                 g.text(f"camera path: {n_path()} frames (orange)   P play")
+        if menu["show"] and data is not None:
+            with gui.sub_window("menu", MENU_X, 0.0, 1 - MENU_X, 1.0) as g:
+                draw_menu(g)
+        elif data is not None:                            # hidden: keep a way back by mouse
+            with gui.sub_window("menu ", 1 - MENU_BTN[0], 0.0, MENU_BTN[0], MENU_BTN[1]) as g:
+                if g.button("Menu  (Tab)"):
+                    menu["show"] = True
         if test and data is not None and frame == 90:
             self_test(win, data, ray)
         win.show()

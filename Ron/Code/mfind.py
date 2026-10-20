@@ -1,9 +1,10 @@
+from stat import FILE_ATTRIBUTE_HIDDEN
 import argparse
 import os, sys
 import fnmatch
 from datetime import datetime
 import yaml
-from local_functions import colorize, Timed
+from local_functions import colorize, Timed, bytes_to_str, str_to_bytes
 from TkFileTool import MyFileUtilityTool
 
 class Manipulate_files(MyFileUtilityTool):
@@ -33,6 +34,9 @@ class Manipulate_files(MyFileUtilityTool):
         self.filename = None
         self.gitignore_file = None
         self.gitignore_base = None
+        self.file_sz = 0
+        self.file_sz_str = ""
+        self.file_hid = 0
         self.gitignore_rules = []
         self.parse_arguments()
         if not self.dodir and not self.filename:
@@ -51,21 +55,20 @@ class Manipulate_files(MyFileUtilityTool):
         # Proper arguments given , search for file
         else:
             found_files = self.find_files(self.directory, self.filename)
-#            breakpoint()
             if found_files:
                 if self.do_long:
-                    self.write_out(f'{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
+                    self.write_out(f'{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
 
                 if self.sorted == "forward":
-                    found_files.sort(key=lambda x: (x[0][0].split("\\")[-1]).casefold())
+                    found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold())
                 elif self.sorted == "reverse":
-                    found_files.sort(key=lambda x: (x[0][0].split("\\")[-1]).casefold(), reverse=True)
+                    found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold(), reverse=True)
                 for found in found_files:
-                    path, lines, words, chars = found
+                    path, size, lines, words, chars = found
                     if self.verbose:
-                        print(f"Found: {path} | Lines: {lines} | Words: {words} | Characters: {chars}")
+                        print(f"Found: {path} | Size: {size} | Lines: {lines} | Words: {words} | Characters: {chars}")
                     if self.do_long:
-                        self.write_out(f'{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
+                        self.write_out(f'{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
                     else:
                         self.write_out(colorize(found[0], "blue"))
 
@@ -98,7 +101,7 @@ class Manipulate_files(MyFileUtilityTool):
         mfind.py -i (ignore case on matches)
         mfind.py -p (find partial matches (like *filename*))
         mfind.py -l (print file statistics <line count, word count, char count>)
-        mfind.py -h Search hidden files and directories
+        mfind.py -H Search hidden files and directories
         mfind.py -s <forward/reverse> List of files sorted forward or reverse
         mfind.py -m Set maximum search depth (default: none) -m 0 for no recursion pat starting location
         mfind.py -e Exclude entries that match the given glob pattern
@@ -240,7 +243,21 @@ class Manipulate_files(MyFileUtilityTool):
             "-S",
             "--size",
             metavar="",
-            help="\t<size>                Limit results based on the size of files",
+            help="""<size>            Limit results based on the size of files using the format <+-><NUM><UNIT>. 
+             '+': file size must be greater than or equal to this
+             '-': file size must be less than or equal to this
+
+          If neither '+' nor '-' is specified, file size must be exactly equal to this.
+             'NUM':  The numeric size (e.g. 500)
+             'UNIT': The units for NUM. They are not case-sensitive.
+          Allowed unit values:
+              'Bs':  bytes
+              'KB':  kilobytes (base ten, 10^3 = 1000 bytes)
+              'MB':  megabytes
+              'GB':  gigabytes
+              'TB':  terabytes
+              'PB': petabytes
+            """,
         )
 
         parser.add_argument(
@@ -274,7 +291,16 @@ class Manipulate_files(MyFileUtilityTool):
         self.exclude = args.exclude if args.exclude else None
         self.extension = args.extension if args.extension else None
         self.type = args.type if args.type else None
-        self.size = int(args.size) if args.size else -1
+        siz = args.size if args.size else None
+        if args.size:
+            if siz[0] in ("+", "-"):
+                self.sizegt = True if (siz[0] == "+") else False
+                siz = siz[1:]
+            else:
+                self.sizegt = None
+            self.size = str_to_bytes(siz)
+        else:
+            self.size = None
         self.execute = args.execute if args.execute else None
         self.exec_batch = args.exec_batch if args.exec_batch else None
         self.do_long = args.long if args.long else False
@@ -467,7 +493,7 @@ class Manipulate_files(MyFileUtilityTool):
         wild = any(c in filename for c in "*?[")         # glob pattern like *.py or view*
         for root, dirs, files in os.walk(directory):      # os.walk already goes into every subfolder
  
-            if len(root.split("\\")) >= int(self.maxdepth):
+            if (self.maxdepth> 0) and(len(root.split("\\")) >= int(self.maxdepth)):
                     dirs.clear()
             if not self.ignoregit:
                 ignored_dirs = [d for d in dirs
@@ -481,12 +507,38 @@ class Manipulate_files(MyFileUtilityTool):
                            if not self._gitignored(os.path.join(root, d), is_dir=True)]
             for f in files:
                 path = os.path.join(root, f)
+                file_sz = -1
+                try:
+                    statinfo = os.stat(path)
+                except:
+                    sys.stderr.write("Error reading file stats")
+                    sys.stderr.flush()
+                    continue
+                else:
+                    file_sz = statinfo.st_size
+                    file_sz = float(f'{file_sz}')
+                    file_sz_str = bytes_to_str(file_sz)
+                    self.file_hid = statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN 
+                    if self.verbose:
+                        sys.stderr.write(f'Hidden file marked: ({path})')
+                if self.size != None:
+                    if self.sizegt is True:
+                        if (self.size != None) and (file_sz >= self.size):
+                            continue
+                    elif self.sizegt is False:
+                        if (self.size != None) and (file_sz <= self.size):
+                            continue                        
+                    else:
+                        if (self.size != None) and (file_sz != self.size):
+                            continue
+                if not self.hidden and self.file_hid:   
+                    continue   
                 if not self.ignoregit and self._gitignored(path):
                     continue
                 have = f.lower() if self.ignorecase else f
                 if fnmatch.fnmatchcase(have, want) if wild else have == want:
                         lines, words, chars = self.count_file_contents(path)
-                        found_files.append((path, lines, words, chars))    # f = name as it is on disk
+                        found_files.append((path,file_sz_str, lines, words, chars))    # f = name as it is on disk
             if self.verbose:
                 sys.stderr.write(f"\rSearching in: {root} ...")
                 sys.stderr.flush()
