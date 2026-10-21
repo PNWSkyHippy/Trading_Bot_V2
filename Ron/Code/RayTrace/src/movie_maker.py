@@ -35,6 +35,23 @@ POSSIBLE_FFMPEG_PATHS = [
 FFMPEG_EXE = next((p for p in POSSIBLE_FFMPEG_PATHS if p and os.path.exists(p)), "")
 
 
+def _pick_h264_encoder(ffmpeg_exe):
+    """Return the best H.264-ish video encoder this FFmpeg build actually has.
+
+    Homebrew's ffmpeg (Mac) ships libx264 but not libopenh264; some Windows
+    builds are the reverse. Ask ffmpeg what it supports instead of guessing.
+    """
+    try:
+        out = subprocess.run([ffmpeg_exe, "-hide_banner", "-encoders"],
+                             capture_output=True, text=True, timeout=15).stdout
+    except Exception:
+        out = ""
+    for enc in ("libx264", "libopenh264", "h264_videotoolbox", "mpeg4"):
+        if enc in out:
+            return enc
+    return "mpeg4"
+
+
 # ==============================================================================
 # DATA MODELS
 # ==============================================================================
@@ -1212,30 +1229,41 @@ class MovieMakerStudio(tk.Toplevel):
                             audio_file = self.engine.audio_tracks[0].file_path
                             cmd.extend(["-i", audio_file, "-c:a", "aac", "-b:a", "192k"])
 
+                        vcodec = _pick_h264_encoder(FFMPEG_EXE)
                         cmd.extend([
-                            "-c:v", "libopenh264",
+                            "-c:v", vcodec,
                             "-b:v", "4M",
                             "-pix_fmt", "yuv420p",
                             out_path
                         ])
 
                         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-                        for f_idx in range(total):
-                            frame = self.engine.get_frame_at(f_idx)
-                            if frame.size != (w, h):
-                                frame = frame.resize((w, h), Image.Resampling.LANCZOS)
-                            proc.stdin.write(frame.tobytes())
-                            prog = ((f_idx + 1) / total) * 100
-                            self.after(0, lambda p=prog, idx=f_idx: (
-                                prog_var.set(p),
-                                status_lbl.config(text=f"Encoding frame {idx + 1} / {total}...")
-                            ))
+                        broke = False
+                        try:
+                            for f_idx in range(total):
+                                frame = self.engine.get_frame_at(f_idx)
+                                if frame.mode != "RGB":
+                                    frame = frame.convert("RGB")
+                                if frame.size != (w, h):
+                                    frame = frame.resize((w, h), Image.Resampling.LANCZOS)
+                                proc.stdin.write(frame.tobytes())
+                                prog = ((f_idx + 1) / total) * 100
+                                self.after(0, lambda p=prog, idx=f_idx: (
+                                    prog_var.set(p),
+                                    status_lbl.config(text=f"Encoding frame {idx + 1} / {total}...")
+                                ))
+                        except BrokenPipeError:
+                            broke = True       # FFmpeg exited early; its stderr (below) has the real reason
 
-                        proc.stdin.close()
+                        try:
+                            proc.stdin.close()
+                        except (BrokenPipeError, OSError):
+                            pass
                         proc.wait()
-                        if proc.returncode != 0:
+                        if proc.returncode != 0 or broke:
                             err = proc.stderr.read().decode(errors="replace")
-                            raise RuntimeError(f"FFmpeg failed with code {proc.returncode}:\n{err[:300]}")
+                            raise RuntimeError(
+                                f"FFmpeg ({vcodec}) failed with code {proc.returncode}:\n{err[-600:]}")
 
                     elif "GIF" in fmt_chosen:
                         frames_to_save = []

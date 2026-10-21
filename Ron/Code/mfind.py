@@ -133,12 +133,17 @@ class Manipulate_files(MyFileUtilityTool):
                      'NUM':  The numeric size (e.g. 500)
                      'UNIT': The units for NUM. They are not case-sensitive.
                   Allowed unit values:
-                      'Bs':  bytes
-                      'KB':  kilobytes (base ten, 10^3 = 1000 bytes)
-                      'MB':  megabytes
-                      'GB':  gigabytes
-                      'TB':  terabytes
-                      'PB': petabytes       
+                      'Bs':   bytes
+                      'KB':   kilobytes (base ten, 10^3 = 1000 bytes)
+                      'MB':   megabytes
+                      'GB':   gigabytes
+                      'TB':   terabytes
+                      'PB':   petabytes   
+                      'KiB':  kilobytes (1024 bytes)
+                      'MiB':  megabytes
+                      'GiB':  gigabytes
+                      'TiB':  terabytes
+                      'PiB':  petabytes       
         mfind.py -x Execute a command for each search result
         mfind.py -X Execute a command with all search results at once
         mfind.py -t Filter by type: file (f), directory (d/dir), symlink (l),
@@ -276,7 +281,7 @@ class Manipulate_files(MyFileUtilityTool):
             "-S",
             "--size",
             metavar="",
-            help="-S [+/-]bytes[TB|GB|MB|KB|BS]"
+            help="-S [+/-]bytes[PB|TB|GB|MB|KB|BS|PiB|TiB|MiB|KiB|BiS]"
             ,
         )
 
@@ -538,9 +543,7 @@ class Manipulate_files(MyFileUtilityTool):
                     file_sz = statinfo.st_size
                     file_sz = float(f'{file_sz}')
                     file_sz_str = bytes_to_str(file_sz)
-                    self.file_hid = statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN 
-                    if self.verbose:
-                        sys.stderr.write(f'Hidden file marked: ({path})')
+                    self.file_hid = statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN
                 if self.size != None:
                     if self.sizegt is True:
                         if (self.size != None) and (file_sz < self.size):
@@ -560,7 +563,7 @@ class Manipulate_files(MyFileUtilityTool):
                         lines, words, chars = self.count_file_contents(path)
                         found_files.append((path,file_sz_str, lines, words, chars))    # f = name as it is on disk
             if self.verbose:
-                sys.stderr.write(f"\rSearching in: {root} ...")
+                sys.stderr.write(f"\rSearching in: {root} ...\n")
                 sys.stderr.flush()
         return found_files 
 

@@ -148,6 +148,21 @@ KB = 1024
 MB = KB * 1024
 GB = MB * 1024
 PB = GB * 1024
+KiB = 1024
+MiB = KiB * 1000
+GiB = MiB * 1000
+PiB = GiB * 1000
+
+DataTable = {
+    'KB': 1000,
+    'MB': KB * 1000,
+    'GB': MB * 1000,
+    'PB': GB * 1000,
+    'KiB': 1024,
+    'MiB': KiB * 1024,
+    'GiB': MiB * 1024,
+    'PiB': GiB * 1024,
+}
 
 def bytes_to_str(insize):
     """ Converts an integer to its PetaByte, GigaByte, Megabyte,KiloByte, Bytes
@@ -161,6 +176,14 @@ def bytes_to_str(insize):
         return f'{insize // MB}MB'
     elif insize >= KB:
         return f'{insize // KB}KB'
+    elif insize > PiB:
+        return f'{insize // PiB}PiB'
+    elif  insize > GiB:
+        return f'{insize // GiB}GiB'
+    elif insize > MiB:
+        return f'{insize // MiB}MiB'
+    elif insize >= KiB:
+        return f'{insize // KiB}KiB'
     else:
         return f'{insize}B'
 
@@ -184,8 +207,16 @@ def str_to_bytes(instr):
         return int(bites * KB)
     elif pfx == "BS":
         return bites
+    elif pfx == "PiB":
+        return int(bites * PiB)
+    elif pfx == "GiB":
+        return int(bites * GiB)
+    elif pfx == "MiB":
+        return int(bites * MiB)
+    elif pfx == "KiB":
+        return int(bites * KiB)
     else:
-        return "Error: Improper input value passed to str_to_bytes" 
+        return bites
 
 colors = {
     # Text Modifiers

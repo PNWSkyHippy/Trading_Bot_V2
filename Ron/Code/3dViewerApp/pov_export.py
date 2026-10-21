@@ -370,6 +370,94 @@ def default_lights(cam):
             f"light_source {{ {vec(eye)}, color rgb <0.45, 0.48, 0.55> shadowless }}\n")
 
 
+# ----------------------------------------------------------------------------
+# per-light model (Phase 2) - structured lights the viewer can edit.
+#   A spec is a dict; missing keys fall back to DEFAULT_LIGHT.  color is rgb
+#   floats 0..1, scaled by intensity.  area = soft shadows, spot = cone,
+#   fade = distance falloff, shadowless = a pure fill that casts no shadow.
+# ----------------------------------------------------------------------------
+DEFAULT_LIGHT = {
+    "pos": [5.0, 5.0, 5.0],
+    "color": [1.0, 0.97, 0.92],     # rgb 0..1
+    "intensity": 1.0,
+    "shadowless": False,
+    "fade": None,                   # None=off, else distance (float)
+    "fade_power": 2,
+    "area": None,                   # None=off, else {"size": float, "samples": int}
+    "spot": None,                   # None=off, else {"radius","falloff","tightness"}
+    "point_at": None,               # spot aim in viewer coords; None -> camera target
+    "name": "light",
+}
+
+
+def _light(spec):
+    return {**DEFAULT_LIGHT, **(spec or {})}
+
+
+def light_block(spec, cam=None):
+    """One light_source {} block from a spec (multi-line when it has extras)."""
+    s = _light(spec)
+    r, g, b = s.get("color") or [1.0, 1.0, 1.0]
+    i = float(s.get("intensity", 1.0))
+    lines = ["light_source {",
+             f"    {vec(s['pos'])}, color rgb <{_n(r * i)}, {_n(g * i)}, {_n(b * i)}>"]
+    area = s.get("area")
+    if area:
+        size = float(area.get("size", 2.0))
+        n = max(2, int(area.get("samples", 5)))
+        lines.append(f"    area_light <{_n(size)}, 0, 0>, <0, 0, {_n(size)}>, {n}, {n}")
+        lines.append("    adaptive 1")
+        lines.append("    jitter")
+    spot = s.get("spot")
+    if spot:
+        pa = s.get("point_at")
+        pa = pa if pa is not None else (cam["target"] if cam else [0.0, 0.0, 0.0])
+        lines.append(f"    spotlight radius {_n(spot.get('radius', 30))} "
+                     f"falloff {_n(spot.get('falloff', 45))} "
+                     f"tightness {_n(spot.get('tightness', 10))}")
+        lines.append(f"    point_at {vec(pa)}")
+    if s.get("fade") is not None:
+        lines.append(f"    fade_distance {_n(s['fade'])} fade_power {_n(s.get('fade_power', 2))}")
+    if s.get("shadowless"):
+        lines.append("    shadowless")
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def tag_light_photons(block):
+    """Let a shadow-casting light shoot photons; a shadowless fill stays quiet."""
+    if "shadowless" in block or "photons" in block:
+        return block
+    b = block.rstrip()
+    if not b.endswith("}"):
+        return block
+    return b[:-1].rstrip() + "\n    photons { reflection on refraction on }\n}"
+
+
+def lights_pov(specs, cam=None, photons=False):
+    """Render a list of light specs to POV text."""
+    blocks = [light_block(s, cam) for s in (specs or [])]
+    if photons:
+        blocks = [tag_light_photons(b) for b in blocks]
+    return "\n".join(blocks) + "\n"
+
+
+def default_light_specs(cam):
+    """The default key + shadowless fill as editable specs (matches default_lights)."""
+    eye, tgt = np.array(cam["eye"], float), np.array(cam["target"], float)
+    d = eye - tgt
+    span = max(np.linalg.norm(d), 1.0)
+    cz = np.cross(d, (0.0, 0.0, 1.0))
+    side = unit(cz) if np.linalg.norm(cz) > 1e-6 else np.array((1.0, 0.0, 0.0))
+    key = tgt + d + side * span * 0.6 + np.array((0.0, 0.0, span * 0.8))
+    return [
+        {"pos": [float(x) for x in key], "color": [1.0, 0.97, 0.92],
+         "intensity": 1.0, "name": "key"},
+        {"pos": [float(x) for x in eye], "color": [0.45, 0.48, 0.55],
+         "intensity": 1.0, "shadowless": True, "name": "fill"},
+    ]
+
+
 CSG_POV = {"combine": "merge", "cut": "difference", "overlap": "intersection"}
 
 
@@ -430,17 +518,103 @@ def combine(shapes, items):
     return [text[k] for k in order if text[k]]
 
 
-def scene_pov(items, cam, rgb_of, background="#1b1d22", lights=None, extra=""):
+# ----------------------------------------------------------------------------
+# render / lighting settings  ->  the global_settings block + photon tags.
+#   radiosity = soft indirect "bounce" light (colour bleed, filled shadows)
+#   photons   = real caustics focused through glass / gems / metal
+# A viewer passes scene_pov(..., render={...}); missing keys fall back here.
+# ----------------------------------------------------------------------------
+RADIOSITY = {
+    "low":    "count 35 error_bound 0.6 nearest_count 5 recursion_limit 1 "
+              "pretrace_start 0.08 pretrace_end 0.04",
+    "medium": "count 100 error_bound 0.4 nearest_count 6 recursion_limit 2 "
+              "pretrace_start 0.08 pretrace_end 0.02",
+    "high":   "count 200 error_bound 0.25 nearest_count 10 recursion_limit 3 "
+              "pretrace_start 0.08 pretrace_end 0.005",
+}
+DEFAULT_RENDER = {
+    "radiosity": False, "radiosity_quality": "medium",
+    "photons": False, "photons_count": 20000,
+    "max_trace": 5, "ambient_light": None,
+}
+
+
+def _render(render):
+    return {**DEFAULT_RENDER, **(render or {})}
+
+
+def global_settings_pov(render=None):
+    r = _render(render)
+    lines = ["    assumed_gamma 1.0", f"    max_trace_level {max(1, int(r['max_trace']))}"]
+    if r.get("ambient_light"):
+        lines.append(f"    ambient_light {r['ambient_light']}")
+    if r.get("photons"):
+        lines.append(f"    photons {{ count {max(1000, int(r['photons_count']))} "
+                     "autostop 0 jitter 0.35 }")
+    if r.get("radiosity"):
+        q = RADIOSITY.get(r.get("radiosity_quality"), RADIOSITY["medium"])
+        lines.append("    radiosity {\n        brightness 1\n        " + q + "\n    }")
+    return "global_settings {\n" + "\n".join(lines) + "\n}"
+
+
+def _reflective(text):
+    """True if an object's material reflects or refracts (so photons should focus through it)."""
+    low = text.lower()
+    if "media {" in low:                            # a volume container, not a caustic surface
+        return False
+    return ("ior " in low) or ("reflection" in low) or ("metallic" in low) or ("interior {" in low)
+
+
+def tag_object_photons(text):
+    """Add a photons{} tag as the last modifier of a top-level object so it casts/receives
+    caustics.  It must follow the shape's geometry, so it goes just before the closing brace.
+    light_source blocks are told to shoot photons; reflective/refractive solids to catch them."""
+    body = text.rstrip()
+    if not body.endswith("}"):
+        return text
+    head = next((ln.strip() for ln in body.split("\n") if ln.rstrip().endswith("{")), "")
+    if head.startswith("light_source"):
+        tag = "    photons { refraction on reflection on }"
+    elif _reflective(body):
+        tag = "    photons { target on reflection on refraction on }"
+    else:
+        return text
+    trailing = text[len(body):]                      # keep the original trailing newline(s)
+    return body[:-1].rstrip() + "\n" + tag + "\n}" + trailing
+
+
+def add_light_photons(lights_text):
+    """Let each shadow-casting light shoot photons (fill lights marked shadowless stay quiet)."""
+    out = []
+    for ln in lights_text.split("\n"):
+        s = ln.rstrip()
+        if "light_source {" in s and "shadowless" not in s and "photons" not in s and s.endswith("}"):
+            s = s[:-1].rstrip() + " photons { reflection on refraction on } }"
+        out.append(s)
+    return "\n".join(out)
+
+
+def scene_pov(items, cam, rgb_of, background="#1b1d22", lights=None, extra="",
+              render=None, light_specs=None):
     bg = rgb_of(background) or (27, 29, 34)
+    r = _render(render)
+    if light_specs is not None:                     # structured per-light model (Phase 2)
+        lt = lights_pov(light_specs, cam, photons=r.get("photons", False))
+    else:                                           # legacy text lights / auto default
+        lt = lights if lights is not None else default_lights(cam)
+        if r.get("photons"):
+            lt = add_light_photons(lt)
     out = ["// Generated by viewer3d.py - edit the scene in the viewer, not here.",
            "#version 3.7;",
            '#include "colors.inc"',
            '#include "textures.inc"',
-           "global_settings { assumed_gamma 1.0 }",
+           global_settings_pov(r),
            "background { color rgb <%s, %s, %s> }" % tuple(_n(x / 255.0) for x in bg),
-           "", camera_pov(cam), lights if lights is not None else default_lights(cam)]
+           "", camera_pov(cam), lt]
     includes = set()
     shapes = combine([shape_pov(it, rgb_of, includes) for it in items], items)
+    if r.get("photons"):
+        shapes = [tag_object_photons(s) for s in shapes]
     out[4:4] =[f'#include "{inc}"' for inc in sorted(includes - {"textures.inc", "colors.inc"})]
     out += shapes
     if extra.strip():

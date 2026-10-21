@@ -91,6 +91,14 @@ def ray_segs(o, d, A, B, tol):
     return np.where((s > 0) & (gap <= tol * s), s, np.inf)
 
 
+def ray_points(o, d, P):
+    """Along-ray distance and perpendicular gap to each point P (N, 3)."""
+    w = np.asarray(P, float) - o
+    s = w @ d
+    gap = np.linalg.norm(w - s[:, None] * d, axis=1)
+    return s, gap
+
+
 def pick(data, o, d, tol):
     """(object number, distance) of what the ray hits first - planes only when nothing else
     is there - or (-1, inf)."""
@@ -127,6 +135,17 @@ def pick(data, o, d, tol):
     return int(who), float(best)
 
 
+def pick_handle(hpts, o, d, tol):
+    """Index of the director handle nearest the ray (within tol, an angle), or -1."""
+    if hpts is None or len(hpts) == 0:
+        return -1
+    s, gap = ray_points(o, d, hpts)
+    ok = (s > 0) & (gap <= tol * s)
+    if not ok.any():
+        return -1
+    return int(np.argmin(np.where(ok, s, np.inf)))
+
+
 def plane_hit(o, d, p0, n):
     """Where the ray o + t*d meets the plane through p0 with normal n (None if it can't)."""
     den = d @ n
@@ -160,13 +179,47 @@ def direction(az, el):
 MENU_X = 0.79                                # the menu's left edge (0..1 of the window width)
 MENU_BTN = (0.11, 0.08)                      # the "Menu" button box while the menu is hidden (w, h)
 
+# director handles you can drag in this window: role -> colour / name (mirrors the viewer overlay)
+HCOL = {"a": (0.32, 0.82, 0.40), "b": (1.0, 0.83, 0.26), "c": (1.0, 0.42, 0.42),
+        "target_a": (0.30, 0.82, 0.88), "target_c": (0.30, 0.82, 0.88),
+        "light": (1.0, 0.95, 0.63)}
+HNAME = {"a": "start", "b": "through", "c": "end", "target_a": "aim start",
+         "target_c": "aim end", "light": "light"}
+
+
+def handle_role(tag):
+    return "light" if tag.startswith("light") else tag.split(":")[-1]
+
+
+def handle_label(tag):
+    """Plain-English name of a director handle, e.g. 'camera start (move 2)'."""
+    if tag.startswith("light"):
+        return f"light {int(tag.split(':')[-1]) + 1}"
+    parts = tag.split(":")                       # seg:i:role
+    m = int(parts[1]) + 1
+    return {"a": f"camera position - start of move {m}",
+            "c": f"camera position - end of move {m}",
+            "b": f"arc bulge point of move {m}",
+            "target_a": f"look-at (aim) - start of move {m}",
+            "target_c": f"look-at (aim) - end of move {m}"}.get(parts[2], parts[2])
+
+
+def handle_short(tag):
+    """Terse name for a label pinned onto the handle in 3D, e.g. 'cam start 1', 'look-at 1', 'light 1'."""
+    if tag.startswith("light"):
+        return f"light {int(tag.split(':')[-1]) + 1}"
+    parts = tag.split(":")                        # seg:i:role
+    m = int(parts[1]) + 1
+    return {"a": f"cam start {m}", "c": f"cam end {m}", "b": f"arc {m}",
+            "target_a": f"look-at {m} (start)", "target_c": f"look-at {m} (end)"}.get(parts[2], parts[2])
+
 
 def main():
     path = sys.argv[1]
     win = ti.ui.Window("viewer3d - Taichi preview", (1280, 800), vsync=True)
     canvas, scene, gui = win.get_canvas(), win.get_scene(), win.get_gui()
     cam = ti.ui.Camera()
-    tris, lines = Buf(), Buf()
+    tris, lines, hmark = Buf(), Buf(), Buf()   # hmark: the live marker while dragging a director handle
     data, stamp, cam_id, play_id, radius = None, None, None, None, 1.0
     play = [None]                            # time the camera path started playing, or None
     fov = [45.0]                             # vertical, degrees (the Camera doesn't report it back)
@@ -180,7 +233,7 @@ def main():
         except (OSError, ValueError):
             resume = None
     saved = [None]                           # what's in cam_file now
-    menu = {"show": True, "sections": {"tools", "edit", "view", "objects"}, "folders": set()}
+    menu = {"show": True, "sections": {"selected", "tools", "edit", "view", "objects"}, "folders": set()}
 
     def cam_state():
         return {"eye": [float(v) for v in cam.curr_position], "look": [float(v) for v in cam.curr_lookat],
@@ -215,6 +268,13 @@ def main():
     def send(line):
         print(line, flush=True)
 
+    def send_cam():
+        """Hand the viewer this window's live camera so the render frames what you see here."""
+        w, h = win.get_window_shape()
+        e, l, u = cam.curr_position, cam.curr_lookat, cam.curr_up
+        send("CMD cam %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f" % (
+            e[0], e[1], e[2], l[0], l[1], l[2], u[0], u[1], u[2], fov[0], w / max(h, 1)))
+
     def set_fov(f):
         fov[0] = float(f)
         cam.fov(fov[0])
@@ -239,6 +299,21 @@ def main():
         d = f + (2 * cx - 1) * t * (w / h) * r + (2 * cy - 1) * t * u
         return eye, d / np.linalg.norm(d), 2 * t / h          # last: radians per pixel
 
+    def project(P):
+        """World point -> (cx, cy) window coords 0..1 y-up, or None if behind the camera. Inverse of ray()."""
+        eye = np.array([float(v) for v in cam.curr_position])
+        f = np.array([float(v) for v in cam.curr_lookat]) - eye
+        f /= np.linalg.norm(f) + 1e-12
+        r = np.cross(f, [float(v) for v in cam.curr_up]); r /= np.linalg.norm(r) + 1e-12
+        u = np.cross(r, f)
+        w, h = win.get_window_shape()
+        t = np.tan(np.radians(fov[0]) / 2)
+        wv = np.asarray(P, float) - eye
+        fz = float(wv @ f)
+        if fz <= 1e-6:
+            return None
+        return 0.5 + (wv @ r) / (fz * t * (w / h)) * 0.5, 0.5 + (wv @ u) / (fz * t) * 0.5
+
     def n_path():
         return len(data["path_cam"]) if data is not None and "path_cam" in data else 0
 
@@ -249,12 +324,14 @@ def main():
         set_fov(data["path_fov"][i])
 
     drag = None                              # left-drag in progress: what, where it started, plane
-    pending = []                             # (object mask, M, pivot, shift, ticket): sent, viewer not done yet
+    hdrag = None                             # dragging a director handle: {tag, p0, pos, raw, at, moved}
+    pending = []                           # (object mask, M, pivot, shift, ticket): sent, viewer not done yet
     sent = [None]                            # tickets handed out (starts at the viewer's moves_done)
     shown = [None]                           # transforms now on the GPU (to skip re-uploading)
     view = [None]                            # the scene as drawn (pending moves done) - clicks pick this
     tool = ["move"]                          # M / T / B: move, turn (rotate), bigger/smaller (scale)
     snap = [False]                           # G
+    labels = [True]                          # N: floating name tags pinned on the director handles
 
     def drag_xf():
         """(mask, M, pivot, shift) for the drag in progress: v -> (v - pivot) @ M.T + pivot + shift."""
@@ -361,11 +438,14 @@ def main():
                   if win.is_pressed(k)), np.zeros(3))
         eye = eye + mv * step
         cur = win.get_cursor_pos()
-        if win.is_pressed(ti.ui.RMB) and walk["mouse"] is not None:
+        rmb = win.is_pressed(ti.ui.RMB)
+        if rmb and walk["mouse"] is None:            # a right-drag that starts on the menu / HUD doesn't look
+            walk["ui"] = on_ui(*cur)
+        if rmb and walk["mouse"] is not None and not walk.get("ui"):
             az, el = angles(f)
             f = direction(az - (cur[0] - walk["mouse"][0]) * 2.0,
                           np.clip(el + (cur[1] - walk["mouse"][1]) * 2.0, -1.55, 1.55))
-        walk["mouse"] = cur if win.is_pressed(ti.ui.RMB) else None
+        walk["mouse"] = cur if rmb else None
         cam.position(*eye)
         cam.lookat(*(eye + f))
         cam.up(0.0, 0.0, 1.0)
@@ -420,6 +500,23 @@ def main():
             if g.button(f"{'-' if opened else '+'} {title}##sec_{key}"):
                 menu["sections"] ^= {key}
             return opened
+        if g.button("Swap to text menu  (hide this, raise viewer window)"):
+            menu["show"] = False                 # 3D view clears; the Tk text menu comes to the front
+            send("CMD viewer")                   # (bring it back with the Menu button, top-right, or Tab)
+        l_name, l_sel = data.get("list_name", []), data.get("list_sel", [])
+        chosen = [str(n) for n, s in zip(l_name, l_sel) if s]
+        if section("selected", "Selected: " + (chosen[0] + (f" +{len(chosen) - 1}" if len(chosen) > 1 else "")
+                                               if chosen else "nothing")):
+            if not chosen:
+                g.text("click an object (Shift adds)")
+            else:
+                for label, cmd in (("Properties - exact coords  (Enter)", "props"), ("Rename...", "rename"),
+                                   ("Colors...", "colors"), ("Material / texture...", "material"),
+                                   ("Twin...", "twin"), ("CSG combine / cut...", "csg"),
+                                   ("Hollow...", "hollow"), ("Align (first clicked stays)...", "align"),
+                                   ("Help on this  (H)", "help")):
+                    if g.button(f"{label}##sel_{cmd}"):
+                        send(f"CMD {cmd}")
         if section("tools", "Tools"):
             for key, name, letter in (("move", "Move", "M"), ("rotate", "Turn", "T"), ("scale", "Size", "B")):
                 if g.button(f"{'>' if tool[0] == key else ' '} {name}  ({letter})##tool_{key}") and drag is None:
@@ -435,9 +532,26 @@ def main():
                                 ("Select none", "CMD select_none"), ("Properties...", "CMD props"),
                                 ("Group selected...", "CMD tag"), ("Ungroup", "CMD untag"),
                                 ("Replicate...", "CMD replicate"),
-                                ("Ring copy (around a pivot)...", "CMD ring")):
+                                ("Ring copy (around a pivot)...", "CMD ring"),
+                                ("Move all by numbers (lift scene)...", "CMD move_all"),
+                                ("Rescale world...", "CMD rescale_world"),
+                                ("Undo last transform", "CMD undo_tf")):
                 if g.button(label):
                     send(line)
+        if section("scripts", "Scripts"):
+            for label, cmd in (("Run script...", "run_script"), ("Replay", "replay"),
+                               ("Keep script objects", "keep_script")):
+                if g.button(label):
+                    send(f"CMD {cmd}")
+        if section("layers", "Layers"):
+            hidden = {str(x) for x in data.get("layers_hidden", [])}
+            for i, name in enumerate(data.get("layers", [])):
+                name = str(name)
+                shown = name not in hidden
+                if g.checkbox(f"{name}##lyr{i}", shown) != shown:
+                    send(f"CMD layer_show {i} {0 if shown else 1}")
+            if g.button("Set selected to layer..."):
+                send("CMD set_layer")
         if section("add", "Add"):
             for i, kind in enumerate(data.get("add_kinds", [])):
                 if g.button(f"{kind}...##add{i}"):
@@ -454,18 +568,185 @@ def main():
             grid = bool(data.get("grid_on", True))
             if g.checkbox("Grid", grid) != grid:
                 send(f"CMD grid {0 if grid else 1}")
+            for key, cmd in (("Scene objects", "show_scene"), ("Script objects", "show_script")):
+                cur = bool(data.get(cmd, True))
+                if g.checkbox(key, cur) != cur:
+                    send(f"CMD {cmd} {0 if cur else 1}")
             if n_path() and g.button("Stop camera path  (P)##path" if play[0] is not None
                                      else "Play camera path  (P)##path"):
                 toggle_play()
+        if section("camera", "Camera"):
+            e, l = cam.curr_position, cam.curr_lookat
+            g.text(f"Eye   {e[0]:.1f}  {e[1]:.1f}  {e[2]:.1f}")
+            g.text(f"Look  {l[0]:.1f}  {l[1]:.1f}  {l[2]:.1f}")
+            g.text(f"FOV   {fov[0]:.1f}")
+            if g.button("Add camera key here  (new waypoint)"):
+                send_cam()
+                send("CMD add_cam_key")
+            if g.button("Set selected key = this view"):
+                send_cam()
+                send("CMD set_cam_key")
+            if g.button("Open Camera Director"):
+                send("CMD director")
+        if section("director", "Director  (edit the shot here)"):
+            g.text("drag the cone / cyan+ / light handles in 3D to aim")
+            g.text("- path -")
+            if g.button("+ Line move##dir"):
+                send("CMD dir_line")
+            if g.button("+ Arc move##dir"):
+                send("CMD dir_arc")
+            if g.button("Delete current move##dir"):
+                send("CMD dir_del_move")
+            if g.button("Steps in this move...##dir"):
+                send("CMD dir_steps")
+            if g.button("FPS (path sampling)...##dir"):
+                send("CMD dir_fps")
+            if g.button("Camera roll...##dir"):
+                send("CMD dir_roll")
+            if g.button("New shot from this view##dir"):
+                send_cam()
+                send("CMD dir_new_shot")
+            g.text("- lights -")
+            if g.button("+ Light##dir"):
+                send("CMD dir_add_light")
+            if g.button("Delete light##dir"):
+                send("CMD dir_del_light")
+            g.text("- render / export -")
+            if g.button("Size  w x h...##dir"):
+                send("CMD dir_size")
+            if g.button("GIF playback fps...##dir"):
+                send("CMD dir_giffps")
+            if g.button("Render this frame##dir"):
+                send_cam()
+                send("CMD dir_render_frame")
+            if g.button("Render movie (frames + GIF)##dir"):
+                send("CMD dir_render_movie")
+            if g.button("Stop movie##dir"):
+                send("CMD dir_stop_movie")
+            if g.button("Preview GIF##dir"):
+                send("CMD dir_preview_gif")
+            if g.button("Rebuild GIF (no re-render)##dir"):
+                send("CMD dir_rebuild_gif")
+            if g.button("Export POV animation##dir"):
+                send("CMD dir_export")
+            g.text("- project -")
+            if g.button("Save project...##dir"):
+                send("CMD dir_save")
+            if g.button("Load project...##dir"):
+                send("CMD dir_load")
+        if section("file", "Scene file"):
+            if g.button("Open scene...  (.csv)"):
+                send("CMD open_scene")
+            if g.button("Save scene as...  (.csv)"):
+                send("CMD save_scene_as")
+            g.text("edits autosave to scene3d.csv")
+        if section("pov", "POV-Ray render"):
+            if g.button(f"Quality: {data.get('pov_q', 'Draft')}  (click to switch)"):
+                send("CMD pov_q")
+            if g.button(f"Size: {data.get('pov_w', '640')} px..."):
+                send("CMD pov_w")
+            if g.button("Render now  (F9)"):
+                send_cam()
+                send("CMD render")
+            if g.button("Save .pov file..."):
+                send_cam()
+                send("CMD save_pov")
+            if g.button("Open POV GUI"):
+                send_cam()
+                send("CMD pov_gui")
+        if section("lighting", "Lighting / global illumination"):
+            rad = bool(data.get("rs_radiosity", False))
+            if g.checkbox("Radiosity  (indirect bounce light)", rad) != rad:
+                send(f"CMD rset radiosity {0 if rad else 1}")
+            rq = str(data.get("rs_radq", "medium"))
+            if g.button(f"  radiosity quality: {rq}  (click to cycle)"):
+                order = ["low", "medium", "high"]
+                nxt = order[(order.index(rq) + 1) % 3] if rq in order else "medium"
+                send(f"CMD rset radq {nxt}")
+            pho = bool(data.get("rs_photons", False))
+            if g.checkbox("Photons  (caustics in glass / gems / metal)", pho) != pho:
+                send(f"CMD rset photons {0 if pho else 1}")
+            cnt = int(data.get("rs_photons_count", 20000))
+            if g.button(f"  photon count: {cnt:,}  (click to cycle)"):
+                opts = [10000, 20000, 50000, 100000, 250000]
+                nxt = opts[(opts.index(cnt) + 1) % len(opts)] if cnt in opts else 20000
+                send(f"CMD rset photons_count {nxt}")
+            mt = int(data.get("rs_max_trace", 5))
+            if g.button(f"  max trace level: {mt}  (click to raise)"):
+                steps = [5, 8, 10, 12, 15, 20, 30]
+                nxt = steps[(steps.index(mt) + 1) % len(steps)] if mt in steps else 10
+                send(f"CMD rset max_trace {nxt}")
+            g.text("on = richer light, slower render. Off for quick Draft previews.")
+            if g.button("Render now with these  (F9)"):
+                send_cam()
+                send("CMD rset render")
+            if g.button("Open full Lighting panel  (viewer, F6)"):
+                send("CMD lighting")
+        if section("lights", "Lights  (soft shadows / spots / fade)"):
+            names = [str(x) for x in data.get("lights_name", [])]
+            ints = list(data.get("lights_int", []))
+            shad = list(data.get("lights_shadowless", []))
+            area = list(data.get("lights_area", []))
+            spot = list(data.get("lights_spot", []))
+            fade = list(data.get("lights_fade", []))
+            auto = bool(data.get("lights_auto", True))
+            n = len(names)
+            g.text("AUTO: default key + fill" if auto else f"{n} custom light(s)")
+            if auto:
+                g.text("edit a control below to take over the lighting")
+            if n:
+                li = int(menu.get("light_i", 0)) % n
+                menu["light_i"] = li
+                if g.button(f"light: {names[li]}  ({li + 1}/{n})  (click to cycle)"):
+                    menu["light_i"] = (li + 1) % n
+                g.text(f"  brightness {float(ints[li]):.2f}")
+                if g.button("  brighter  +0.25"):
+                    send(f"CMD lset {li} intensity {min(5.0, float(ints[li]) + 0.25):.2f}")
+                if g.button("  dimmer  -0.25"):
+                    send(f"CMD lset {li} intensity {max(0.0, float(ints[li]) - 0.25):.2f}")
+                sh = bool(shad[li])
+                if g.checkbox("  shadowless (pure fill)", sh) != sh:
+                    send(f"CMD lset {li} shadowless {0 if sh else 1}")
+                ar = bool(area[li])
+                if g.checkbox("  soft shadows (area light)", ar) != ar:
+                    send(f"CMD lset {li} area {0 if ar else 1}")
+                sp = bool(spot[li])
+                if g.checkbox("  spotlight cone (aims at target)", sp) != sp:
+                    send(f"CMD lset {li} spot {0 if sp else 1}")
+                fd = bool(fade[li])
+                if g.checkbox("  distance fade", fd) != fd:
+                    send(f"CMD lset {li} fade {0 if fd else 1}")
+                if g.button("  remove this light"):
+                    menu["light_i"] = max(0, li - 1)
+                    send(f"CMD lset del {li}")
+            if g.button("Add a light (at camera)"):
+                send("CMD lset add")
+            if g.button("Reset to auto key + fill"):
+                menu["light_i"] = 0
+                send("CMD lset reset")
+            g.text("fine numbers (colour, size, cone angle) are in the viewer panel")
+            if g.button("Render now with these  (F9)"):
+                send_cam()
+                send("CMD lset render")
+            if g.button("Open full Lights panel  (viewer, F5)"):
+                send("CMD lights")
         if section("windows", "Windows"):
             for label, cmd in (("Camera Director", "director"), ("Lathe tool", "lathe"),
                                ("Render POV-Ray", "render"), ("Viewer window", "viewer")):
                 if g.button(label):
+                    if cmd == "render":
+                        send_cam()
                     send(f"CMD {cmd}")
+        if section("help", "Help"):
+            if g.button("Help on the selection  (H)"):
+                send("CMD help")
+            if g.button("Help contents (whole program)"):
+                send("CMD help_menu")
+            if g.button("About this preview window"):
+                send("CMD help_taichi")
         if section("objects", "Objects"):
             fids, names = data.get("list_fids", []), data.get("list_folders", [])
             l_iid, l_fold = data.get("list_iid", []), data.get("list_fold", [])
-            l_name, l_sel = data.get("list_name", []), data.get("list_sel", [])
             for fi, (fid, label) in enumerate(zip(fids, names)):
                 fid = str(fid)
                 opened = fid in menu["folders"]
@@ -532,10 +813,14 @@ def main():
                     fly_to(*box)
             elif e.key == ti.ui.TAB:
                 menu["show"] = not menu["show"]
+            elif e.key in ("F1", "?", "h"):               # best-effort: GGUI rarely reports F-keys
+                print("CMD help", flush=True)
             elif e.key in ("m", "t", "b") and drag is None:
                 tool[0] = {"m": "move", "t": "rotate", "b": "scale"}[e.key]
             elif e.key == "g":
                 snap[0] = not snap[0]
+            elif e.key == "n":
+                labels[0] = not labels[0]
             elif e.key == ti.ui.RETURN and drag is None:
                 send("CMD props")
             elif e.key in ("z", "y") and win.is_pressed(ti.ui.CTRL) and drag is None:
@@ -553,6 +838,13 @@ def main():
                 if on_ui(cx, cy):                         # the HUD box / the menu's buttons
                     continue
                 o, d, px = ray(cx, cy)
+                hk = pick_handle(data.get("dir_hpts"), o, d, px * 9)   # a director handle first
+                if hk >= 0 and drag is None:
+                    hp = data["dir_hpts"][hk].astype(float)
+                    hdrag = {"tag": str(data["dir_htag"][hk]), "p0": hp, "pos": hp.copy(),
+                             "raw": np.zeros(3), "at": (cx, cy), "moved": False}
+                    print(f"[grab handle] {hdrag['tag']}", file=sys.stderr, flush=True)
+                    continue
                 if pending:
                     show_offsets()                       # make sure view[0] matches what's drawn
                 k, dist = pick(view[0] or data, o, d, px * 5)
@@ -571,6 +863,63 @@ def main():
                 elif not win.is_pressed(ti.ui.SHIFT):        # empty space: orbit (Ctrl: pan) the view
                     play[0] = fly[0] = None
                     start_nav("pan" if win.is_pressed(ti.ui.CTRL) else "orbit", ti.ui.LMB, cx, cy)
+
+        if hdrag is not None:
+            cx, cy = win.get_cursor_pos()
+            if not win.is_pressed(ti.ui.LMB):                 # let go: write the handle back to the shot
+                if hdrag["moved"]:
+                    p = np.round(hdrag["pos"], 4)
+                    send("CMD dir_set %s %.6g %.6g %.6g" % (hdrag["tag"], p[0], p[1], p[2]))
+                hdrag = None
+            else:
+                w, h = win.get_window_shape()
+                if not hdrag["moved"] and \
+                        abs(cx - hdrag["at"][0]) * w + abs(cy - hdrag["at"][1]) * h > 4:
+                    hdrag["moved"] = True
+                ctrl = win.is_pressed(ti.ui.CTRL)
+                o, d, _px = ray(cx, cy)
+                if ctrl:                                      # Ctrl: up / down, on a wall facing you
+                    n = np.array([d[0], d[1], 0.0])
+                    n = n / np.linalg.norm(n) if np.linalg.norm(n) > 1e-6 else np.array([1.0, 0, 0])
+                else:                                         # flat across the floor
+                    n = np.array([0.0, 0.0, 1.0])
+                p0 = hdrag["p0"] + hdrag["raw"]               # switching Ctrl mid-drag keeps going smoothly
+                hit = plane_hit(o, d, p0, n)
+                if hit is not None and np.linalg.norm(hit - p0) < radius * 8:
+                    step = hit - p0
+                    step[:2] = (0.0, 0.0) if ctrl else step[:2]
+                    step[2] = step[2] if ctrl else 0.0
+                    hdrag["raw"] = hdrag["raw"] + step
+                g = float(data.get("snap", 0)) if data is not None else 0.0
+                raw = hdrag["raw"]
+                hdrag["pos"] = hdrag["p0"] + (np.round(raw / g) * g if snap[0] and g > 0 else raw)
+
+        hover = None                                          # the handle the cursor is over (when not dragging)
+        if hdrag is None and data is not None and len(data.get("dir_hpts", [])):
+            hx, hy = win.get_cursor_pos()
+            if not on_ui(hx, hy):
+                ho, hd, hpx = ray(hx, hy)
+                hhk = pick_handle(data.get("dir_hpts"), ho, hd, hpx * 12)
+                if hhk >= 0:
+                    hover = (str(data["dir_htag"][hhk]), data["dir_hpts"][hhk].astype(float))
+
+        mark = None                                           # bright marker: where a drag is going, or what's hovered
+        if hdrag is not None and hdrag["moved"]:
+            mark = (handle_role(hdrag["tag"]), hdrag["pos"])
+        elif hover is not None:
+            mark = (handle_role(hover[0]), hover[1])
+        if mark is not None:
+            role, p = mark
+            r = radius * 0.03
+            col = HCOL.get(role, (1.0, 1.0, 1.0))
+            vv, cc = [], []
+            for off in (np.array([r, 0, 0.0]), np.array([0, r, 0.0]), np.array([0, 0, r]),
+                        np.array([r, r, r]) / 1.7, np.array([r, -r, r]) / 1.7,
+                        np.array([-r, r, r]) / 1.7, np.array([-r, -r, r]) / 1.7):
+                vv += [p - off, p + off]; cc += [col, col]
+            hmark.load(np.array(vv, np.float32), np.array(cc, np.float32))
+        else:
+            hmark.n = 0
 
         if drag is not None:
             cx, cy = win.get_cursor_pos()
@@ -675,14 +1024,39 @@ def main():
         if lines.n:
             lv, lc = lines.fields
             scene.lines(lv, width=2, per_vertex_color=lc, vertex_count=lines.n)
+        if hmark.n:
+            hv, hc = hmark.fields
+            scene.lines(hv, width=4, per_vertex_color=hc, vertex_count=hmark.n)
         canvas.set_background_color((0.11, 0.12, 0.14))
         canvas.scene(scene)
+        tip = None                                               # one name tag, pinned on the handle you point at / drag
+        if hdrag is not None and hdrag["moved"]:
+            tip = (hdrag["tag"], hdrag["pos"])
+        elif hover is not None:
+            tip = (hover[0], hover[1])
+        if data is not None and labels[0] and tip is not None:
+            sp = project(tip[1])
+            if sp is not None and 0.0 < sp[0] < 1.0 and 0.0 < sp[1] < 1.0:
+                lx = min(max(sp[0] + 0.010, 0.0), 0.84)
+                ly = min(max((1.0 - sp[1]) - 0.015, 0.0), 0.95)  # GGUI window y runs top-down
+                with gui.sub_window(handle_short(str(tip[0])), lx, ly, 0.16, 0.04):
+                    pass
         with gui.sub_window("preview", 0.01, 0.01, 0.52, 0.15) as g:
             g.text(f"{tris.n // 3:,} triangles   GPU: {ARCH}")
             g.text("right-drag / arrows look | WASD QE move | left-drag empty: orbit (Ctrl / middle: pan)")
             g.text("Shift fast | F fly to selected | R viewer's view | Tab menu")
+            if data is not None and len(data.get("dir_hpts", [])):
+                g.text("DIRECTOR:  cone = a camera  |  cyan +  = its LOOK-AT (the spot it's aimed at, floats in mid-air)")
+                g.text("green cone = move START  |  red cone = move END  |  orange line = flight path  |  burst = light")
+                g.text("point at a handle to see its name (N toggles)  |  drag any handle to move it (Ctrl = up/down)")
+                if hover is not None and not (hdrag and hdrag["moved"]):
+                    g.text(f">> {handle_label(hover[0])}  -  click-drag to move")
             sn = f"snap ON (move {float(data.get('snap', 0)):g})" if snap[0] and data is not None else "snap off"
-            if drag and drag["moved"] and drag["op"] == "move":
+            if hdrag and hdrag["moved"]:
+                p = hdrag["pos"]
+                g.text(f"moving {handle_label(hdrag['tag'])}")
+                g.text(f"   -> {p[0]:.3f}, {p[1]:.3f}, {p[2]:.3f}   (Ctrl: up / down)   {sn}")
+            elif drag and drag["moved"] and drag["op"] == "move":
                 dv = drag["delta"]
                 g.text(f"moving {dv[0]:.3f}, {dv[1]:.3f}, {dv[2]:.3f}   (Ctrl: up / down)   {sn}")
             elif drag and drag["moved"] and drag["op"] in AXES:

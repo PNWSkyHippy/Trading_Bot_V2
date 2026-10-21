@@ -23,11 +23,12 @@ import runpy
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
 import tkinter as tk
-from tkinter import ttk, colorchooser, filedialog
+from tkinter import ttk, colorchooser, filedialog, messagebox
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +42,7 @@ import pov_export  # noqa: E402
 from lathe3d import Lathe3d, LatheTool  # noqa: E402
 import solids3d  # noqa: E402  prisms, pyramids, polyhedra, ellipsoid, caps, truncated cone
 import ui_scroll  # noqa: E402  scrollable side panels
+import help3d  # noqa: E402  context help + master help menu (F1)
 
 Plane3d = getattr(class3d, "Plane3d", None)
 Circle3d = getattr(class3d, "Circle3d", None)
@@ -68,8 +70,13 @@ def is_lib_plane(obj):
 def is_round(obj):
     return bool(ROUND_TYPES) and isinstance(obj, ROUND_TYPES)
 
-SCENE_FILE = os.path.join(HERE, "scene3d.csv")
+SCENE_FILE = os.path.join(HERE, "scene3d.csv")   # legacy default (still loaded if present)
+ACTIVE_PTR = os.path.join(HERE, ".active_scene")  # remembers which scene file we're working in
 DEFAULT_SCRIPT = os.path.join(HERE, "test3d_lib.py")
+
+def timestamped_scene():
+    """A fresh default scene name so a new scene never overwrites an old one."""
+    return os.path.join(HERE, "scene3d_" + time.strftime("%Y%m%d-%H%M%S") + ".csv")
 POV_DIR = os.path.join(HERE, "pov")              # renders, image maps, saved .pov files
 POV_FILE = os.path.join(POV_DIR, "scene3d.pov")
 
@@ -554,6 +561,7 @@ class Entry:
         self.twin = None                     # (lift %, axis Z|X|Y, flip first) - see twin_turn
         self.csg = None                      # (combine|cut|overlap, target name or @group, whole group is tool)
         self.hollow = None                   # (wall thickness, open end none|top|bottom|both)
+        self.layer = ""                      # layer name ("" = the Default layer); show/hide per layer
         self.obj = None
         self.twin_obj = None
 
@@ -722,6 +730,8 @@ def load_scene(path):
                 elif entries and kind == "hollow":  # hollow,<wall thickness>,<none|top|bottom|both>
                     opening = row[2].lower() if len(row) > 2 else "none"
                     entries[-1].hollow = (float(row[1]), opening if opening in HOLLOW_OPEN else "none")
+                elif entries and kind == "layer":   # layer,<name>  (blank = Default)
+                    entries[-1].layer = row[1] if len(row) > 1 else ""
                 elif entries:
                     parse_row(row)             # validate now, report the line number
                     entries[-1].transforms.append(row)
@@ -757,7 +767,8 @@ def save_scene(path, entries):
                 "# twin,<lift %>,<own|Z|X|Y>,<flip first 0|1> adds a 180 deg turned copy below, merged into one\n"
                 "# csg,<combine|cut|overlap>,<target name or @group>[,group:<name>]: this object (or with\n"
                 "#   group:<name> that whole group) merges with / cuts / intersects the target\n"
-                "# hollow,<wall thickness>,<none|top|bottom|both>: cut out an inner copy, walls that thick\n")
+                "# hollow,<wall thickness>,<none|top|bottom|both>: cut out an inner copy, walls that thick\n"
+                "# layer,<name> after an object row puts it on that layer (blank = Default); layers show/hide together\n")
         w = csv.writer(f)
         for e in entries:
             w.writerow(e.row())
@@ -771,6 +782,8 @@ def save_scene(path, entries):
                 w.writerow(["csg", e.csg[0], e.csg[1]] + ([f"group:{e.csg[2]}"] if len(e.csg) > 2 and e.csg[2] else []))
             if e.hollow:
                 w.writerow(["hollow", num(e.hollow[0]), e.hollow[1]])
+            if e.layer:
+                w.writerow(["layer", e.layer])
             for t in snapshot_rows(e):
                 w.writerow(t)
 
@@ -1214,11 +1227,13 @@ def prop_nums(e, v, changed):
 # the app
 # ----------------------------------------------------------------------------
 class App:
-    def __init__(self, root):
+    def __init__(self, root, classic=False):
         self.root = root
-        root.title("3D Testbed - class3d viewer")
-        root.geometry("1450x920")
+        self.classic = classic         # classic = the old Tk viewport; default = Taichi is the main window
+        root.title("3D Testbed - class3d viewer" + ("" if classic else " (menu)"))
+        root.geometry("1450x920" if classic else "640x920")
         self.entries = []
+        self.scene_path = SCENE_FILE   # the file autosave/undo work in; Open/Save-as switch it
         self.script_objs = []          # [(name, obj)] from the last script run
         self.events = []
         self.selected = None           # ("s", Entry) or ("r", index)
@@ -1229,14 +1244,23 @@ class App:
         self._rgb_cache = {}
         self._drag = None
         self._props = None             # Properties window: (Toplevel, body frame, fields) or None
+        self._help = None              # help3d.HelpWindow or None (reused while open)
+        self._pov_cam = None           # camera the Taichi preview last sent; the render frames from it
         self.groups = {}               # name -> class3d.ObjGroup3d of the live member objects
         self.view = None               # director camera while drawing its preview, else None
         self.director = None           # open Camera Director window (director3d.Director)
         self.lathe_tool = None         # open Lathe tool window (lathe3d.LatheTool)
         self.ghosts = []               # [(name, obj)] previews drawn but not in the scene
+        self.render_settings = dict(pov_export.DEFAULT_RENDER)   # radiosity/photons/max_trace (F6)
+        self._render_win_settings = None                         # the Lighting dialog, reused while open
+        self._render_dialog_sync = None                          # refresh fn while that dialog is open
+        self.lights = None             # per-light specs (Phase 2); None = auto key+fill default
+        self._lights_win = None        # the Lights editor dialog, reused while open
+        self._lights_dialog_sync = None  # refresh fn while that dialog is open
         self.reset_camera()
         self.grid_step, self.grid_ext = 1.0, 10.0
         self._build_ui()
+        self._build_menubar()
         if self._mac:   # started from Terminal, macOS can leave keyboard input with Terminal
             root.lift()
             root.attributes("-topmost", True)
@@ -1246,6 +1270,136 @@ class App:
         root.report_callback_exception = lambda *exc: traceback.print_exception(*exc)
         self.load_or_bootstrap()
         root.after(100, self.fit_view)
+        if not self.classic:           # Taichi is the main window: launch it, tuck this menu away
+            root.after(260, self._start_taichi_mode)
+
+    def _build_menubar(self):
+        """Native menu bar - every toolbar/panel action, grouped. It is the reliable way to reach
+        the F-row actions on macOS (which keeps the function keys for itself). Each item just calls
+        the same method its button does; transforms (Move/Scale/Rotate/...) use the side-panel values,
+        exactly like the buttons. Accelerators match the <F..> / Ctrl+ bindings set above."""
+        mac = getattr(self, "_mac", False)
+        acc = lambda ctrl, fkey: f"Ctrl+{ctrl}" if mac else f"{fkey}  /  Ctrl+{ctrl}"
+        bar = tk.Menu(self.root)
+
+        def fill(m, items):
+            # item forms:  None -> separator
+            #              (label, callable[, accel]) -> command
+            #              (label, [sub-items])       -> labelled sub-section (submenu, recurses)
+            for it in items:
+                if it is None:
+                    m.add_separator()
+                elif isinstance(it[1], (list, tuple)):
+                    sub = tk.Menu(m, tearoff=0)
+                    fill(sub, it[1])
+                    m.add_cascade(label=it[0], menu=sub)
+                else:
+                    label, cmd, *a = it
+                    opts = {"accelerator": a[0]} if a else {}
+                    m.add_command(label=label, command=cmd, **opts)
+
+        def menu(title, *items):
+            m = tk.Menu(bar, tearoff=0)
+            fill(m, items)
+            bar.add_cascade(label=title, menu=m)
+            return m
+
+        menu("File",
+             ("New scene", self.new_scene),
+             ("Open scene…", self.open_scene_file, "Ctrl+O"),
+             None,
+             ("Save now", self.save, "Ctrl+S"),
+             ("Save scene as…", self.save_scene_as),
+             None,
+             ("Save .pov…", self.save_pov_here),
+             ("POV GUI", self.open_pov_gui_here))
+
+        menu("Edit",
+             ("Undo", self.undo, "Ctrl+Z"),
+             ("Redo", self.redo, "Ctrl+Y"),
+             None,
+             ("Select all", self.select_all, "Ctrl+A"),
+             ("Select none", self.select_none, "Esc"),
+             ("Delete object", self.delete_selected),
+             ("Undo last transform", self.undo_tf))
+
+        menu("Scene",
+             ("Add object…", self.add_dialog),
+             None,
+             ("Run script…", self.ask_run_script),
+             ("Replay script", self.replay),
+             ("Keep script objects", self.keep_script_objs),
+             None,
+             ("Rescale world…", self.rescale_world))
+
+        menu("Object",
+             ("Properties…", self.open_props),
+             ("Rename", self.rename),
+             None,
+             ("Textures / material", [
+                 ("Apply colors", self.apply_colors),
+                 ("Image…", self.pick_image),
+                 ("Apply material", self.apply_material)]),
+             ("Grouping", [
+                 ("Tag group", self.tag_group),
+                 ("Untag group", self.untag_group),
+                 ("Set layer", self.set_layer)]),
+             ("Combine (CSG)", [
+                 ("Apply twin", self.apply_twin),
+                 ("Apply CSG", self.apply_csg),
+                 ("Apply hollow", self.apply_hollow)]))
+
+        menu("Arrange",
+             ("Transform", [
+                 ("Move", self.move_by),
+                 ("Move all (not planes)", self.move_all),
+                 ("Go to position", self.move_to),
+                 ("Scale", self.scale_by),
+                 ("Rotate", self.rotate),
+                 ("Align", self.align)]),
+             ("Copies", [
+                 ("Replicate", self.replicate),
+                 ("Ring copy", self.ring_copy)]))
+
+        menu("Camera",
+             ("Fit view", self.fit_view),
+             None,
+             ("View", [
+                 ("Fill boxes from view", self.view_fill),
+                 ("Go there", self.view_go),
+                 ("Fly to selected", self.fly_to),
+                 ("Set camera key", self.view_set_key)]),
+             ("Director", [
+                 ("Look at selection", self.dir_look),
+                 ("View through camera", self.dir_through),
+                 ("Camera = current view", self.dir_from_view)]))
+
+        menu("Tools",
+             ("Lathe tool…", self.open_lathe, acc("T", "F7")),
+             ("Camera Director…", self.open_director, acc("D", "F8")))
+
+        menu("Render",
+             ("Lights…", self.open_lights_editor, acc("L", "F5")),
+             ("Lighting / global illumination…", self.open_render_settings, acc("G", "F6")),
+             None,
+             ("Render (POV-Ray)", self.render_pov_here, acc("R", "F9")),
+             ("Taichi GPU preview", self.open_preview, acc("P", "F10")))
+
+        menu("Help",
+             ("Help / topics", self.open_help, "F1  /  ?"))
+
+        self.root.config(menu=bar)
+        self._menubar = bar
+
+    def _start_taichi_mode(self):
+        """Taichi is the main window. Launch the GPU preview and minimise this Tk menu; it comes
+        back with the preview's "Viewer window" button, when the preview closes, or if it won't start."""
+        if self._taichi_python() is None:
+            print("Taichi preview: no Python with taichi found - staying in this menu window.\n"
+                  "Run with --classic for the old viewport, or pip install taichi (Python 3.10-3.12).")
+            return
+        self.open_preview()
+        self.root.after(400, self.root.iconify)   # let the GGUI window come up first
 
     # ------------------------------------------------------------- UI layout
     def _build_ui(self):
@@ -1256,7 +1410,8 @@ class App:
         top.add(outer, weight=4)
 
         self.canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, width=950, height=640)
-        outer.add(self.canvas, weight=4)
+        if self.classic:                 # Taichi mode retires the slow viewport; the canvas stays
+            outer.add(self.canvas, weight=4)   # built (binds/size reads/camera math use it) but unshown
         self.canvas.bind("<Configure>", lambda e: self.redraw())
         self.canvas.bind("<ButtonPress-1>", lambda e: self._drag_start(e, "orbit"))
         self.canvas.bind("<ButtonPress-3>", lambda e: self._drag_start(e, "pan"))
@@ -1352,7 +1507,7 @@ class App:
 
         r5 = ttk.LabelFrame(p, text="POV-Ray", padding=3)
         r5.pack(fill=tk.X, pady=2)
-        ttk.Button(r5, text="Render [F9]", command=self.render_pov).pack(side=tk.LEFT)
+        ttk.Button(r5, text="Render [F9]", command=self.render_pov_here).pack(side=tk.LEFT)
         self.v_pov_q = tk.StringVar(value="Draft")
         ttk.Combobox(r5, textvariable=self.v_pov_q, values=("Draft", "Final"), width=6,
                      state="readonly").pack(side=tk.LEFT, padx=2)
@@ -1360,16 +1515,33 @@ class App:
         ttk.Combobox(r5, textvariable=self.v_pov_w, values=("320", "640", "1024", "1600", "1920"),
                      width=5).pack(side=tk.LEFT)
         ttk.Label(r5, text="px").pack(side=tk.LEFT, padx=(1, 4))
-        ttk.Button(r5, text="Save .pov...", command=self.save_pov).pack(side=tk.LEFT)
-        ttk.Button(r5, text="POV GUI", command=self.open_pov_gui).pack(side=tk.LEFT, padx=2)
+        ttk.Button(r5, text="Save .pov...", command=self.save_pov_here).pack(side=tk.LEFT)
+        ttk.Button(r5, text="POV GUI", command=self.open_pov_gui_here).pack(side=tk.LEFT, padx=2)
+        ttk.Button(r5, text="Lighting [F6]", command=self.open_render_settings).pack(side=tk.LEFT, padx=2)
+        ttk.Button(r5, text="Lights [F5]", command=self.open_lights_editor).pack(side=tk.LEFT, padx=2)
         ttk.Button(r5, text="Camera Director [F8]", command=self.open_director).pack(side=tk.LEFT, padx=2)
         ttk.Button(r5, text="Taichi preview [F10]", command=self.open_preview).pack(side=tk.LEFT, padx=2)
         self.v_tk_draw = tk.BooleanVar(value=False)
         ttk.Checkbutton(r5, text="Draw here too", variable=self.v_tk_draw,
                         command=self.redraw).pack(side=tk.LEFT, padx=2)
         self.root.bind("<F10>", lambda _e: self.open_preview())
-        self.root.bind("<F9>", lambda _e: self.render_pov())
+        self.root.bind("<F9>", lambda _e: self.render_pov_here())
+        self.root.bind("<F6>", lambda _e: self.open_render_settings())
+        self.root.bind("<F5>", lambda _e: self.open_lights_editor())
         self.root.bind("<F8>", lambda _e: self.open_director())
+        self.root.bind("<F1>", lambda _e: self.open_help())
+        self.root.bind("<Key-question>", lambda _e: self.open_help())
+        # F-row alternates: macOS reserves the function keys, so these pass-through combos fire the
+        # same actions (the on-screen buttons and the Taichi menu reach them too). Help stays on "?".
+        for _seq, _fn in (("<Control-l>", self.open_lights_editor),     # F5  Lights
+                          ("<Control-g>", self.open_render_settings),   # F6  Lighting / GI
+                          ("<Control-t>", self.open_lathe),             # F7  Lathe tool
+                          ("<Control-d>", self.open_director),          # F8  Camera Director
+                          ("<Control-r>", self.render_pov_here),        # F9  Render
+                          ("<Control-p>", self.open_preview)):          # F10 Taichi preview
+            self.root.bind(_seq, lambda _e, f=_fn: f())
+        self.root.bind("<Control-o>", lambda _e: self.open_scene_file())
+        self.root.bind("<Control-s>", lambda _e: self.save())
 
         # where you stand: type an eye + look-at point, or jump to the selection.
         # With a director Camera key / Aim selected, the same boxes edit that key.
@@ -1459,6 +1631,19 @@ class App:
         ttk.Checkbutton(ef, text="Move / rotate / scale the whole group as one unit",
                         variable=self.v_group_mode, command=self.redraw).grid(
             row=g, column=0, columnspan=5, sticky="w")
+        g += 1
+        # layers: each object sits on a layer (blank = Default); hide a layer in both views at once
+        self.layers_hidden = set()             # layer names currently hidden
+        self.layer_vars = {}                   # name -> BooleanVar (shown) for the checkboxes
+        ttk.Label(ef, text="Layer").grid(row=g, column=0, sticky="w")
+        self.v_layer = tk.StringVar()
+        self.cb_layer = ttk.Combobox(ef, textvariable=self.v_layer, width=10)
+        self.cb_layer.grid(row=g, column=1, columnspan=2, sticky="we")
+        ttk.Button(ef, text="Set layer", command=self.set_layer).grid(row=g, column=3, columnspan=2, sticky="we")
+        g += 1
+        ttk.Label(ef, text="  show / hide:", foreground="#7a828e").grid(row=g, column=0, sticky="w")
+        self.layer_box = ttk.Frame(ef)
+        self.layer_box.grid(row=g, column=1, columnspan=4, sticky="we")
         g += 1
         # twin: a 180 deg turned copy under the object, lifted 1-100 % of its height, one solid
         self.v_twin, self.v_twin_flip = tk.BooleanVar(), tk.BooleanVar()
@@ -1645,38 +1830,125 @@ class App:
             return False
 
     # ----------------------------------------------------- scene management
+    def _remember_active(self):
+        """Note the active scene path so the next launch reopens this same file."""
+        try:
+            with open(ACTIVE_PTR, "w") as f:
+                f.write(self.scene_path)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _recall_active():
+        try:
+            with open(ACTIVE_PTR) as f:
+                p = f.read().strip()
+            return p if p and os.path.exists(p) else None
+        except OSError:
+            return None
+
+    def _switch_scene(self, path):
+        """Make `path` the active file: autosave, undo and the tree header all follow it now."""
+        self.scene_path = path
+        self.undo_stack = []
+        self.redo_stack = []
+        self._remember_active()
+        self._update_scene_header()
+
+    def _update_scene_header(self):
+        if self.tree.exists("scene"):
+            self.tree.item("scene", text=f"Scene ({os.path.basename(self.scene_path)})")
+
     def load_or_bootstrap(self):
-        if os.path.exists(SCENE_FILE):
-            self.entries = load_scene(SCENE_FILE)
+        prev = self._recall_active()
+        if prev:                                          # reopen whatever scene we last worked in
+            self.scene_path = prev
+        elif os.path.exists(SCENE_FILE):                  # legacy single default from older versions
+            self.scene_path = SCENE_FILE
+        else:
+            self.scene_path = None                        # nothing yet -> bootstrap below
+
+        if self.scene_path and os.path.exists(self.scene_path):
+            self.entries = load_scene(self.scene_path)
             for e in self.entries:
                 self.rebuild(e)
-            print(f"Loaded {len(self.entries)} objects from {os.path.basename(SCENE_FILE)}")
+            print(f"Loaded {len(self.entries)} objects from {os.path.basename(self.scene_path)}")
         elif os.path.exists(DEFAULT_SCRIPT):
-            print(f"No {os.path.basename(SCENE_FILE)} yet - building it from {os.path.basename(DEFAULT_SCRIPT)}")
+            self.scene_path = timestamped_scene()         # fresh start -> its own timestamped file
+            print(f"No saved scene yet - building {os.path.basename(self.scene_path)} "
+                  f"from {os.path.basename(DEFAULT_SCRIPT)}")
             self.run_script(DEFAULT_SCRIPT, replay=False)
             self.keep_script_objs()
         else:
+            self.scene_path = timestamped_scene()
             self.save()
+        self._remember_active()
         self.refresh()
+        self._update_scene_header()
 
     def save(self):
         old = self._scene_text()
         try:
-            save_scene(SCENE_FILE, self.entries)
+            save_scene(self.scene_path, self.entries)
         except OSError as exc:
-            print(f"Could not save {SCENE_FILE}: {exc}")
+            print(f"Could not save {self.scene_path}: {exc}")
         self._note_undo(old)
         self.preview_refresh()                            # Taichi preview open: send it the change
+
+    def new_scene(self):
+        """Start a blank scene in a new timestamped file; the current scene file is left untouched."""
+        if not messagebox.askyesno("New scene",
+                                    "Start a new, empty scene?\n(Your current scene file is kept on disk.)",
+                                    parent=self.root):
+            return
+        self.entries = []
+        self._switch_scene(timestamped_scene())
+        self.refresh()
+        self.save()
+        print(f"New scene: {os.path.basename(self.scene_path)}")
+
+    def open_scene_file(self):
+        """Open a specific scene .csv and work in it from now on (autosave + undo follow it)."""
+        path = filedialog.askopenfilename(parent=self.root, initialdir=HERE, title="Open scene (.csv)",
+                                          filetypes=[("Scene CSV", "*.csv"), ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            entries = load_scene(path)
+        except Exception as exc:                          # noqa: BLE001 - any parse/IO problem -> tell the user
+            messagebox.showerror("Open scene", f"Could not load:\n{path}\n\n{exc}", parent=self.root)
+            return
+        self.entries = entries
+        for e in self.entries:
+            self.rebuild(e)
+        self._switch_scene(path)
+        self.refresh()
+        self.preview_refresh()
+        print(f"Loaded {len(self.entries)} objects from {path} (now the active scene)")
+
+    def save_scene_as(self):
+        """Save to a .csv of your choosing AND switch to working in it (autosave + undo follow it)."""
+        path = filedialog.asksaveasfilename(parent=self.root, initialdir=HERE, title="Save scene as (.csv)",
+                                            defaultextension=".csv",
+                                            filetypes=[("Scene CSV", "*.csv"), ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            save_scene(path, self.entries)
+        except OSError as exc:
+            messagebox.showerror("Save scene", f"Could not save:\n{path}\n\n{exc}", parent=self.root)
+            return
+        self._switch_scene(path)
+        print(f"Saved {len(self.entries)} objects to {path} (now the active scene)")
 
     # ------------------------------------------------- global undo / redo
     # Every change ends in save(), so undo keeps the scene file as it was before each one
     # (whole scene, last change first). Saves from one action count as one step.
     UNDO_MAX = 200
 
-    @staticmethod
-    def _scene_text():
+    def _scene_text(self):
         try:
-            with open(SCENE_FILE, newline="") as f:
+            with open(self.scene_path, newline="") as f:
                 return f.read()
         except OSError:
             return None
@@ -1728,11 +2000,11 @@ class App:
         now = self._scene_text()
         text = src.pop()
         try:
-            with open(SCENE_FILE, "w", newline="") as f:
+            with open(self.scene_path, "w", newline="") as f:
                 f.write(text)
         except OSError as exc:
             src.append(text)
-            print(f"{what}: could not write {SCENE_FILE}: {exc}")
+            print(f"{what}: could not write {self.scene_path}: {exc}")
             return "break"
         if now is not None:
             dst.append(now)
@@ -1745,7 +2017,7 @@ class App:
             for e in self.entries:
                 if e.obj is not None:
                     built.setdefault(same(e), []).append((e.obj, e.twin_obj))
-            self.entries = load_scene(SCENE_FILE)
+            self.entries = load_scene(self.scene_path)
             for e in self.entries:
                 hit = built.get(same(e))
                 if hit:
@@ -1829,7 +2101,9 @@ class App:
             for k in self.tree.get_children("scene"):
                 opened[k[2:]] = bool(self.tree.item(k, "open"))
         self.tree.delete(*self.tree.get_children())
-        self.tree.insert("", "end", "scene", text="Scene (scene3d.csv)", open=True)
+        self.tree.insert("", "end", "scene",
+                         text=f"Scene ({os.path.basename(getattr(self, 'scene_path', None) or SCENE_FILE)})",
+                         open=True)
         kinds = {}
         for i, e in enumerate(self.entries):
             kinds.setdefault(e.kind, []).append(i)
@@ -1846,6 +2120,7 @@ class App:
             ["@" + g for g in sorted({g for e in self.entries for g in gsegs(e)})]
         self._sync_groups()
         self.cb_group["values"] = sorted(self.groups)
+        self.refresh_layers()
         if self.script_objs:
             self.tree.insert("", "end", "script", text="Script run (not saved)", open=True)
             for i, (name, obj) in enumerate(self.script_objs):
@@ -2442,6 +2717,56 @@ class App:
         return [self.entries[int(i[1:])] for i in self.tree.selection()
                 if i.startswith("s") and i[1:].isdigit()]
 
+    def layer_names(self):
+        """Every layer in use, Default always first."""
+        used = sorted({e.layer for e in self.entries if e.obj is not None and e.layer})
+        return ["Default"] + used
+
+    def refresh_layers(self):
+        """Rebuild the Layer combobox and the show/hide checkboxes after the scene changed."""
+        names = self.layer_names()
+        self.cb_layer["values"] = names
+        self.layers_hidden &= set(names)              # forget layers that no longer exist
+        for w in self.layer_box.winfo_children():
+            w.destroy()
+        self.layer_vars = {}
+        for n in names:
+            v = tk.BooleanVar(value=n not in self.layers_hidden)
+            self.layer_vars[n] = v
+            ttk.Checkbutton(self.layer_box, text=n, variable=v,
+                            command=lambda n=n: self._layer_toggle(n)).pack(side=tk.LEFT, padx=1)
+
+    def set_layer(self):
+        """Put the selected objects on the layer named in the Layer box (blank = Default)."""
+        es = self._selected_entries()
+        if not es:
+            print("Set layer: select one or more objects first")
+            return
+        disp = self.v_layer.get().strip() or "Default"
+        store = "" if disp == "Default" else disp.replace(",", "_")
+        for e in es:
+            e.layer = store
+        self.save()
+        self.refresh()
+        self.redraw()
+        self.preview_refresh()
+        print(f"{len(es)} object(s) -> layer {disp}")
+
+    def _layer_toggle(self, name):
+        """A show/hide checkbox was clicked."""
+        shown = self.layer_vars[name].get()
+        self.layers_hidden.discard(name) if shown else self.layers_hidden.add(name)
+        self.redraw()
+        self.preview_refresh()
+
+    def toggle_layer_show(self, name, show):
+        """Show/hide a layer by name (from the preview menu); keeps the Tk checkbox in step."""
+        self.layers_hidden.discard(name) if show else self.layers_hidden.add(name)
+        if name in self.layer_vars:
+            self.layer_vars[name].set(show)
+        self.redraw()
+        self.preview_refresh()
+
     def tag_group(self):
         name = self.v_group.get().strip().replace(",", "_").replace("/", "_")
         es = [o for s in self._sets_of_selection() for o in s]
@@ -2777,6 +3102,83 @@ class App:
         d.goto(d.key_frames()[j])
         print(f"Camera key {j + 1}: eye ({', '.join(fmt(c) for c in eye)}) "
               f"aim ({', '.join(fmt(c) for c in look)}) fov {fmt(fov)}")
+
+    def _cam_key_from_preview(self, append):
+        """A camera key straight from the Taichi view (sent as CMD cam just before this).
+        append=True drops a new waypoint; append=False overwrites the selected key."""
+        pc = self._pov_cam
+        if pc is None:
+            print("Camera key: move in the Taichi window first")
+            return
+        self.open_director()                                 # the Director window holds the keys
+        d = self.director
+        eye, look, fov = list(pc["eye"]), list(pc["look"]), float(pc["fov"])
+        self._show_view(eye, look, fov)                      # mirror into the View / camera key boxes
+        it = self.dir_item()
+        if not append:
+            if not (it and it[2:].startswith(("cam", "aim"))):
+                print("Set camera key: pick a Camera key in the Director tree first "
+                      "(or use 'Add camera key here')")
+                return
+            d._undo.append(copy.deepcopy(d.shot))
+            j = int(it[5:])
+            i, ck, ak, fk = d.key_ref(j)
+            d.set_point(i, ck, eye)
+            d.set_point(i, ak, look)
+            d.shot["segments"][i][fk] = fov
+            d.set_point_scalar(i, fk)
+            d.fill_move()
+            d.changed()
+            d.goto(d.key_frames()[j])
+            print(f"Camera key {j + 1} = Taichi view")
+            return
+        d._undo.append(copy.deepcopy(d.shot))                # append: a new move ending at this view
+        d.add_move("Line")
+        i = d.seg_i
+        d.set_point(i, "c", eye)
+        d.set_point(i, "target_c", look)
+        d.shot["segments"][i]["fov_c"] = fov
+        d.set_point_scalar(i, "fov_c")
+        d.fill_move()
+        d.changed()
+        d.goto(d.key_frames()[i + 1])
+        print(f"Added camera key = Taichi view (move {i + 1} end)")
+
+    def _dir_set_handle(self, tag, pos):
+        """A director handle (camera key / aim / arc control / light) was dragged in the preview to
+        the world point `pos`. Write it into the shot, mirroring the old canvas drag_handle."""
+        import director3d
+        d = self.director
+        try:
+            if d is None or not d.winfo_exists():
+                print("Director handle: open the Camera Director first")
+                return
+        except tk.TclError:
+            return
+        parts = tag.split(":")
+        p = np.array([float(x) for x in pos], float)
+        d._undo.append(copy.deepcopy(d.shot))
+        if parts[0] == "light" and len(parts) == 2:
+            i = int(parts[1])
+            if 0 <= i < len(d.shot["lights"]):
+                d.shot["lights"][i]["position"] = list(p)
+                d.light_i = i
+                d.fill_light()
+                d.changed()
+                self.preview_refresh()
+                print(f"Light {i + 1} moved")
+            return
+        if parts[0] == "seg" and len(parts) == 3:
+            i, key = int(parts[1]), parts[2]
+            if 0 <= i < len(d.shot["segments"]) and key in director3d.VEC_KEYS:
+                if i != d.seg_i:
+                    d.seg_i = i
+                d.set_point(i, key, p)              # handles start==prev-end key linkage
+                d.fill_move()
+                d.changed()
+                self.preview_refresh()
+                print(f"Move {i + 1} {director3d.HANDLE_TXT.get(key, key)} moved")
+            return
 
     def _dir_rotate(self, it, tf):
         """Rotate a director item's points (same right-hand rule as the library's rotations)."""
@@ -3177,7 +3579,7 @@ class App:
                 continue
             self.rebuild(e)
             self.entries.append(e)
-        print(f"Kept {len(self.script_objs)} script objects in {os.path.basename(SCENE_FILE)}")
+        print(f"Kept {len(self.script_objs)} script objects in {os.path.basename(self.scene_path)}")
         self.script_objs, self.events = [], []
         self.v_show_scene.set(True)
         self.save()
@@ -3276,6 +3678,27 @@ class App:
             self.director.lift()
             return
         self.director = director3d.Director(self)
+        self.preview_refresh()          # show the shot's path / handles in the Taichi preview right away
+
+    def open_help(self, topic=None):
+        """F1 / ? : help on whatever is selected, or a named topic.  The window is
+        reused and raised if already open; its index is the master help menu."""
+        if topic is None:
+            if self.selected and self.selected[0] == "s":
+                topic = help3d.kind_topic(self.selected[1].kind)
+            elif self.selected and self.selected[0] == "d":
+                topic = "director"
+            else:
+                topic = "overview"
+        try:
+            if self._help is not None and self._help.top.winfo_exists():
+                self._help.lift_to(topic)
+                self._to_front(self._help.top)
+                return
+        except tk.TclError:
+            pass
+        self._help = help3d.HelpWindow(self.root, topic)
+        self._to_front(self._help.top)
 
     def open_lathe(self):
         """Lathe tool: edits the selected lathe, or makes a new one."""
@@ -3464,7 +3887,7 @@ class App:
                 print(f"Fit view ignored oversized/far objects: {', '.join(far)}")
                 objs = [(n, p) for (n, p), d in zip(objs, reach) if d <= limit]
         pts = [q for _n, p in objs for q in p]
-        w, h = max(self.canvas.winfo_width(), 200), max(self.canvas.winfo_height(), 200)
+        w, h = self._canvas_wh()
         if pts:
             arr = np.array(pts)
             lo, hi = arr.min(axis=0), arr.max(axis=0)
@@ -3537,16 +3960,47 @@ class App:
                 print(f"POV export: {name} skipped: {exc}")
         return items
 
+    def _canvas_wh(self):
+        """Canvas size in pixels. In Taichi mode the viewport isn't shown, so winfo_* is 1 - fall
+        back to its requested size (950x640) to keep the camera's aspect/FOV sane."""
+        c = self.canvas
+        w, h = c.winfo_width(), c.winfo_height()
+        if w <= 1 or h <= 1:
+            w, h = c.winfo_reqwidth(), c.winfo_reqheight()
+        return max(w, 2), max(h, 2)
+
     def pov_camera(self):
-        """The viewer's own camera, so the render frames what you see."""
+        """The camera the render frames from: the Taichi view if it sent one, else the viewer's own."""
+        w, h = self._canvas_wh()
+        pc = self._pov_cam
+        if pc is not None:
+            aspect = pc["aspect"] or (w / h)
+            vfov = math.radians(pc["fov"])                 # Taichi fov is vertical; POV wants horizontal
+            hang = math.degrees(2 * math.atan(math.tan(vfov / 2) * aspect))
+            return {"eye": pc["eye"], "target": pc["look"], "angle": hang,
+                    "aspect": aspect, "sky": pc["up"]}
         fwd, _lv, _rt = self._cam_axes()
-        w, h = max(self.canvas.winfo_width(), 2), max(self.canvas.winfo_height(), 2)
         return {"eye": np.array(self.target, float) - fwd * self.dist, "target": self.target,
                 "angle": math.degrees(2 * math.atan(w / (2 * self.scale * self.dist))),
                 "aspect": w / h}
 
     def pov_text(self):
-        return pov_export.scene_pov(self.pov_items(), self.pov_camera(), self.rgb, background=BG)
+        return pov_export.scene_pov(self.pov_items(), self.pov_camera(), self.rgb,
+                                    background=BG, render=self.render_settings,
+                                    light_specs=self.lights)
+
+    # Tk-viewport POV triggers: drop any Taichi camera so this window renders from its own view.
+    def render_pov_here(self):
+        self._pov_cam = None
+        self.render_pov()
+
+    def save_pov_here(self):
+        self._pov_cam = None
+        self.save_pov()
+
+    def open_pov_gui_here(self):
+        self._pov_cam = None
+        self.open_pov_gui()
 
     def save_pov(self):
         os.makedirs(POV_DIR, exist_ok=True)
@@ -3567,6 +4021,497 @@ class App:
             print(f"Opened {POV_FILE} in the POV-Ray GUI")
         except OSError as exc:
             print(f"Could not start POV-Ray GUI: {exc}")
+
+    def _render_set_cmd(self, args):
+        """Apply one Lighting change coming from the Taichi menu: CMD rset <field> <value>.
+        Keeps self.render_settings and (if open) the Tk Lighting dialog in sync."""
+        if not args:
+            return
+        field, val = args[0], (args[1] if len(args) > 1 else "")
+        rs = self.render_settings
+        if field in ("radiosity", "photons"):
+            rs[field] = (val == "1" or val.lower() == "true")
+        elif field == "radq" and val in ("low", "medium", "high"):
+            rs["radiosity_quality"] = val
+        elif field == "photons_count":
+            try:
+                rs["photons_count"] = max(1000, int(float(val)))
+            except ValueError:
+                pass
+        elif field == "max_trace":
+            try:
+                rs["max_trace"] = max(1, min(50, int(float(val))))
+            except ValueError:
+                pass
+        elif field == "render":
+            self.render_pov_here()
+        bits = []
+        if rs["radiosity"]:
+            bits.append(f"radiosity {rs['radiosity_quality']}")
+        if rs["photons"]:
+            bits.append(f"photons {rs['photons_count']:,}")
+        print("Lighting: " + (", ".join(bits) if bits else "direct only") +
+              f", max_trace {rs['max_trace']}")
+        syncer = getattr(self, "_render_dialog_sync", None)   # refresh the Tk dialog if it's open
+        if syncer is not None:
+            try:
+                syncer()
+            except tk.TclError:
+                pass
+
+    def open_render_settings(self):
+        """F6 - edit the global_settings the render uses: radiosity (soft indirect bounce light),
+        photons (real caustics focused through glass / gems / metal), and max trace depth. The
+        settings are baked into every Render / Save .pov / POV GUI from here on (this session)."""
+        win = self._render_win_settings
+        if win is not None and win.winfo_exists():
+            win.lift()
+            win.focus_force()
+            return
+        rs = self.render_settings
+        win = tk.Toplevel(self.root)
+        win.title("Render lighting / global illumination")
+        win.configure(padx=10, pady=8)
+        win.transient(self.root)
+        self._render_win_settings = win
+
+        v_rad = tk.BooleanVar(value=bool(rs["radiosity"]))
+        v_radq = tk.StringVar(value=rs["radiosity_quality"])
+        v_pho = tk.BooleanVar(value=bool(rs["photons"]))
+        v_phoc = tk.StringVar(value=str(int(rs["photons_count"])))
+        v_trace = tk.StringVar(value=str(int(rs["max_trace"])))
+
+        def apply(*_a):
+            try:
+                cnt = max(1000, int(float(v_phoc.get())))
+            except ValueError:
+                cnt = int(rs["photons_count"])
+            v_phoc.set(str(cnt))
+            try:
+                tr = max(1, min(50, int(float(v_trace.get()))))
+            except ValueError:
+                tr = int(rs["max_trace"])
+            v_trace.set(str(tr))
+            rs.update(radiosity=bool(v_rad.get()), radiosity_quality=v_radq.get(),
+                      photons=bool(v_pho.get()), photons_count=cnt, max_trace=tr)
+            bits = []
+            if rs["radiosity"]:
+                bits.append(f"radiosity {rs['radiosity_quality']}")
+            if rs["photons"]:
+                bits.append(f"photons {rs['photons_count']:,}")
+            bits.append(f"max_trace {rs['max_trace']}")
+            lbl_state.configure(text="Active: " + ", ".join(bits))
+
+        def sync():                                  # pull rs -> widgets (after a Taichi-menu change)
+            v_rad.set(bool(rs["radiosity"]))
+            v_radq.set(rs["radiosity_quality"])
+            v_pho.set(bool(rs["photons"]))
+            v_phoc.set(str(int(rs["photons_count"])))
+            v_trace.set(str(int(rs["max_trace"])))
+            apply()
+
+        def close():
+            self._render_dialog_sync = None
+            self._render_win_settings = None
+            win.destroy()
+        win.protocol("WM_DELETE_WINDOW", close)
+        self._render_dialog_sync = sync
+
+        # --- radiosity -------------------------------------------------------
+        fr = ttk.LabelFrame(win, text="Radiosity  -  indirect 'bounce' light", padding=6)
+        fr.pack(fill=tk.X, pady=3)
+        ttk.Checkbutton(fr, text="Enable (colour bleed, softly filled shadows)",
+                        variable=v_rad, command=apply).grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(fr, text="Quality").grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ttk.Combobox(fr, textvariable=v_radq, values=("low", "medium", "high"), width=8,
+                     state="readonly").grid(row=1, column=1, sticky="w", pady=(4, 0))
+        v_radq.trace_add("write", apply)
+
+        # --- photons ---------------------------------------------------------
+        fp = ttk.LabelFrame(win, text="Photons  -  caustics through glass / gems / metal", padding=6)
+        fp.pack(fill=tk.X, pady=3)
+        ttk.Checkbutton(fp, text="Enable (focused light pools, lens / gem sparkle)",
+                        variable=v_pho, command=apply).grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(fp, text="Count").grid(row=1, column=0, sticky="w", pady=(4, 0))
+        cb = ttk.Combobox(fp, textvariable=v_phoc, width=10,
+                          values=("10000", "20000", "50000", "100000", "250000"))
+        cb.grid(row=1, column=1, sticky="w", pady=(4, 0))
+        cb.bind("<FocusOut>", apply)
+        cb.bind("<Return>", apply)
+        v_phoc.trace_add("write", lambda *_a: None)   # count applied on commit, not each keystroke
+
+        # --- trace depth -----------------------------------------------------
+        ft = ttk.Frame(win)
+        ft.pack(fill=tk.X, pady=3)
+        ttk.Label(ft, text="Max trace level  (ray bounces through glass / mirrors)").pack(side=tk.LEFT)
+        tcb = ttk.Combobox(ft, textvariable=v_trace, width=5,
+                           values=("5", "8", "10", "12", "15", "20", "30"))
+        tcb.pack(side=tk.LEFT, padx=4)
+        tcb.bind("<FocusOut>", apply)
+        tcb.bind("<Return>", apply)
+        v_trace.trace_add("write", lambda *_a: None)
+
+        lbl_state = ttk.Label(win, text="", foreground="#1a6")
+        lbl_state.pack(anchor="w", pady=(4, 2))
+        ttk.Label(win, text="Tip: both passes add render time. Turn them on for the final beauty\n"
+                            "render; leave off for quick Draft previews.",
+                  foreground="#777", justify="left").pack(anchor="w")
+
+        bb = ttk.Frame(win)
+        bb.pack(fill=tk.X, pady=(6, 0))
+        ttk.Button(bb, text="Apply", command=apply).pack(side=tk.LEFT)
+        ttk.Button(bb, text="Render now [F9]",
+                   command=lambda: (apply(), self.render_pov_here())).pack(side=tk.LEFT, padx=4)
+        ttk.Button(bb, text="Close", command=close).pack(side=tk.RIGHT)
+        apply()
+
+    # ------------------------------------------------------------------ lights
+    def _ensure_lights(self):
+        """Switch from auto key+fill to an editable per-light list (seeded from the default)."""
+        if self.lights is None:
+            self.lights = pov_export.default_light_specs(self.pov_camera())
+        return self.lights
+
+    def _lights_refresh(self, msg=None):
+        """Re-export with the new lights and refresh the Taichi preview + any open dialog."""
+        if msg:
+            print(msg)
+        try:
+            self.preview_refresh()
+        except Exception:                               # noqa: BLE001 - preview may be closed
+            pass
+        syncer = getattr(self, "_lights_dialog_sync", None)
+        if syncer is not None:
+            try:
+                syncer()
+            except tk.TclError:
+                pass
+
+    def _lights_set_cmd(self, args):
+        """Apply one Lights change from the Taichi menu: CMD lset <cmd/idx> [field] [value].
+        Scene-level: add | del <i> | reset | render | open.  Per-light: <i> <field> <value>."""
+        if not args:
+            return
+        head = args[0]
+        if head == "reset":
+            self.lights = None
+            self._lights_refresh("Lights: back to auto (key + fill)")
+            return
+        if head == "render":
+            self.render_pov_here()
+            return
+        if head == "open":
+            self.open_lights_editor()
+            return
+        if head == "add":
+            lights = self._ensure_lights()
+            eye = [float(x) for x in self.pov_camera()["eye"]]
+            lights.append({"pos": eye, "color": [1.0, 1.0, 1.0], "intensity": 1.0,
+                           "name": f"light {len(lights) + 1}"})
+            self._lights_refresh(f"Lights: added ({len(lights)} total)")
+            return
+        if head == "del":
+            lights = self._ensure_lights()
+            try:
+                i = int(args[1])
+            except (IndexError, ValueError):
+                return
+            if 0 <= i < len(lights) and len(lights) > 1:
+                name = pov_export._light(lights.pop(i))["name"]
+                self._lights_refresh(f"Lights: removed '{name}' ({len(lights)} left)")
+            return
+        # per-light: <i> <field> <value>
+        try:
+            i = int(head)
+        except ValueError:
+            return
+        lights = self._ensure_lights()
+        if not (0 <= i < len(lights)):
+            return
+        field = args[1] if len(args) > 1 else ""
+        val = args[2] if len(args) > 2 else ""
+        s = lights[i]
+        truth = val in ("1", "true", "True", "on")
+        if field == "shadowless":
+            s["shadowless"] = truth
+        elif field == "area":
+            s["area"] = {"size": 3.0, "samples": 5} if truth else None
+        elif field == "spot":
+            s["spot"] = {"radius": 20, "falloff": 35, "tightness": 10} if truth else None
+        elif field == "fade":
+            span = max(float(np.linalg.norm(np.array(self.pov_camera()["eye"], float)
+                                            - np.array(self.pov_camera()["target"], float))), 1.0)
+            s["fade"] = span if truth else None
+        elif field == "intensity":
+            try:
+                s["intensity"] = max(0.0, float(val))
+            except ValueError:
+                pass
+        elif field in ("areasize", "areasamp", "radius", "falloff", "tightness", "fadedist"):
+            try:
+                num = float(val)
+            except ValueError:
+                return
+            if field == "areasize" and s.get("area"):
+                s["area"]["size"] = max(0.1, num)
+            elif field == "areasamp" and s.get("area"):
+                s["area"]["samples"] = max(2, int(num))
+            elif field in ("radius", "falloff", "tightness") and s.get("spot"):
+                s["spot"][field] = num
+            elif field == "fadedist" and s.get("fade") is not None:
+                s["fade"] = max(0.1, num)
+        else:
+            return
+        self._lights_refresh(f"Lights: {pov_export._light(s)['name']} {field} = {val}")
+
+    def open_lights_editor(self):
+        """F5 - add / remove scene lights and edit each one: position, colour, brightness,
+        soft shadows (area light), spotlight cone, and distance fade.  Lights ride on every
+        Render / Save .pov from here on; 'Auto' restores the default key + fill pair."""
+        win = self._lights_win
+        if win is not None and win.winfo_exists():
+            win.lift()
+            win.focus_force()
+            return
+        win = tk.Toplevel(self.root)
+        win.title("Scene lights")
+        win.configure(padx=10, pady=8)
+        win.transient(self.root)
+        self._lights_win = win
+        state = {"i": 0}                                 # selected light index
+
+        top = ttk.Frame(win)
+        top.pack(fill=tk.X)
+        lb = tk.Listbox(top, height=6, width=22, exportselection=False)
+        lb.pack(side=tk.LEFT, fill=tk.Y)
+        btns = ttk.Frame(top)
+        btns.pack(side=tk.LEFT, fill=tk.Y, padx=(6, 0))
+        body = ttk.LabelFrame(win, text="Selected light", padding=6)
+        body.pack(fill=tk.X, pady=(6, 2))
+
+        v_name = tk.StringVar()
+        v_x, v_y, v_z = tk.StringVar(), tk.StringVar(), tk.StringVar()
+        v_color = tk.StringVar(value="#ffffff")
+        v_int = tk.StringVar(value="1.0")
+        v_shad = tk.BooleanVar()
+        v_area = tk.BooleanVar()
+        v_areasz = tk.StringVar(value="3.0")
+        v_areasm = tk.StringVar(value="5")
+        v_spot = tk.BooleanVar()
+        v_rad = tk.StringVar(value="20")
+        v_fall = tk.StringVar(value="35")
+        v_tight = tk.StringVar(value="10")
+        v_fade = tk.BooleanVar()
+        v_faded = tk.StringVar(value="10")
+
+        def cur():
+            lights = self._ensure_lights()
+            state["i"] = max(0, min(state["i"], len(lights) - 1))
+            return lights[state["i"]]
+
+        def refill():                                    # self.lights -> listbox
+            lights = self._ensure_lights()
+            lb.delete(0, tk.END)
+            for n, sp in enumerate(lights):
+                s = pov_export._light(sp)
+                tags = "".join(t for t, on in (("S", s["shadowless"]), ("A", s["area"]),
+                                               ("*", s["spot"]), ("F", s["fade"] is not None)) if on)
+                lb.insert(tk.END, f"{n + 1}. {s['name']}" + (f"  [{tags}]" if tags else ""))
+            state["i"] = max(0, min(state["i"], len(lights) - 1))
+            lb.selection_clear(0, tk.END)
+            lb.selection_set(state["i"])
+
+        def load():                                      # spec -> widgets
+            s = pov_export._light(cur())
+            v_name.set(s["name"])
+            for v, c in zip((v_x, v_y, v_z), s["pos"]):
+                v.set(f"{float(c):.3f}".rstrip("0").rstrip("."))
+            r, g, b = s["color"]
+            v_color.set("#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255)))
+            v_int.set(f"{float(s['intensity']):g}")
+            v_shad.set(bool(s["shadowless"]))
+            v_area.set(bool(s["area"]))
+            if s["area"]:
+                v_areasz.set(f"{float(s['area'].get('size', 3)):g}")
+                v_areasm.set(str(int(s["area"].get("samples", 5))))
+            v_spot.set(bool(s["spot"]))
+            if s["spot"]:
+                v_rad.set(f"{float(s['spot'].get('radius', 20)):g}")
+                v_fall.set(f"{float(s['spot'].get('falloff', 35)):g}")
+                v_tight.set(f"{float(s['spot'].get('tightness', 10)):g}")
+            v_fade.set(s["fade"] is not None)
+            if s["fade"] is not None:
+                v_faded.set(f"{float(s['fade']):g}")
+            swatch.configure(bg=v_color.get())
+
+        def _f(var, default):
+            try:
+                return float(var.get())
+            except ValueError:
+                return default
+
+        def apply(*_a):                                  # widgets -> spec -> refresh
+            s = cur()
+            s["name"] = v_name.get().strip() or s.get("name", "light")
+            s["pos"] = [_f(v_x, s["pos"][0]), _f(v_y, s["pos"][1]), _f(v_z, s["pos"][2])]
+            rgb = self.rgb(v_color.get()) or (255, 255, 255)
+            s["color"] = [c / 255.0 for c in rgb]
+            s["intensity"] = max(0.0, _f(v_int, 1.0))
+            s["shadowless"] = bool(v_shad.get())
+            s["area"] = {"size": max(0.1, _f(v_areasz, 3.0)),
+                         "samples": max(2, int(_f(v_areasm, 5)))} if v_area.get() else None
+            s["spot"] = {"radius": _f(v_rad, 20), "falloff": _f(v_fall, 35),
+                         "tightness": _f(v_tight, 10)} if v_spot.get() else None
+            s["fade"] = max(0.1, _f(v_faded, 10)) if v_fade.get() else None
+            swatch.configure(bg=v_color.get())
+            refill()
+            self._lights_refresh()
+
+        def select(_e=None):
+            sel = lb.curselection()
+            if sel:
+                state["i"] = sel[0]
+                load()
+
+        def add():
+            lights = self._ensure_lights()
+            eye = [float(x) for x in self.pov_camera()["eye"]]
+            lights.append({"pos": eye, "color": [1.0, 1.0, 1.0], "intensity": 1.0,
+                           "name": f"light {len(lights) + 1}"})
+            state["i"] = len(lights) - 1
+            refill()
+            load()
+            self._lights_refresh()
+
+        def remove():
+            lights = self._ensure_lights()
+            if len(lights) > 1:
+                lights.pop(state["i"])
+                state["i"] = max(0, state["i"] - 1)
+                refill()
+                load()
+                self._lights_refresh()
+
+        def place_cam():
+            eye = self.pov_camera()["eye"]
+            v_x.set(f"{eye[0]:.3f}".rstrip("0").rstrip("."))
+            v_y.set(f"{eye[1]:.3f}".rstrip("0").rstrip("."))
+            v_z.set(f"{eye[2]:.3f}".rstrip("0").rstrip("."))
+            apply()
+
+        def pick_color():
+            from tkinter import colorchooser
+            rgb, hx = colorchooser.askcolor(color=v_color.get(), parent=win, title="Light colour")
+            if hx:
+                v_color.set(hx)
+                apply()
+
+        def to_auto():                                   # reset values to the default key + fill
+            self.lights = pov_export.default_light_specs(self.pov_camera())
+            state["i"] = 0
+            refill()
+            load()
+            self._lights_refresh("Lights: reset to default key + fill")
+
+        def sync():                                      # Taichi-menu change -> reload dialog
+            refill()
+            load()
+
+        def close():
+            self._lights_dialog_sync = None
+            self._lights_win = None
+            win.destroy()
+        win.protocol("WM_DELETE_WINDOW", close)
+        self._lights_dialog_sync = sync
+
+        ttk.Button(btns, text="Add", command=add).pack(fill=tk.X)
+        ttk.Button(btns, text="Remove", command=remove).pack(fill=tk.X, pady=2)
+        ttk.Button(btns, text="Reset default", command=to_auto).pack(fill=tk.X)
+        lb.bind("<<ListboxSelect>>", select)
+
+        row = 0
+
+        def _entry(parent, label, var, width=8):
+            nonlocal row
+            ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=1)
+            e = ttk.Entry(parent, textvariable=var, width=width)
+            e.grid(row=row, column=1, sticky="w", pady=1)
+            e.bind("<FocusOut>", apply)
+            e.bind("<Return>", apply)
+            row += 1
+            return e
+
+        _entry(body, "Name", v_name, 16)
+        pr = ttk.Frame(body)
+        pr.grid(row=row, column=0, columnspan=2, sticky="w", pady=1)
+        ttk.Label(pr, text="Pos  x").pack(side=tk.LEFT)
+        for v in (v_x, v_y, v_z):
+            e = ttk.Entry(pr, textvariable=v, width=6)
+            e.pack(side=tk.LEFT, padx=1)
+            e.bind("<FocusOut>", apply)
+            e.bind("<Return>", apply)
+        ttk.Button(pr, text="At camera", command=place_cam).pack(side=tk.LEFT, padx=4)
+        row += 1
+
+        cr = ttk.Frame(body)
+        cr.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
+        ttk.Label(cr, text="Colour").pack(side=tk.LEFT)
+        swatch = tk.Label(cr, text="   ", bg="#ffffff", relief="sunken", width=4)
+        swatch.pack(side=tk.LEFT, padx=4)
+        ttk.Button(cr, text="Pick...", command=pick_color).pack(side=tk.LEFT)
+        row += 1
+        _entry(body, "Brightness", v_int)
+        ttk.Checkbutton(body, text="Shadowless (pure fill, casts no shadow)",
+                        variable=v_shad, command=apply).grid(row=row, column=0, columnspan=2, sticky="w")
+        row += 1
+
+        fa = ttk.LabelFrame(body, text="Soft shadows (area light)", padding=4)
+        fa.grid(row=row, column=0, columnspan=2, sticky="ew", pady=3)
+        row += 1
+        ttk.Checkbutton(fa, text="Enable", variable=v_area, command=apply).grid(
+            row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(fa, text="Size").grid(row=1, column=0, sticky="w")
+        ea = ttk.Entry(fa, textvariable=v_areasz, width=6)
+        ea.grid(row=1, column=1, sticky="w")
+        ttk.Label(fa, text="Samples").grid(row=2, column=0, sticky="w")
+        eb = ttk.Entry(fa, textvariable=v_areasm, width=6)
+        eb.grid(row=2, column=1, sticky="w")
+        for e in (ea, eb):
+            e.bind("<FocusOut>", apply)
+            e.bind("<Return>", apply)
+
+        fs = ttk.LabelFrame(body, text="Spotlight (cone)", padding=4)
+        fs.grid(row=row, column=0, columnspan=2, sticky="ew", pady=3)
+        row += 1
+        ttk.Checkbutton(fs, text="Enable (aims at camera target)", variable=v_spot,
+                        command=apply).grid(row=0, column=0, columnspan=2, sticky="w")
+        for rr, (lab, var) in enumerate((("Hot radius deg", v_rad), ("Falloff deg", v_fall),
+                                         ("Tightness", v_tight)), start=1):
+            ttk.Label(fs, text=lab).grid(row=rr, column=0, sticky="w")
+            e = ttk.Entry(fs, textvariable=var, width=6)
+            e.grid(row=rr, column=1, sticky="w")
+            e.bind("<FocusOut>", apply)
+            e.bind("<Return>", apply)
+
+        ff = ttk.Frame(body)
+        ff.grid(row=row, column=0, columnspan=2, sticky="w", pady=2)
+        row += 1
+        ttk.Checkbutton(ff, text="Distance fade - dims past", variable=v_fade,
+                        command=apply).pack(side=tk.LEFT)
+        ed = ttk.Entry(ff, textvariable=v_faded, width=6)
+        ed.pack(side=tk.LEFT, padx=3)
+        ed.bind("<FocusOut>", apply)
+        ed.bind("<Return>", apply)
+        ttk.Label(ff, text="units").pack(side=tk.LEFT)
+
+        bb = ttk.Frame(win)
+        bb.pack(fill=tk.X, pady=(6, 0))
+        ttk.Button(bb, text="Apply", command=apply).pack(side=tk.LEFT)
+        ttk.Button(bb, text="Render now [F9]",
+                   command=lambda: (apply(), self.render_pov_here())).pack(side=tk.LEFT, padx=4)
+        ttk.Button(bb, text="Close", command=close).pack(side=tk.RIGHT)
+        refill()
+        load()
 
     def render_pov(self):
         if getattr(self, "_pov_job", None):
@@ -3618,6 +4563,89 @@ class App:
         self._render_img = tk.PhotoImage(file=png)          # keep a reference or Tk drops it
         self._render_lbl.configure(image=self._render_img)
         win.lift()
+
+    def _director_overlay(self, seg, col, path):
+        """Draw the Camera Director as 3D markers in the preview (parity with the old viewer's
+        canvas overlay): camera-key cubes, aim-point crosses, the arc control, aim lines and
+        light starbursts. Returns (handle positions Nx3, handle tags) so the preview can let you
+        grab and drag them. Only while the director is open with 'show path' on."""
+        import director3d
+        d = self.director
+        try:
+            on = d is not None and d.winfo_exists() and d.v_path.get()
+        except tk.TclError:
+            on = False
+        hpts, htag = [], []
+        if not on:
+            return np.zeros((0, 3)), []
+        cams = np.asarray(path["path_cam"], float).reshape(-1, 3)
+        looks = np.asarray(path["path_look"], float).reshape(-1, 3)
+        segs = d.shot["segments"]
+        kpts = np.array([s[k] for s in segs for k in director3d.VEC_KEYS], float).reshape(-1, 3)
+        lpts = np.array([lt["position"] for lt in d.shot["lights"]], float).reshape(-1, 3)
+        span = np.concatenate([a for a in (cams, looks, kpts, lpts) if len(a)] or [np.zeros((1, 3))])
+        msz = max(float(np.linalg.norm(span.max(0) - span.min(0))) * 0.012, 1e-3)
+
+        def mark(p, c, r, tag):                     # a small wire cube + its draggable handle point
+            p = np.asarray(p, float)
+            cn = [p + r * np.array([sx, sy, sz], float)
+                  for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)]
+            for i in range(8):
+                for j in range(i + 1, 8):
+                    if bin(i ^ j).count("1") == 1:  # cube edges differ in exactly one axis
+                        seg(cn[i], cn[j], c)
+            hpts.append(p); htag.append(tag)
+
+        def cross(p, c, r, tag):                    # a 3D plus-sign (aim points / lights)
+            p = np.asarray(p, float)
+            for ax in range(3):
+                e = np.zeros(3); e[ax] = r
+                seg(p - e, p + e, c)
+            hpts.append(p); htag.append(tag)
+
+        def frustum(p, aim, c, r, tag):             # a little camera: apex at p, lens opening toward aim
+            p = np.asarray(p, float); aim = np.asarray(aim, float)
+            fwd = aim - p
+            n = float(np.linalg.norm(fwd))
+            fwd = fwd / n if n > 1e-9 else np.array([1.0, 0.0, 0.0])
+            up0 = np.array([0.0, 0.0, 1.0]) if abs(fwd[2]) < 0.9 else np.array([0.0, 1.0, 0.0])
+            right = np.cross(fwd, up0); right /= np.linalg.norm(right) + 1e-12
+            up = np.cross(right, fwd)
+            base = p + fwd * (r * 2.2)              # the lens plane, a short way along the aim
+            h = r * 1.2
+            cn = [base + right * sx * h + up * sy * h
+                  for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+            for k in range(4):                      # body: apex -> each lens corner
+                seg(p, cn[k], c)
+            for k in range(4):                      # the square lens
+                seg(cn[k], cn[(k + 1) % 4], c)
+            hpts.append(p); htag.append(tag)
+
+        for a, b in zip(cams, cams[1:]):            # the camera's flight path over the whole shot, orange
+            seg(a, b, col("#ff8f00"))
+        for i, s in enumerate(segs):
+            curseg = i == d.seg_i
+            r = msz * (1.35 if curseg else 1.0)
+            ca = col(director3d.HANDLE_COL["a"])    # green = start-of-move camera
+            cc = col(director3d.HANDLE_COL["c"])    # red   = end-of-move camera
+            frustum(s["a"], s["target_a"], ca, r, f"seg:{i}:a")   # camera drawn aimed at its look-at
+            frustum(s["c"], s["target_c"], cc, r, f"seg:{i}:c")
+            seg(s["a"], s["target_a"], ca)          # one clear sight line per camera, its own colour
+            seg(s["c"], s["target_c"], cc)
+            cross(s["target_a"], col("#4dd0e1"), r * 0.9, f"seg:{i}:target_a")   # cyan = where it looks
+            cross(s["target_c"], col("#4dd0e1"), r * 0.9, f"seg:{i}:target_c")
+            if s["kind"] == "Arc":                   # arc bulge control, shown for every arc move (not just current)
+                seg(s["a"], s["b"], col("#ffd43b"))
+                seg(s["b"], s["c"], col("#ffd43b"))
+                mark(s["b"], col("#ffd43b"), r * 0.7, f"seg:{i}:b")
+        for i, lt in enumerate(d.shot["lights"]):   # lights: a starburst in the light's colour
+            p = np.asarray(lt["position"], float)
+            lc_ = col(lt["color"], "#fff3a0")
+            cross(p, lc_, msz * 1.4, f"light:{i}")
+            for dv in ((1, 1, 1), (1, 1, -1), (1, -1, 1), (-1, 1, 1)):
+                v = np.array(dv, float) / math.sqrt(3) * msz * 1.4
+                seg(p - v, p + v, lc_)
+        return (np.array(hpts, float).reshape(-1, 3) if hpts else np.zeros((0, 3))), htag
 
     # ------------------------------------------------------ Taichi GPU preview
     def preview_mesh(self):
@@ -3797,6 +4825,7 @@ class App:
         path = self.preview_path()
         for a, b in zip(path["path_cam"], path["path_cam"][1:]):        # the camera path, in orange
             seg(a, b, col("#ffa94d"))
+        hpts, htag = self._director_overlay(seg, col, path)            # keys/aims/lights as 3D markers
 
         V = np.concatenate(tv).reshape(-1, 3) if tv else np.zeros((0, 3))
         L = np.array(lv, float).reshape(-1, 3) if lv else np.zeros((0, 3))
@@ -3804,7 +4833,7 @@ class App:
         lo, hi = allp.min(0), allp.max(0)
         center = (lo + hi) / 2
         cam = self.pov_camera()
-        h = max(self.canvas.winfo_height(), 2)
+        _w, h = self._canvas_wh()
         # the tree, for the preview's Objects menu: folders and the rows in them
         tsel = set(self.tree.selection())
         tops = list(self.tree.get_children("scene")) if self.tree.exists("scene") else []
@@ -3815,6 +4844,8 @@ class App:
                 l_iid.append(c)
                 l_name.append(self.tree.item(c, "text"))
                 l_fold.append(fi)
+        _lt = self.lights if self.lights is not None \
+            else pov_export.default_light_specs(self.pov_camera())   # effective lights for the menu
         menu = {"list_fids": np.array(tops, dtype=str),
                 "list_folders": np.array([self.tree.item(k, "text") for k in tops], dtype=str),
                 "list_iid": np.array(l_iid, dtype=str), "list_name": np.array(l_name, dtype=str),
@@ -3822,7 +4853,27 @@ class App:
                 "list_sel": np.array([c in tsel for c in l_iid], bool),
                 "obj_sel": np.array([i in tsel for i in iids] or [False], bool),
                 "add_kinds": np.array(list(ADD_SPECS), dtype=str),
-                "grid_on": bool(self.v_grid.get())}
+                "grid_on": bool(self.v_grid.get()),
+                "show_scene": bool(self.v_show_scene.get()),
+                "show_script": bool(self.v_show_script.get()),
+                "pov_q": str(self.v_pov_q.get()), "pov_w": str(self.v_pov_w.get()),
+                "rs_radiosity": bool(self.render_settings["radiosity"]),
+                "rs_radq": str(self.render_settings["radiosity_quality"]),
+                "rs_photons": bool(self.render_settings["photons"]),
+                "rs_photons_count": int(self.render_settings["photons_count"]),
+                "rs_max_trace": int(self.render_settings["max_trace"]),
+                "lights_auto": bool(self.lights is None),
+                "lights_name": np.array([pov_export._light(s)["name"] for s in _lt] or [""], dtype=str),
+                "lights_int": np.array([float(pov_export._light(s)["intensity"]) for s in _lt]
+                                       or [0.0], float),
+                "lights_shadowless": np.array([bool(pov_export._light(s)["shadowless"]) for s in _lt]
+                                              or [False], bool),
+                "lights_area": np.array([bool(pov_export._light(s)["area"]) for s in _lt] or [False], bool),
+                "lights_spot": np.array([bool(pov_export._light(s)["spot"]) for s in _lt] or [False], bool),
+                "lights_fade": np.array([pov_export._light(s)["fade"] is not None for s in _lt]
+                                        or [False], bool),
+                "layers": np.array(self.layer_names(), dtype=str),
+                "layers_hidden": np.array(sorted(self.layers_hidden) or [""], dtype=str)}
         return {"verts": V.astype(np.float32),
                 "normals": (np.concatenate(tn).reshape(-1, 3) if tn else V).astype(np.float32),
                 "colors": (np.concatenate(tc).reshape(-1, 3) if tc else V).astype(np.float32),
@@ -3842,7 +4893,9 @@ class App:
                 "center": center, "radius": max(float(np.linalg.norm(hi - lo)) / 2, 1.0),
                 "cam_id": getattr(self, "_ti_cam", 0), "play_id": getattr(self, "_ti_play", 0),
                 "moves_done": getattr(self, "_ti_moves", 0),
-                "start_play": bool(getattr(self, "_ti_start_play", False)), **path, **menu}
+                "start_play": bool(getattr(self, "_ti_start_play", False)),
+                "dir_hpts": hpts.astype(np.float32) if len(hpts) else np.zeros((0, 3), np.float32),
+                "dir_htag": np.array(htag or [""], dtype=str), **path, **menu}
 
     def preview_path(self):
         """The Camera Director's frames (eye, look-at, up, vfov) for playing in the preview."""
@@ -3871,10 +4924,19 @@ class App:
                 self.write_preview()
             self.root.after_idle(go)
 
+    def _preview_dir(self):
+        """A per-process scratch dir for the Taichi handoff, so two viewers started from the
+        same folder never read each other's _preview.npz (the preview polls it by mtime)."""
+        d = getattr(self, "_preview_dir_path", None)
+        if d is None:
+            d = self._preview_dir_path = os.path.join(tempfile.gettempdir(), f"viewer3d_preview_{os.getpid()}")
+            os.makedirs(d, exist_ok=True)
+        return d
+
     def write_preview(self):
-        path = os.path.join(POV_DIR, "_preview.npz")
-        tmp = os.path.join(POV_DIR, "_preview_tmp.npz")
-        os.makedirs(POV_DIR, exist_ok=True)
+        path = os.path.join(self._preview_dir(), "_preview.npz")
+        tmp = os.path.join(self._preview_dir(), "_preview_tmp.npz")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         np.savez(tmp, **self.preview_mesh())
         for _ in range(10):                         # the preview may be reading it right now
             try:
@@ -3931,7 +4993,7 @@ class App:
             print("Taichi preview: no Python with taichi found - pip install taichi (Python 3.10-3.12), "
                   "then set TAICHI_PYTHON to that python if it is in a venv")
             return
-        log = open(os.path.join(POV_DIR, "_preview.log"), "w", encoding="utf-8")
+        log = open(os.path.join(self._preview_dir(), "_preview.log"), "w", encoding="utf-8")
         self._ti_proc = proc = subprocess.Popen(
             py + ["-u", os.path.join(HERE, "taichi_preview.py"), path] + (["--resume"] if resume else []),
             stdout=subprocess.PIPE, stderr=log, text=True, encoding="utf-8", errors="replace",
@@ -4014,6 +5076,8 @@ class App:
                     self._preview_picks()        # what it sent just before it closed
                     if not self._preview_crashed(proc.returncode):
                         self.redraw()            # closed for good: the 3D view draws again
+                        if not self.classic:     # Taichi was the main window - show the menu again
+                            self._to_front(self.root)
 
     def _preview_crashed(self, rc):
         """Taichi 1.7's ImGui aborts the window ("Mismatching io.KeyCtrl ... vs io.KeyMods") when it
@@ -4032,6 +5096,21 @@ class App:
 
     def _preview_cmd(self, cmd, args):
         """A button in the preview's menu. Things that need typing open a Tk box in front."""
+        if cmd == "cam":                               # the Taichi view, sent just before a POV action
+            try:
+                v = [float(x) for x in args]
+                self._pov_cam = {"eye": np.array(v[0:3]), "look": np.array(v[3:6]),
+                                 "up": np.array(v[6:9]), "fov": v[9],
+                                 "aspect": v[10] if len(v) > 10 else 0.0}
+            except (ValueError, IndexError):
+                pass
+            return
+        if cmd == "dir_set":                           # preview dragged a director handle to x y z
+            try:
+                self._dir_set_handle(args[0], [float(x) for x in args[1:4]])
+            except (ValueError, IndexError):
+                pass
+            return
         before = set(self.root.winfo_children())
         target = None
         if cmd == "add" and args and args[0].isdigit() and int(args[0]) < len(ADD_SPECS):
@@ -4070,12 +5149,80 @@ class App:
                                  ("  point  (pivot = point)", self.v_pxyz),
                                  ("Axis  (vecrot)", self.v_axis, self.cb_axis["values"]),
                                  ("  from", self.v_axa), ("  to", self.v_axb)], self.rotate)
+        elif cmd == "move_all":
+            self._ask("Move all by (lift the whole scene)", [("X  Y  Z", self.v_mv)], self.move_all)
+        elif cmd == "rescale_world":
+            self._ask("Rescale world", [("World width across", self.v_world)], self.rescale_world)
+        elif cmd == "pov_q":
+            self.v_pov_q.set("Final" if self.v_pov_q.get() == "Draft" else "Draft")
+            self.preview_refresh()
+        elif cmd == "pov_w":
+            self._ask("Render size", [("Width px", self.v_pov_w, ("320", "640", "1024", "1600", "1920"))],
+                      self.preview_refresh)
+        elif cmd == "rset":                          # Lighting panel in the Taichi menu
+            self._render_set_cmd(args)
+            self.preview_refresh()
+        elif cmd == "lighting":
+            self.open_render_settings()
+        elif cmd == "lset":                          # Lights editor in the Taichi menu
+            self._lights_set_cmd(args)
+            self.preview_refresh()
+        elif cmd == "lights":
+            self.open_lights_editor()
+        elif cmd in ("show_scene", "show_script"):
+            (self.v_show_scene if cmd == "show_scene" else self.v_show_script).set(bool(args) and args[0] == "1")
+            self.redraw()
+            self.preview_refresh()
+        elif cmd == "set_layer":
+            self._ask("Set layer (blank = Default)", [("Layer", self.v_layer, self.layer_names())], self.set_layer)
+        elif cmd == "layer_show":
+            names = self.layer_names()
+            if len(args) >= 2 and args[0].isdigit() and int(args[0]) < len(names):
+                self.toggle_layer_show(names[int(args[0])], args[1] == "1")
+        elif cmd in ("rename", "colors", "material", "twin", "csg", "hollow", "align") and \
+                (self.selected is None or self.selected[0] != "s"):
+            print("Taichi preview: click an object first")
+        elif cmd == "rename":
+            self._ask("Rename", [("Name", self.v_name)], self.rename)
+        elif cmd == "colors":
+            self._ask("Colors", [("Color (lines)", self.v_c1, self.ASK_COLOR),
+                                 ("Fill", self.v_c2, self.ASK_COLOR)], self.apply_colors)
+        elif cmd == "material":
+            self._ask("Material", [("Group", self.v_mat_grp, list(self.mat_choices)),
+                                   ("Material", self.v_mat_name,
+                                    lambda get: list(self.mat_choices.get(get(self.v_mat_grp), {}))),
+                                   ("Tex scale", self.v_mat_scale)], self.apply_material,
+                      extra=[("Image file...", self.pick_image)])
+        elif cmd == "twin":
+            self._ask("Twin", [("Twin on", self.v_twin), ("Lift %  (100 touching, 50 half overlap)", self.v_twin_pct),
+                               ("Axis", self.v_twin_axis, tuple(TWIN_AXES)), ("Flip first", self.v_twin_flip)],
+                      self.apply_twin)
+        elif cmd == "csg":
+            self._ask("CSG", [("Operation", self.v_csg_op, CSG_OPS),
+                              ("Target  (@name = a whole group)", self.v_csg_target, self.cb_csg_target["values"])],
+                      self.apply_csg)
+        elif cmd == "hollow":
+            self._ask("Hollow", [("Hollow on", self.v_hollow), ("Wall thickness", self.v_hollow_t),
+                                 ("Open end", self.v_hollow_open, HOLLOW_OPEN)], self.apply_hollow)
+        elif cmd == "align":
+            self._ask("Align  (first clicked stays)", [("Axes", self.v_align_ax, ALIGN_AXES),
+                                                       ("How", self.v_align_how, ALIGN_HOW)], self.align)
         elif cmd == "viewer":
             target = self.root
+        elif cmd.startswith("dir_"):
+            self._director_cmd(cmd[4:], args)
         else:
             fn = {"props": self.open_props, "lathe": self.open_lathe, "director": self.open_director,
                   "render": self.render_pov, "select_all": self.select_all,
-                  "select_none": self.select_none, "untag": self.untag_group}.get(cmd)
+                  "select_none": self.select_none, "untag": self.untag_group,
+                  "undo_tf": self.undo_tf, "run_script": self.ask_run_script,
+                  "replay": self.replay, "keep_script": self.keep_script_objs,
+                  "save_pov": self.save_pov, "pov_gui": self.open_pov_gui,
+                  "open_scene": self.open_scene_file, "save_scene_as": self.save_scene_as,
+                  "add_cam_key": lambda: self._cam_key_from_preview(True),
+                  "set_cam_key": lambda: self._cam_key_from_preview(False),
+                  "help": self.open_help, "help_menu": lambda: self.open_help("overview"),
+                  "help_taichi": lambda: self.open_help("taichi")}.get(cmd)
             if fn is None:
                 print(f"Taichi preview: unknown menu command {cmd}")
                 return
@@ -4087,6 +5234,41 @@ class App:
                 self._to_front(w)
         if isinstance(target, tk.Misc):
             self._to_front(target)
+
+    def _dir(self):
+        """The Camera Director, opening it if needed (its edits refresh the Taichi overlay)."""
+        if self.director is None or not self.director.winfo_exists():
+            self.open_director()
+        return self.director
+
+    def _director_cmd(self, name, args):
+        """A Camera Director control driven from the Taichi menu - run it on the Director,
+        which redraws its path/handles in this preview via its own changed()/preview_refresh()."""
+        d = self._dir()
+        if d is None:
+            return
+        if name == "fps":
+            self._ask("Frames per second", [("FPS  (path sampling rate)", d.v_fps)], d.apply_shot)
+        elif name == "roll":
+            self._ask("Camera roll", [("Roll degrees", d.v_roll)], d.apply_shot)
+        elif name == "steps":
+            self._ask("Steps in the current move", [("Steps", d.v_steps)], d.apply_move)
+        elif name == "giffps":
+            self._ask("GIF playback fps  (independent of sampling fps)", [("GIF fps", d.v_gif_fps)], lambda: None)
+        elif name == "size":
+            self._ask("Movie / render size", [("Width px", d.v_w), ("Height px", d.v_h)], lambda: None)
+        else:
+            fn = {"line": lambda: d.add_move("Line"), "arc": lambda: d.add_move("Arc"),
+                  "del_move": d.delete_move, "new_shot": d.new_shot,
+                  "add_light": d.add_light, "del_light": d.delete_light,
+                  "render_frame": d.render_frame, "render_movie": d.render_movie,
+                  "stop_movie": d.stop_movie, "preview_gif": d.preview_gif,
+                  "rebuild_gif": d.rebuild_gif, "export": d.export_animation,
+                  "save": d.save_project, "load": d.load_project}.get(name)
+            if fn is None:
+                print(f"Taichi preview: unknown director command dir_{name}")
+                return
+            fn()
 
     @staticmethod
     def _to_front(w):
@@ -4102,40 +5284,77 @@ class App:
         except tk.TclError:
             pass
 
-    def _ask(self, title, fields, then):
+    ASK_COLOR = "color"                      # _ask field choice: entry + "..." color picker
+
+    def _ask(self, title, fields, then, extra=()):
         """Small box to type values in (for the preview's menu): OK puts them in the panel's
         boxes, then runs then() - same as filling the panel and pressing its button.
-        A field is (label, var), (label, var, choices) for a drop-down, or (label, [x, y, z vars])."""
+        A field is (label, var), (label, var, choices) for a drop-down, or (label, [x, y, z vars]).
+        A BooleanVar is a checkbox; choices ASK_COLOR = color picker; choices fn(get) = a drop-down
+        that follows the other boxes (get(panel var) = what's typed for it now).
+        extra = (label, fn) buttons: close the box (values kept) and run fn."""
         top = tk.Toplevel(self.root)
         top.title(title)
         top.resizable(False, False)
-        boxes = []
+        boxes, follow = [], []
         for r, (label, var, *choices) in enumerate(fields):
             ttk.Label(top, text=label).grid(row=r, column=0, sticky="w", padx=6, pady=2)
             row = ttk.Frame(top)
             row.grid(row=r, column=1, padx=6, pady=2, sticky="we")
             for one in (var if isinstance(var, (list, tuple)) else [var]):
-                v = tk.StringVar(value=one.get())
-                if choices:
-                    ent = ttk.Combobox(row, textvariable=v, values=list(choices[0]), width=16)
+                ch = choices[0] if choices else None
+                if isinstance(one, tk.BooleanVar):
+                    v = tk.BooleanVar(value=one.get())
+                    ent = ttk.Checkbutton(row, variable=v)
+                elif ch == self.ASK_COLOR:
+                    v = tk.StringVar(value=one.get())
+                    ent = ttk.Entry(row, textvariable=v, width=12)
+                    ttk.Button(row, text="...", width=3,
+                               command=lambda v=v: self.pick(v, top)).pack(side=tk.RIGHT, padx=1)
+                elif ch is not None:
+                    v = tk.StringVar(value=one.get())
+                    ent = ttk.Combobox(row, textvariable=v, width=22,
+                                       values=[] if callable(ch) else list(ch))
+                    if callable(ch):
+                        follow.append((ent, v, ch))
+                    ent.bind("<<ComboboxSelected>>", lambda _e: refollow())
                 else:
+                    v = tk.StringVar(value=one.get())
                     ent = ttk.Entry(row, textvariable=v, width=14 if one is var else 6)
                 ent.pack(side=tk.LEFT, padx=1)
                 boxes.append((one, v, ent))
 
-        def ok(_e=None):
+        def get(panel_var):
+            return next((v.get() for one, v, _ent in boxes if one is panel_var), panel_var.get())
+
+        def refollow(first=False):
+            for ent, v, fn in follow:
+                vals = list(fn(get))
+                ent["values"] = vals
+                if v.get() not in vals and not first:
+                    v.set(vals[0] if vals else "")
+        refollow(first=True)
+
+        def keep():
             for var, v, _ent in boxes:
                 var.set(v.get())
             top.destroy()
+
+        def ok(_e=None):
+            keep()
             self.enqueue(self._call_job(then))
         bf = ttk.Frame(top)
         bf.grid(row=len(fields), column=0, columnspan=2, pady=4)
         ttk.Button(bf, text="OK", command=ok).pack(side=tk.LEFT, padx=4)
+        for label, fn in extra:
+            ttk.Button(bf, text=label, command=lambda fn=fn: (keep(), self.enqueue(self._call_job(fn)))).pack(
+                side=tk.LEFT, padx=4)
         ttk.Button(bf, text="Cancel", command=top.destroy).pack(side=tk.LEFT, padx=4)
         top.bind("<Return>", ok)
         top.bind("<Escape>", lambda _e: top.destroy())
         boxes[0][2].focus_set()
-        boxes[0][2].select_range(0, "end")
+        if isinstance(boxes[0][2], ttk.Entry):
+            boxes[0][2].select_range(0, "end")
         self._to_front(top)
         return top
 
@@ -4161,11 +5380,12 @@ class App:
         out = []
         self._meta = meta = {}              # id(obj) -> (tree iid, drawn as cutter wire)
         self._holes = holes = {}            # id(inner copy) -> (inner copy, hollow entry)
+        hidden = getattr(self, "layers_hidden", set())
         if self.v_show_scene.get():
             cur = self.selected[1] if self.selected and self.selected[0] == "s" else None
             mates = {id(o) for o in self.group_entries(cur)} if cur is not None else set()
             for i, e in enumerate(self.entries):
-                if e.obj is not None:
+                if e.obj is not None and (e.layer or "Default") not in hidden:
                     sel = id(e) in mates
                     cut = self.is_cutter(e)
                     for o in (e.obj, e.twin_obj):
@@ -4200,6 +5420,9 @@ class App:
             self._w, self._h = self.canvas.winfo_width(), self.canvas.winfo_height()
 
     def redraw(self):
+        if not self.classic:            # Taichi mode: the GPU window is the view, no canvas to paint
+            self.preview_refresh()      # but still push scene/director-overlay changes to it (coalesced)
+            return
         if self.tk_paused():
             c = self.canvas
             c.delete("all")
@@ -4788,9 +6011,21 @@ class App:
 
 
 def main():
+    classic = "--classic" in sys.argv   # old Tk viewport; default = Taichi GPU window is the main view
     root = tk.Tk()
-    App(root)
-    root.mainloop()
+    app = App(root, classic=classic)
+    try:
+        root.mainloop()
+    finally:
+        proc = getattr(app, "_ti_proc", None)   # don't leave the preview child running after we quit
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+        d = getattr(app, "_preview_dir_path", None)   # drop this process's handoff scratch dir
+        if d:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 if __name__ == "__main__":

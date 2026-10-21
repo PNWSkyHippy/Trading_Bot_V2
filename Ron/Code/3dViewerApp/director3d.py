@@ -299,8 +299,13 @@ class Director(tk.Toplevel):
         self.v_q = tk.StringVar(value="Draft")
         ttk.Combobox(r, textvariable=self.v_q, values=("Draft", "Final"), width=6,
                      state="readonly").pack(side=tk.LEFT, padx=4)
+        ttk.Label(r, text="GIF fps").pack(side=tk.LEFT, padx=(8, 0))
+        self.v_gif_fps = tk.StringVar(value=str(self.shot.get("fps", 24)))
+        ttk.Entry(r, textvariable=self.v_gif_fps, width=5).pack(side=tk.LEFT, padx=2)
         ttk.Button(f, text="Render this frame  [F9]", command=self.render_frame).pack(fill=tk.X, pady=(8, 2))
         ttk.Button(f, text="Render movie (all frames + GIF)", command=self.render_movie).pack(fill=tk.X, pady=2)
+        ttk.Button(f, text="Preview GIF (current frames, at GIF fps)", command=self.preview_gif).pack(fill=tk.X, pady=2)
+        ttk.Button(f, text="Rebuild GIF at this fps (no re-render)", command=self.rebuild_gif).pack(fill=tk.X, pady=2)
         ttk.Button(f, text="Stop movie render", command=self.stop_movie).pack(fill=tk.X, pady=2)
         ttk.Button(f, text="Export POV animation (.pov + .ini)", command=self.export_animation).pack(fill=tk.X, pady=2)
         ttk.Separator(f).pack(fill=tk.X, pady=8)
@@ -1185,6 +1190,13 @@ class Director(tk.Toplevel):
                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             self.say("Movie render stopped")
 
+    def gif_fps(self):                                   # playback fps for the GIF, independent of shot sampling fps
+        try:
+            v = float(self.v_gif_fps.get())
+        except (ValueError, AttributeError, tk.TclError):
+            v = self.shot.get("fps", 24)
+        return int(max(1, min(60, round(v))))
+
     def make_gif(self, files, out_dir):
         try:
             from PIL import Image
@@ -1193,8 +1205,75 @@ class Director(tk.Toplevel):
         frames = [Image.open(f).convert("RGB") for f in files]
         path = os.path.join(out_dir, safe_name(self.v_name.get()) + ".gif")
         frames[0].save(path, save_all=True, append_images=frames[1:],
-                       duration=round(1000 / max(1, self.shot.get("fps", 24))), loop=0)
+                       duration=round(1000 / self.gif_fps()), loop=0)
         return path
+
+    def _frame_files(self):                              # existing rendered frames for the current shot, in order
+        out_dir = os.path.join(app_pov_dir(), "director", safe_name(self.v_name.get()))
+        return out_dir, sorted(glob.glob(os.path.join(out_dir, "frame_*.png")))
+
+    def rebuild_gif(self):                               # rebuild the GIF from frames already on disk, at the GIF fps
+        out_dir, files = self._frame_files()
+        if not files:
+            self.say("No frames yet — render the movie first")
+            return
+        path = self.make_gif(files, out_dir)
+        if path:
+            self.say(f"GIF rebuilt at {self.gif_fps()} fps -> {os.path.basename(path)}")
+        else:
+            self.say("GIF needs Pillow (pip install pillow)")
+
+    def preview_gif(self):                               # play the rendered frames in a popup at the chosen GIF fps
+        out_dir, files = self._frame_files()
+        if not files:
+            self.say("No frames yet — render the movie first")
+            return
+        try:
+            from PIL import Image, ImageTk
+        except ImportError:
+            self.say("Preview needs Pillow (pip install pillow)")
+            return
+        fps = self.gif_fps()
+        win = tk.Toplevel(self)
+        win.title(f"GIF preview — {len(files)} frames @ {fps} fps")
+        imgs = [Image.open(f).convert("RGB") for f in files]
+        w, h = imgs[0].size
+        scale = min(1.0, 900 / w, 640 / h)
+        if scale < 1.0:
+            w, h = int(w * scale), int(h * scale)
+            imgs = [im.resize((w, h), Image.BILINEAR) for im in imgs]
+        tkframes = [ImageTk.PhotoImage(im) for im in imgs]
+        lbl = tk.Label(win, bd=0)
+        lbl.pack()
+        bar = ttk.Frame(win)
+        bar.pack(fill=tk.X)
+        state = {"i": 0, "playing": True, "fps": fps, "job": None}
+
+        def tick():
+            lbl.configure(image=tkframes[state["i"]])
+            state["i"] = (state["i"] + 1) % len(tkframes)
+            if state["playing"]:
+                state["job"] = win.after(int(1000 / state["fps"]), tick)
+
+        def toggle():
+            state["playing"] = not state["playing"]
+            btn.configure(text="Pause" if state["playing"] else "Play")
+            if state["playing"]:
+                tick()
+
+        btn = ttk.Button(bar, text="Pause", command=toggle)
+        btn.pack(side=tk.LEFT, padx=4, pady=4)
+        ttk.Label(bar, text=f"{len(files)} frames @ {fps} fps").pack(side=tk.LEFT, padx=6)
+
+        def on_close():
+            state["playing"] = False
+            if state["job"]:
+                win.after_cancel(state["job"])
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", on_close)
+        win._tkframes = tkframes                          # keep refs alive
+        tick()
 
     # ---------------------------------------------------------- save / load
     def _named(self):
