@@ -5467,17 +5467,44 @@ class App:
                         if not self.classic:     # Taichi was the main window - show the menu again
                             self._to_front(self.root)
 
+    def _snapshot_preview_log(self, rc):
+        """Keep the crashed preview's log (stderr holds the abort / traceback) before the next
+        launch truncates it, and classify the cause so we stop guessing.  Returns a short reason."""
+        src = os.path.join(self._preview_dir(), "_preview.log")
+        reason = f"exit {rc} (no log captured)"
+        try:
+            with open(src, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            tail = text[-4000:].lower()
+            if any(k in tail for k in ("keyctrl", "keymods", "mismatch")):
+                reason = "Taichi/ImGui key-state assert (a modifier held across a window switch)"
+            elif "traceback" in tail:
+                last = [ln for ln in text.strip().splitlines() if ln.strip()][-1:]
+                reason = "Python error in taichi_preview.py -> " + (last[0] if last else "see log")
+            else:
+                last = [ln for ln in text.strip().splitlines() if ln.strip()][-1:]
+                reason = f"exit {rc}: " + (last[0] if last else "no output")
+            dst = os.path.join(self._preview_dir(), time.strftime("_preview_crash_%Y%m%d_%H%M%S.log"))
+            with open(dst, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            print(f"  crash log kept: {os.path.basename(dst)}")
+        except OSError:
+            pass
+        return reason
+
     def _preview_crashed(self, rc):
-        """Taichi 1.7's ImGui aborts the window ("Mismatching io.KeyCtrl ... vs io.KeyMods") when it
-        misses a Ctrl / Shift / Alt press or release (switching windows with one held). Not our code,
-        so reopen it where it was. Closing the window normally exits 0 and stays closed.
+        """A nonzero exit means the Taichi window died unexpectedly.  The usual culprit is Taichi 1.7's
+        ImGui aborting ("Mismatching io.KeyCtrl vs io.KeyMods") when it misses a Ctrl/Shift/Alt release
+        on a window switch - but a Python error in taichi_preview.py looks the same here, so we snapshot
+        the log and name the real cause instead of assuming.  Reopen where it was.  Normal close = exit 0.
         True = reopening."""
         if rc == 0:
             return False
+        reason = self._snapshot_preview_log(rc)
         if time.time() - self._ti_started < 10:
-            print(f"Taichi preview closed (exit {rc}) right after starting - not reopening; see pov/_preview.log")
+            print(f"Taichi preview closed (exit {rc}) right after starting - not reopening. Cause: {reason}")
             return False
-        print(f"Taichi preview crashed (exit {rc}, Taichi's own key-state bug) - reopening where you were")
+        print(f"Taichi preview crashed - reopening where you were. Cause: {reason}")
         self._ti_reopen_at = time.time()
         self.root.after(300, lambda: self.open_preview(resume=True))
         return True

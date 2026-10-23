@@ -788,7 +788,33 @@ class Manipulate_files(MyFileUtilityTool):
                 mod_time = statinfo.st_mtime
                 file_sz = float(f'{file_sz}')
                 file_sz_str = bytes_to_str(file_sz)
-                self.file_hid = statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN
+                """
+The problem is only statinfo.st_file_attributes — that field exists exclusively on Windows’ stat 
+result. (FILE_ATTRIBUTE_HIDDEN itself resolved fine, so your import of it is OK.) Unix has no “hidden” 
+bit at all; a file is “hidden” there purely by a leading-dot name.
+
+The fix — replace the single line at mfind.py:791 with a branch:
+
+Test hasattr(statinfo, "st_file_attributes") rather than checking the OS name — it asks the exact right
+ question (“does this stat result even carry the attribute?”) and can’t drift if you move Pythons.
+If it has it (Windows): keep your existing statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN.
+
+If it doesn’t (Linux/Mac): set hidden from the dotfile convention — does the file’s own name 
+(os.path.basename(path)) start with ".".
+Wrap both in bool(...) so self.file_hid is always a clean True/False. Right now the Windows side 
+gives you an int (0 or 2), and the Unix side would give a bool — make them consistent so any is 
+True/== checks downstream behave the same on both platforms.
+
+That’s the whole change — one if/else where the one line is now. Nothing else in find_files is 
+Windows-bound as far as that traceback goes; if it pukes again further down, send me the next trace
+ and we’ll knock it out the same way.
+                """
+                if hasattr(statinfo, "st_file_attributes"):
+                    # Windows
+                    self.file_hid = bool(statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN)
+                else:
+                    self.file_hid = ((os.path.basename(path))[0] == ".")
+
                 if not self.matches_type(path, file_mode):
                     continue
                 if self.excl_extent:
