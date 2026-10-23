@@ -16,12 +16,13 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, colorchooser, filedialog
+from tkinter import ttk, colorchooser, filedialog, messagebox
 
 import numpy as np
 
@@ -350,21 +351,60 @@ class Director(tk.Toplevel):
 
     # ------------------------------------------------------------- shot data
     def _load_last(self):
+        # The .bak is the last *non-trivial* autosave, so if a crash truncated the
+        # live file (or an accidental default overwrote it) the real work is still here.
+        for path in (self.state_file, self.state_file + ".bak"):
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    shot = swap_shot(json.load(fh))
+                cp.sample_shot(swap_shot(shot))
+                return shot
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+        return None
+
+    def _rotate_bak(self):
+        """Keep the last non-trivial autosave in .bak before overwriting the live file,
+        so an accidental default (New shot, a crash-time reopen) can't be the only copy left.
+        A trivial on-disk shot is never copied over a richer .bak."""
         try:
             with open(self.state_file, encoding="utf-8") as fh:
-                shot = swap_shot(json.load(fh))
-            cp.sample_shot(swap_shot(shot))
-            return shot
-        except (OSError, ValueError, KeyError, TypeError):
-            return None
+                prev = json.load(fh)
+        except (OSError, ValueError):
+            return
+        if len(prev.get("segments", [])) > 1 or prev.get("lights"):
+            try:
+                shutil.copy2(self.state_file, self.state_file + ".bak")
+            except OSError:
+                pass
 
     def autosave(self):
         try:
             os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
-            with open(self.state_file, "w", encoding="utf-8") as fh:
+            self._rotate_bak()
+            tmp = self.state_file + ".tmp"            # write-then-replace: a crash can't truncate it
+            with open(tmp, "w", encoding="utf-8") as fh:
                 json.dump(swap_shot(self.shot), fh, indent=2)
+            os.replace(tmp, self.state_file)
         except OSError:
             pass
+
+    # -------------------------------------------------- shot saved beside the scene
+    def save_scene_sidecar(self, path):
+        """Write this shot to <scene>.director.json (POV / Y-up, like a project file) so
+        saving a scene keeps its camera work.  Called by the viewer on scene save."""
+        try:
+            cp.save_project(path, self._named())
+        except (ValueError, OSError):
+            pass
+
+    def load_scene_sidecar(self, path):
+        """Load a scene's camera work back in.  Called by the viewer when a scene opens."""
+        try:
+            self._use(cp.load_project(path))
+            return True
+        except (ValueError, KeyError, OSError):
+            return False
 
     def resample(self):
         try:
@@ -509,6 +549,17 @@ class Director(tk.Toplevel):
         self.changed()
 
     def new_shot(self):
+        segs = self.shot.get("segments", [])
+        lts = self.shot.get("lights", [])
+        if len(segs) > 1 or lts:                       # don't silently throw away real work
+            if not messagebox.askyesno(
+                    "New shot - replace the current one?",
+                    f"Your current shot has {len(segs)} camera moves and {len(lts)} light(s).\n\n"
+                    "Start a fresh default shot and discard it?\n"
+                    "(A backup is kept in pov/director_shot.json.bak, and in the scene's\n"
+                    ".director.json if you've saved the scene.)",
+                    default="no", parent=self):
+                return
         self.shot = default_shot(self.app)
         self.seg_i = self.light_i = self.frame = 0
         self.v_fps.set("24")

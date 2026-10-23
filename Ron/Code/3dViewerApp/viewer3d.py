@@ -1256,7 +1256,7 @@ class App:
     def __init__(self, root, classic=False):
         self.root = root
         self.classic = classic         # classic = the old Tk viewport; default = Taichi is the main window
-        root.title("3D Testbed - class3d viewer" + ("" if classic else " (menu)"))
+        root.title("3D Testbed - class3d viewer" + ("" if classic else " - MAIN window (close = quit)"))
         root.geometry("1450x920" if classic else "640x920")
         self.entries = []
         self.scene_path = SCENE_FILE   # the file autosave/undo work in; Open/Save-as switch it
@@ -1296,8 +1296,19 @@ class App:
         root.report_callback_exception = lambda *exc: traceback.print_exception(*exc)
         self.load_or_bootstrap()
         root.after(100, self.fit_view)
+        root.protocol("WM_DELETE_WINDOW", self._confirm_quit)   # this window IS the app - don't quit by reflex
         if not self.classic:           # Taichi is the main window: launch it, tuck this menu away
             root.after(260, self._start_taichi_mode)
+
+    def _confirm_quit(self):
+        """Closing this window quits the whole program (it's the main window in Taichi mode).
+        Confirm first so a reflex click can't drop you out mid-work."""
+        if messagebox.askyesno(
+                "Quit the 3D viewer?",
+                "This is the main window - closing it quits the whole program.\n\n"
+                "Your scene and camera work are already saved. Quit now?",
+                default="no", parent=self.root):
+            self.root.destroy()
 
     def _build_menubar(self):
         """Native menu bar - every toolbar/panel action, grouped. It is the reliable way to reach
@@ -1922,8 +1933,32 @@ class App:
             save_scene(self.scene_path, self.entries)
         except OSError as exc:
             print(f"Could not save {self.scene_path}: {exc}")
+        self._save_scene_director()                       # camera work travels with the scene
         self._note_undo(old)
         self.preview_refresh()                            # Taichi preview open: send it the change
+
+    def _scene_sidecar(self):
+        """<scene>.director.json beside the active scene file - where its camera work lives."""
+        if not self.scene_path:
+            return None
+        return os.path.splitext(self.scene_path)[0] + ".director.json"
+
+    def _save_scene_director(self):
+        """On scene save, keep the Camera Director's shot beside the scene so saving a
+        scene saves its camera work and reopening the scene restores it."""
+        d = self.director
+        if d is not None and d.winfo_exists():
+            side = self._scene_sidecar()
+            if side:
+                d.save_scene_sidecar(side)
+
+    def _load_scene_director(self):
+        """If this scene has camera work saved beside it and the Director is open, load it."""
+        d = self.director
+        if d is not None and d.winfo_exists():
+            side = self._scene_sidecar()
+            if side and os.path.exists(side):
+                d.load_scene_sidecar(side)
 
     def new_scene(self):
         """Start a blank scene in a new timestamped file; the current scene file is left untouched."""
@@ -1952,6 +1987,7 @@ class App:
         for e in self.entries:
             self.rebuild(e)
         self._switch_scene(path)
+        self._load_scene_director()                       # bring this scene's camera work back
         self.refresh()
         self.preview_refresh()
         print(f"Loaded {len(self.entries)} objects from {path} (now the active scene)")
@@ -1969,6 +2005,7 @@ class App:
             messagebox.showerror("Save scene", f"Could not save:\n{path}\n\n{exc}", parent=self.root)
             return
         self._switch_scene(path)
+        self._save_scene_director()                       # camera work follows to the new file
         print(f"Saved {len(self.entries)} objects to {path} (now the active scene)")
 
     # ------------------------------------------------- global undo / redo
@@ -3761,6 +3798,9 @@ class App:
             self.director.lift()
             return
         self.director = director3d.Director(self)
+        side = self._scene_sidecar()    # this scene's own camera work, if it has any
+        if side and os.path.exists(side):
+            self.director.load_scene_sidecar(side)
         self.preview_refresh()          # show the shot's path / handles in the Taichi preview right away
 
     def open_help(self, topic=None):
