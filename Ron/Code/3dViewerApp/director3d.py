@@ -280,6 +280,25 @@ class Director(tk.Toplevel):
         en = ttk.Entry(g, textvariable=self.v_lbri, width=8)
         en.grid(row=2, column=1)
         en.bind("<Return>", lambda _e: self.apply_light())
+        self.v_lshadow = tk.BooleanVar()
+        ttk.Checkbutton(g, text="Shadowless (pure fill)", variable=self.v_lshadow,
+                        command=self.apply_light).grid(row=3, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        self.v_lspot = tk.BooleanVar()
+        ttk.Checkbutton(g, text="Spotlight cone (aims at camera target)", variable=self.v_lspot,
+                        command=self.apply_light).grid(row=4, column=0, columnspan=4, sticky="w")
+        ttk.Label(g, text="Cone  r / soft / tight").grid(row=5, column=0, sticky="w")
+        self.v_lsr = tk.StringVar(value="18")
+        self.v_lsf = tk.StringVar(value="30")
+        self.v_lst = tk.StringVar(value="10")
+        for j, v in enumerate((self.v_lsr, self.v_lsf, self.v_lst)):
+            en = ttk.Entry(g, textvariable=v, width=8)
+            en.grid(row=5, column=1 + j, padx=1)
+            en.bind("<Return>", lambda _e: self.apply_light())
+        ttk.Label(g, text="Fade dist (blank=off)").grid(row=6, column=0, sticky="w")
+        self.v_lfade = tk.StringVar()
+        en = ttk.Entry(g, textvariable=self.v_lfade, width=8)
+        en.grid(row=6, column=1)
+        en.bind("<Return>", lambda _e: self.apply_light())
         ttk.Button(f, text="Apply  [Enter]", command=self.apply_light).pack(anchor="w")
         ttk.Label(f, text="No lights = the viewer's own lighting: a key light plus a\n"
                           "fill light that rides along with the camera (good for tunnels).",
@@ -504,13 +523,17 @@ class Director(tk.Toplevel):
         self.lb_lights.delete(0, "end")
         for i, lt in enumerate(lts):
             p = ", ".join(f"{v:.3g}" for v in lt["position"])
-            self.lb_lights.insert("end", f"{i + 1}. ({p})  {lt['color']}  x{lt['brightness']:.3g}")
+            tags = ("  spot" if lt.get("spot") else "") + ("  fill" if lt.get("shadowless") else "")
+            self.lb_lights.insert("end", f"{i + 1}. ({p})  {lt['color']}  x{lt['brightness']:.3g}{tags}")
         if not lts:
             self.lb_lights.insert("end", "(none - viewer lighting)")
             for v in self.v_lpos:
                 v.set("")
             self.v_lcol.set("")
             self.v_lbri.set("")
+            self.v_lshadow.set(False)
+            self.v_lspot.set(False)
+            self.v_lfade.set("")
             return
         self.light_i = min(self.light_i, len(lts) - 1)
         self.lb_lights.selection_set(self.light_i)
@@ -519,6 +542,12 @@ class Director(tk.Toplevel):
             v.set(f"{val:.4g}")
         self.v_lcol.set(lt["color"])
         self.v_lbri.set(f"{lt['brightness']:.3g}")
+        self.v_lshadow.set(bool(lt.get("shadowless")))
+        self.v_lspot.set(bool(lt.get("spot")))
+        self.v_lsr.set(f"{lt.get('spot_radius', 18):g}")
+        self.v_lsf.set(f"{lt.get('spot_falloff', 30):g}")
+        self.v_lst.set(f"{lt.get('spot_tightness', 10):g}")
+        self.v_lfade.set("" if lt.get("fade") is None else f"{lt['fade']:g}")
 
     def _pick_light(self):
         sel = self.lb_lights.curselection()
@@ -556,6 +585,14 @@ class Director(tk.Toplevel):
             lt["brightness"] = max(0.0, float(self.v_lbri.get()))
             cp.rgb(self.v_lcol.get())
             lt["color"] = self.v_lcol.get()
+            lt["shadowless"] = bool(self.v_lshadow.get())
+            lt["spot"] = bool(self.v_lspot.get())
+            if lt["spot"]:
+                lt["spot_radius"] = max(0.0, float(self.v_lsr.get() or 18))
+                lt["spot_falloff"] = max(0.0, float(self.v_lsf.get() or 30))
+                lt["spot_tightness"] = max(0.0, float(self.v_lst.get() or 10))
+            fd = self.v_lfade.get().strip()
+            lt["fade"] = max(0.0, float(fd)) if fd else None
         except ValueError as exc:
             self.say(f"Light: {exc}", err=True)
             return
@@ -993,12 +1030,25 @@ class Director(tk.Toplevel):
         hang = math.degrees(2 * math.atan(math.tan(math.radians(fr["vfov"]) / 2) * asp))
         return {"eye": eye, "target": tgt, "angle": hang, "aspect": asp, "sky": up}
 
+    def _light_spec(self, lt):
+        """Director shot-light dict -> pov_export light spec (spot / fade / shadowless)."""
+        spec = {"pos": list(lt["position"]), "color": list(cp.rgb(lt["color"])),
+                "intensity": float(lt.get("brightness", 1.0)),
+                "shadowless": bool(lt.get("shadowless")),
+                "fade": lt.get("fade"), "name": "dir"}
+        if lt.get("spot"):
+            spec["spot"] = {"radius": float(lt.get("spot_radius", 18.0)),
+                            "falloff": float(lt.get("spot_falloff", 30.0)),
+                            "tightness": float(lt.get("spot_tightness", 10.0))}
+            aim = lt.get("point_at")
+            if aim is None and self.frames:
+                aim = list(self.frames[self.frame]["lookat"])
+            spec["point_at"] = aim
+        return spec
+
     def lights_text(self, follow_camera=None):
         if self.shot["lights"]:
-            out = []
-            for lt in self.shot["lights"]:
-                r, g, b = (x * lt["brightness"] for x in cp.rgb(lt["color"]))
-                out.append(f"light_source {{ {pov_export.vec(lt['position'])}, color rgb <{r:.4g}, {g:.4g}, {b:.4g}> }}")
+            out = [pov_export.light_block(self._light_spec(lt)) for lt in self.shot["lights"]]
             return "\n".join(out) + "\n"
         cam = self.pov_cam(self.frames[0])
         if follow_camera is None:
@@ -1016,7 +1066,8 @@ class Director(tk.Toplevel):
 
     def frame_text(self, fr):
         return pov_export.scene_pov(self.app.pov_items(), self.pov_cam(fr), self.app.rgb,
-                                    background=app_bg(), lights=self.lights_text())
+                                    background=app_bg(), lights=self.lights_text(),
+                                    render=getattr(self.app, "render_settings", None))
 
     def animation_text(self):
         """One .pov for the whole shot: frame_number picks the camera out of arrays."""
@@ -1024,7 +1075,8 @@ class Director(tk.Toplevel):
         cams = [self.pov_cam(f) for f in self.frames]
         static = pov_export.camera_pov(cams[0])
         text = pov_export.scene_pov(self.app.pov_items(), cams[0], self.app.rgb, background=app_bg(),
-                                    lights=self.lights_text(follow_camera="DIR_Camera[DIR_Index]"))
+                                    lights=self.lights_text(follow_camera="DIR_Camera[DIR_Index]"),
+                                    render=getattr(self.app, "render_settings", None))
         arr = lambda key: ",\n    ".join(pov_export.vec(c[key]) for c in cams)   # noqa: E731
         fovs = ", ".join(f"{f['vfov']:.6g}" for f in self.frames)
         decl = (f"// Camera Director: {self.shot.get('name', 'shot')}, {n} frames\n"

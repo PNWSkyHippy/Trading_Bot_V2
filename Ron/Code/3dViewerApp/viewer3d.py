@@ -41,6 +41,7 @@ import class3d  # noqa: E402
 import pov_export  # noqa: E402
 from lathe3d import Lathe3d, LatheTool  # noqa: E402
 import solids3d  # noqa: E402  prisms, pyramids, polyhedra, ellipsoid, caps, truncated cone
+import mesh_io  # noqa: E402  STL/OBJ export (tessellation reused from solids/lathe/tube)
 import ui_scroll  # noqa: E402  scrollable side panels
 import help3d  # noqa: E402  context help + master help menu (F1)
 
@@ -79,13 +80,15 @@ def timestamped_scene():
     return os.path.join(HERE, "scene3d_" + time.strftime("%Y%m%d-%H%M%S") + ".csv")
 POV_DIR = os.path.join(HERE, "pov")              # renders, image maps, saved .pov files
 POV_FILE = os.path.join(POV_DIR, "scene3d.pov")
+MESH_DIR = os.path.join(HERE, "meshes")          # imported STL/OBJ sidecars (mesh3d objects)
 
 # Rotation types are read from the library, so a new  ___rot  method shows up here.
 ROT_TYPES = sorted((n for n in dir(_Geometry3d)
                     if n.endswith("rot") and callable(getattr(_Geometry3d, n))),
                    key=lambda n: (n == "vecrot", n))
 KINDS = ("point3d", "line3d", "vector3d", "plane3d", "square3d", "cube3d", "sphere3d",
-         "circle3d", "cylinder3d", "cone3d", "curvedcylinder3d", "curvedtorus3d", "lathe3d") + solids3d.KINDS
+         "circle3d", "cylinder3d", "cone3d", "curvedcylinder3d", "curvedtorus3d", "lathe3d",
+         "mesh3d") + solids3d.KINDS
 ALIASES = {"rotatex": "xrot", "rotatey": "yrot", "rotatez": "zrot",
            "rotatevec": "vecrot", "rotate": "vecrot", "translate": "move"}
 GEOM_TYPES = (Point3d, Line3d, Square3d, Cube3d, Sphere3d) + ((Plane3d,) if Plane3d else ()) + ROUND_TYPES + TUBE_TYPES + (Lathe3d,) + solids3d.TYPES
@@ -138,6 +141,8 @@ def cube_faces(cube):
 
 def points_of(obj):
     """Actual Point3d objects (unique) that make up obj."""
+    if isinstance(obj, mesh_io.Mesh3d):
+        return [Point3d(*c) for c in obj.corners()]
     if isinstance(obj, Point3d):
         return [obj]
     if isinstance(obj, Sphere3d):
@@ -186,6 +191,8 @@ def ring(ctr, n, r, k=48):
 
 def color_of(obj):
     """(line/border color, fill color) as stored on the object."""
+    if isinstance(obj, mesh_io.Mesh3d):
+        return obj.bc, obj.fc
     if solids3d.is_solid(obj):
         return solids3d.colors(obj)
     if is_lib_plane(obj):
@@ -360,6 +367,8 @@ def sample_points(obj):
 
 def _sample_points(obj):
     pts = []
+    if isinstance(obj, mesh_io.Mesh3d):
+        return [tuple(c) for c in obj.corners()]
     if isinstance(obj, Sphere3d):
         c, r = center_of(obj), obj.get_radius()
         pts += [tuple(np.add(c, s * r * np.eye(3)[i])) for i in range(3) for s in (-1, 1)]
@@ -562,6 +571,7 @@ class Entry:
         self.csg = None                      # (combine|cut|overlap, target name or @group, whole group is tool)
         self.hollow = None                   # (wall thickness, open end none|top|bottom|both)
         self.layer = ""                      # layer name ("" = the Default layer); show/hide per layer
+        self.mesh_src = ""                   # mesh3d only: sidecar basename under MESH_DIR
         self.obj = None
         self.twin_obj = None
 
@@ -650,11 +660,22 @@ def build(e):
                    name=e.name, normal=normal)
     if e.kind == "lathe3d":
         return Lathe3d.from_nums(n, bc=c1, fc=c2, name=e.name)
+    if e.kind == "mesh3d":
+        src = e.mesh_src or ""
+        path = src if os.path.isabs(src) else os.path.join(MESH_DIR, os.path.basename(src))
+        if not src:
+            raise ValueError("mesh3d has no source file (missing 'mesh,<file>' row)")
+        verts, tris = mesh_io.load_base(path)
+        return mesh_io.Mesh3d(verts, tris, name=e.name, bc=c1, fc=c2, src=os.path.basename(path))
     raise ValueError(f"unknown kind {e.kind}")
 
 
 def entry_from_obj(name, obj):
     """Snapshot a live library object as a scene entry (current geometry)."""
+    if isinstance(obj, mesh_io.Mesh3d):        # imported mesh: geometry lives in its sidecar
+        e = Entry("mesh3d", name, obj.bc or "", obj.fc or "", [])
+        e.mesh_src = obj.src
+        return e
     c1, c2 = (str(c) if c else "" for c in color_of(obj))
     if solids3d.is_solid(obj):         # before is_round: TruncatedCone3d is a Cylinder3d
         return Entry(solids3d.kind_of(obj), name, c1, c2, solids3d.to_nums(obj))
@@ -732,6 +753,8 @@ def load_scene(path):
                     entries[-1].hollow = (float(row[1]), opening if opening in HOLLOW_OPEN else "none")
                 elif entries and kind == "layer":   # layer,<name>  (blank = Default)
                     entries[-1].layer = row[1] if len(row) > 1 else ""
+                elif entries and kind == "mesh":    # mesh,<sidecar file> for a mesh3d object
+                    entries[-1].mesh_src = row[1] if len(row) > 1 else ""
                 elif entries:
                     parse_row(row)             # validate now, report the line number
                     entries[-1].transforms.append(row)
@@ -768,10 +791,13 @@ def save_scene(path, entries):
                 "# csg,<combine|cut|overlap>,<target name or @group>[,group:<name>]: this object (or with\n"
                 "#   group:<name> that whole group) merges with / cuts / intersects the target\n"
                 "# hollow,<wall thickness>,<none|top|bottom|both>: cut out an inner copy, walls that thick\n"
-                "# layer,<name> after an object row puts it on that layer (blank = Default); layers show/hide together\n")
+                "# layer,<name> after an object row puts it on that layer (blank = Default); layers show/hide together\n"
+                "# mesh,<file> after a mesh3d row names its STL/OBJ sidecar (in the meshes/ folder)\n")
         w = csv.writer(f)
         for e in entries:
             w.writerow(e.row())
+            if e.mesh_src:
+                w.writerow(["mesh", e.mesh_src])
             if e.mat:
                 w.writerow(["pov", e.mat, num(e.mat_scale)])
             if e.group:
@@ -1311,6 +1337,9 @@ class App:
              ("Save now", self.save, "Ctrl+S"),
              ("Save scene as…", self.save_scene_as),
              None,
+             ("Import mesh (STL/OBJ)…", self.import_mesh_dialog),
+             ("Export mesh (STL/OBJ)…", self.export_mesh_dialog),
+             None,
              ("Save .pov…", self.save_pov_here),
              ("POV GUI", self.open_pov_gui_here))
 
@@ -1325,6 +1354,7 @@ class App:
 
         menu("Scene",
              ("Add object…", self.add_dialog),
+             ("Prism beam (cast rainbow)", self.prism_beam),
              None,
              ("Run script…", self.ask_run_script),
              ("Replay script", self.replay),
@@ -2326,6 +2356,59 @@ class App:
         ttk.Button(bar, text="Add", command=ok).pack(side=tk.LEFT, padx=4)
         ttk.Button(bar, text="Cancel", command=dlg.destroy).pack(side=tk.LEFT)
         dlg.bind("<Return>", lambda _e: ok())
+
+    def prism_beam(self):
+        """One click: drop a dispersive glass prism + a bright narrow white spotlight aimed
+        through it, with photons switched on, so a real rainbow caustic casts (render with F9).
+        The prism is a plain scene object and the beam a plain light, so move / rotate / recolour
+        them like anything else afterwards.  A triangular (3-side) prism is what splits white light
+        into a spectrum - a box has parallel faces that recombine it, so no rainbow."""
+        if "Prism" not in solids3d.ADD_SPECS:
+            print("Prism beam: the solids library has no Prism - cannot build it")
+            return
+        cam = self.pov_camera()
+        cx, cy, cz = (float(x) for x in cam["target"])     # anchor where the camera is looking
+        # triangular prism, axis along world Y, apex up (+Z)
+        kind, nums = solids3d.add_nums("Prism", {"p": [cx, cy - 1.3, cz], "e": [cx, cy - 1.3, cz + 1.5],
+                                                 "n": [0, 1, 0], "h": 2.6, "s": 3})
+        name = self.unique_name("prism_beam")
+        e = Entry(kind, name, "white", "teal", nums)
+        e.mat = "studio:Prism rainbow"
+        try:
+            self.rebuild(e)
+        except (ValueError, TypeError) as exc:
+            print(f"Prism beam: {exc}")
+            return
+        if e.obj is None:
+            print("Prism beam: could not build the prism")
+            return
+        self.entries.append(e)
+        # a catch surface is what the rainbow lands on; add a floor only if the scene has no plane
+        if not any(x.kind == "plane3d" for x in self.entries):
+            fl = Entry("plane3d", self.unique_name("prism_floor"), "#8a8f98", "",
+                       [cx, cy, cz - 1.3, 0, 0, 1])
+            self.rebuild(fl)
+            if fl.obj is not None:
+                self.entries.append(fl)
+        # bright, narrow white beam grazing in from one side, aimed through the prism; a
+        # shadow-casting light auto-shoots photons when photons are on (see pov_export)
+        lights = self._ensure_lights()
+        lights.append({"pos": [cx - 11, cy, cz + 0.7], "color": [1.0, 1.0, 1.0], "intensity": 2.6,
+                       "spot": {"radius": 1.4, "falloff": 3, "tightness": 14},
+                       "point_at": [cx + 2, cy, cz - 0.3], "name": "prism beam"})
+        # photons focus the split light onto the surface as a caustic; the 20k default is too sparse
+        rs = self.render_settings
+        rs["photons"] = True
+        rs["photons_count"] = max(int(rs.get("photons_count", 0)), 200000)
+        rs["max_trace"] = max(int(rs.get("max_trace", 5)), 8)
+        self.save()
+        self.selected = ("s", e)
+        self.refresh()
+        self._lights_refresh()
+        print(f"Added '{name}' + a 'prism beam' spotlight; photons on (200k, max_trace 8).  "
+              "Render with F9.\n  The rainbow lands on the far side of the prism from the light.  "
+              "Dim the\n  other lights (F5) for a bolder rainbow; move / aim the prism and beam like "
+              "any object.")
 
     # ------------------------------------------------------ properties editor
     def open_props(self):
@@ -3954,6 +4037,10 @@ class App:
                                   "nums": list(np.mean(q, axis=0)) + list(nrm)
                                   + [float(np.linalg.norm(q[1] - q[0]))], **mat})
                     continue
+                if isinstance(obj, mesh_io.Mesh3d):      # geometry rides along, not in nums
+                    items.append({"name": name, "kind": "mesh3d", "c1": c1, "c2": c2, "nums": [],
+                                  "_mesh": (obj.verts, obj.tris), **mat})
+                    continue
                 e = entry_from_obj(name, obj)
                 items.append({"name": name, "kind": e.kind, "c1": e.c1, "c2": e.c2, "nums": e.nums, **mat})
             except Exception as exc:                     # noqa: BLE001 - skip, keep exporting
@@ -4022,6 +4109,130 @@ class App:
         except OSError as exc:
             print(f"Could not start POV-Ray GUI: {exc}")
 
+    def export_mesh(self, path, entries, fmt="stl_binary", scale=1.0):
+        """Write entries to a printable mesh file.  Pure (no GUI) so a headless / MCP caller
+        can build an STL/OBJ too.  fmt: 'stl_binary' | 'stl_ascii' | 'obj'.  Returns
+        (facet_count, skipped list, bbox) where bbox is (min,max) in the file's units (mm)."""
+        groups, skipped = mesh_io.collect(entries, scale=scale)
+        if not groups:
+            raise ValueError("nothing printable to export (only points/lines/planes, or empty)")
+        if fmt == "obj":
+            n = mesh_io.write_obj(path, groups)
+        else:
+            n = mesh_io.write_stl(path, groups, binary=(fmt != "stl_ascii"),
+                                  name=os.path.splitext(os.path.basename(path))[0])
+        return n, skipped, mesh_io.bbox(groups)
+
+    def export_mesh_dialog(self):
+        """Pick scope / format / scale, then save an STL or OBJ for 3D printing."""
+        sel = self._selected_entries()
+        win = tk.Toplevel(self.root)
+        win.title("Export mesh (STL / OBJ)")
+        win.transient(self.root)
+        frm = ttk.Frame(win, padding=12)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        scope = tk.StringVar(value="selected" if sel else "scene")
+        ttk.Label(frm, text="Export:").grid(row=0, column=0, sticky="w")
+        ttk.Radiobutton(frm, text=f"Selected ({len(sel)})", variable=scope, value="selected",
+                        state=("normal" if sel else "disabled")).grid(row=0, column=1, sticky="w")
+        ttk.Radiobutton(frm, text=f"Whole scene ({len(self.entries)})", variable=scope,
+                        value="scene").grid(row=1, column=1, sticky="w")
+
+        fmt = tk.StringVar(value="stl_binary")
+        ttk.Label(frm, text="Format:").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        for i, (lbl, val) in enumerate((("STL (binary)", "stl_binary"),
+                                        ("STL (ASCII)", "stl_ascii"),
+                                        ("OBJ", "obj"))):
+            ttk.Radiobutton(frm, text=lbl, variable=fmt, value=val).grid(
+                row=2 + i, column=1, sticky="w", pady=(8 if i == 0 else 0, 0))
+
+        ttk.Label(frm, text="Scale (units→mm):").grid(row=6, column=0, sticky="w", pady=(8, 0))
+        v_scale = tk.StringVar(value="1")
+        ttk.Entry(frm, textvariable=v_scale, width=8).grid(row=6, column=1, sticky="w", pady=(8, 0))
+        ttk.Label(frm, text="1 viewer unit = this many mm in the slicer",
+                  foreground="#888").grid(row=7, column=1, sticky="w")
+
+        def go():
+            try:
+                scale = float(v_scale.get())
+            except ValueError:
+                messagebox.showerror("Export mesh", "Scale must be a number.", parent=win)
+                return
+            entries = sel if scope.get() == "selected" else self.entries
+            ext = ".obj" if fmt.get() == "obj" else ".stl"
+            ftypes = [("Wavefront OBJ", "*.obj")] if fmt.get() == "obj" else [("STL mesh", "*.stl")]
+            path = filedialog.asksaveasfilename(parent=win, initialdir=HERE,
+                                                title="Save mesh for printing", defaultextension=ext,
+                                                filetypes=ftypes)
+            if not path:
+                return
+            try:
+                n, skipped, bb = self.export_mesh(path, entries, fmt.get(), scale)
+            except (ValueError, OSError) as exc:
+                messagebox.showerror("Export mesh", str(exc), parent=win)
+                return
+            win.destroy()
+            size = None if bb is None else (bb[1] - bb[0])
+            dims = "" if size is None else f"  size {size[0]:.1f} x {size[1]:.1f} x {size[2]:.1f} mm"
+            print(f"Exported {n} triangles -> {path}{dims}")
+            if skipped:
+                print("  skipped (not a printable solid): "
+                      + ", ".join(f"{nm} [{why}]" for nm, why in skipped))
+
+        btns = ttk.Frame(frm)
+        btns.grid(row=8, column=0, columnspan=2, pady=(12, 0), sticky="e")
+        ttk.Button(btns, text="Cancel", command=win.destroy).pack(side=tk.RIGHT, padx=4)
+        ttk.Button(btns, text="Export…", command=go).pack(side=tk.RIGHT)
+        win.bind("<Return>", lambda _e: go())
+        win.bind("<Escape>", lambda _e: win.destroy())
+        self._to_front(win)
+
+    def import_mesh(self, path, name=None, scale=1.0):
+        """Read an STL/OBJ off disk, copy it into the meshes/ folder, and return a new
+        mesh3d Entry (not yet appended).  Pure (no GUI) so a headless / MCP caller can add a
+        model too.  scale != 1 adds a scale transform (file units -> viewer units).
+        Raises ValueError/OSError on an unreadable or empty file."""
+        mesh_io.read_mesh(path)                          # validate before copying anything
+        os.makedirs(MESH_DIR, exist_ok=True)
+        base = os.path.splitext(os.path.basename(path))[0] or "mesh"
+        ext = os.path.splitext(path)[1].lower() or ".stl"
+        dest_name = f"{base}_{time.strftime('%Y%m%d-%H%M%S')}{ext}"
+        shutil.copyfile(path, os.path.join(MESH_DIR, dest_name))
+        e = Entry("mesh3d", self.unique_name(name or base), "white", "teal", [])
+        e.mesh_src = dest_name
+        if scale and abs(scale - 1.0) > 1e-12:
+            e.transforms.append(["scale", num(scale)])
+        return e
+
+    def import_mesh_dialog(self):
+        """Pick an STL/OBJ file and drop it into the scene as a mesh3d object."""
+        path = filedialog.askopenfilename(
+            parent=self.root, initialdir=MESH_DIR if os.path.isdir(MESH_DIR) else HERE,
+            title="Import a 3D mesh (STL / OBJ)",
+            filetypes=[("Mesh files", "*.stl *.obj"), ("STL mesh", "*.stl"),
+                       ("Wavefront OBJ", "*.obj"), ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            e = self.import_mesh(path)
+            self.rebuild(e)
+        except (ValueError, OSError) as exc:
+            messagebox.showerror("Import mesh", str(exc), parent=self.root)
+            return
+        if e.obj is None:
+            messagebox.showerror("Import mesh", "Could not build the mesh.", parent=self.root)
+            return
+        self.entries.append(e)
+        self.save()
+        self.selected = ("s", e)
+        self.refresh()
+        lo, hi = e.obj._bbox()
+        size = hi - lo
+        print(f"Imported '{e.name}' ({len(e.obj.tris)} triangles, {len(e.obj.verts)} verts) "
+              f"from {os.path.basename(path)}\n  size {size[0]:.2f} x {size[1]:.2f} x {size[2]:.2f} "
+              "viewer units; move / rotate / scale it like any object, and Export mesh to re-save it.")
+
     def _render_set_cmd(self, args):
         """Apply one Lighting change coming from the Taichi menu: CMD rset <field> <value>.
         Keeps self.render_settings and (if open) the Tk Lighting dialog in sync."""
@@ -4043,6 +4254,25 @@ class App:
                 rs["max_trace"] = max(1, min(50, int(float(val))))
             except ValueError:
                 pass
+        elif field == "fog":
+            rs["fog"] = (val == "1" or val.lower() == "true")
+        elif field == "fog_type" and val in ("ground", "distance"):
+            rs["fog_type"] = val
+        elif field == "fog_distance":
+            try:
+                rs["fog_distance"] = max(0.1, float(val))
+            except ValueError:
+                pass
+        elif field == "fog_height":
+            try:
+                rs["fog_height"] = max(0.01, float(val))
+            except ValueError:
+                pass
+        elif field == "fog_turbulence":
+            try:
+                rs["fog_turbulence"] = max(0.0, float(val))
+            except ValueError:
+                pass
         elif field == "render":
             self.render_pov_here()
         bits = []
@@ -4050,6 +4280,8 @@ class App:
             bits.append(f"radiosity {rs['radiosity_quality']}")
         if rs["photons"]:
             bits.append(f"photons {rs['photons_count']:,}")
+        if rs.get("fog"):
+            bits.append(f"fog {rs['fog_type']} d{rs['fog_distance']:g}")
         print("Lighting: " + (", ".join(bits) if bits else "direct only") +
               f", max_trace {rs['max_trace']}")
         syncer = getattr(self, "_render_dialog_sync", None)   # refresh the Tk dialog if it's open
@@ -4080,6 +4312,12 @@ class App:
         v_pho = tk.BooleanVar(value=bool(rs["photons"]))
         v_phoc = tk.StringVar(value=str(int(rs["photons_count"])))
         v_trace = tk.StringVar(value=str(int(rs["max_trace"])))
+        v_fog = tk.BooleanVar(value=bool(rs["fog"]))
+        v_fogt = tk.StringVar(value=rs["fog_type"])
+        v_fogd = tk.StringVar(value=f"{float(rs['fog_distance']):g}")
+        v_fogh = tk.StringVar(value=f"{float(rs['fog_height']):g}")
+        v_fogb = tk.StringVar(value=f"{float(rs['fog_turbulence']):g}")
+        v_fogc = tk.StringVar(value=str(rs["fog_color"]))
 
         def apply(*_a):
             try:
@@ -4092,13 +4330,28 @@ class App:
             except ValueError:
                 tr = int(rs["max_trace"])
             v_trace.set(str(tr))
+            def _pf(var, lo, hi, cur):               # parse a float field, clamp, write back
+                try:
+                    v = max(lo, min(hi, float(var.get())))
+                except ValueError:
+                    v = float(cur)
+                var.set(f"{v:g}")
+                return v
+            fd = _pf(v_fogd, 0.1, 1e6, rs["fog_distance"])
+            fh = _pf(v_fogh, 0.01, 1e6, rs["fog_height"])
+            fb = _pf(v_fogb, 0.0, 10.0, rs["fog_turbulence"])
             rs.update(radiosity=bool(v_rad.get()), radiosity_quality=v_radq.get(),
-                      photons=bool(v_pho.get()), photons_count=cnt, max_trace=tr)
+                      photons=bool(v_pho.get()), photons_count=cnt, max_trace=tr,
+                      fog=bool(v_fog.get()), fog_type=v_fogt.get(),
+                      fog_distance=fd, fog_height=fh, fog_turbulence=fb,
+                      fog_color=(v_fogc.get().strip() or "#aeb4bf"))
             bits = []
             if rs["radiosity"]:
                 bits.append(f"radiosity {rs['radiosity_quality']}")
             if rs["photons"]:
                 bits.append(f"photons {rs['photons_count']:,}")
+            if rs["fog"]:
+                bits.append(f"fog {rs['fog_type']} (d{rs['fog_distance']:g})")
             bits.append(f"max_trace {rs['max_trace']}")
             lbl_state.configure(text="Active: " + ", ".join(bits))
 
@@ -4108,6 +4361,12 @@ class App:
             v_pho.set(bool(rs["photons"]))
             v_phoc.set(str(int(rs["photons_count"])))
             v_trace.set(str(int(rs["max_trace"])))
+            v_fog.set(bool(rs["fog"]))
+            v_fogt.set(rs["fog_type"])
+            v_fogd.set(f"{float(rs['fog_distance']):g}")
+            v_fogh.set(f"{float(rs['fog_height']):g}")
+            v_fogb.set(f"{float(rs['fog_turbulence']):g}")
+            v_fogc.set(str(rs["fog_color"]))
             apply()
 
         def close():
@@ -4151,10 +4410,35 @@ class App:
         tcb.bind("<Return>", apply)
         v_trace.trace_add("write", lambda *_a: None)
 
+        # --- fog / atmosphere (Phase 3) --------------------------------------
+        fg = ttk.LabelFrame(win, text="Fog / atmosphere  -  haze & ground mist", padding=6)
+        fg.pack(fill=tk.X, pady=3)
+        ttk.Checkbutton(fg, text="Enable fog (shows in render, not the live preview)",
+                        variable=v_fog, command=apply).grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(fg, text="Type").grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ttk.Combobox(fg, textvariable=v_fogt, values=("ground", "distance"), width=9,
+                     state="readonly").grid(row=1, column=1, sticky="w", pady=(4, 0))
+        v_fogt.trace_add("write", apply)
+        for rr, (lab, var, vals) in enumerate((
+                ("Distance (smaller = thicker)", v_fogd, ("6", "12", "18", "30", "60")),
+                ("Mist height (ground type)", v_fogh, ("1", "2", "3", "5", "8")),
+                ("Turbulence (wispiness)", v_fogb, ("0", "0.1", "0.15", "0.3", "0.5"))), start=2):
+            ttk.Label(fg, text=lab).grid(row=rr, column=0, sticky="w", pady=(4, 0))
+            cb_f = ttk.Combobox(fg, textvariable=var, values=vals, width=9)
+            cb_f.grid(row=rr, column=1, sticky="w", pady=(4, 0))
+            cb_f.bind("<FocusOut>", apply)
+            cb_f.bind("<Return>", apply)
+        ttk.Label(fg, text="Colour (hex)").grid(row=5, column=0, sticky="w", pady=(4, 0))
+        ce_f = ttk.Entry(fg, textvariable=v_fogc, width=11)
+        ce_f.grid(row=5, column=1, sticky="w", pady=(4, 0))
+        ce_f.bind("<FocusOut>", apply)
+        ce_f.bind("<Return>", apply)
+
         lbl_state = ttk.Label(win, text="", foreground="#1a6")
         lbl_state.pack(anchor="w", pady=(4, 2))
-        ttk.Label(win, text="Tip: both passes add render time. Turn them on for the final beauty\n"
-                            "render; leave off for quick Draft previews.",
+        ttk.Label(win, text="Tip: these passes add render time. Turn them on for the final beauty\n"
+                            "render; leave off for quick Draft previews.  Ground fog hugs the floor;\n"
+                            "distance fog is a uniform haze that fades far objects out.",
                   foreground="#777", justify="left").pack(anchor="w")
 
         bb = ttk.Frame(win)
@@ -4544,8 +4828,12 @@ class App:
             if png is None:
                 print("POV-Ray failed:\n" + log, file=sys.stderr)
                 return
-            final = os.path.join(POV_DIR, "render.png")
-            os.replace(png, final)
+            final = os.path.join(POV_DIR, "render_" + time.strftime("%Y%m%d-%H%M%S") + ".png")
+            os.replace(png, final)               # a unique keeper per render - nothing gets clobbered
+            try:                                 # also refresh a stable "render.png" = most recent
+                shutil.copyfile(final, os.path.join(POV_DIR, "render.png"))
+            except OSError:
+                pass
             self.show_render(final)
             print(f"POV-Ray: done -> {final}")
         poll()
@@ -4554,15 +4842,66 @@ class App:
         win = getattr(self, "_render_win", None)
         if win is None or not win.winfo_exists():
             win = tk.Toplevel(self.root)
-            win.title("POV-Ray render")
             win.configure(bg="#111317")
+            bar = tk.Frame(win, bg="#111317")                # a toolbar: where it is + save / reveal
+            bar.pack(fill=tk.X)
+            tk.Button(bar, text="Save as…", command=self._save_render_copy).pack(side=tk.RIGHT, padx=3, pady=3)
+            tk.Button(bar, text="Open folder", command=lambda: self._reveal(self._render_png)
+                      ).pack(side=tk.RIGHT, pady=3)
+            self._render_path_var = tk.StringVar()
+            tk.Label(bar, textvariable=self._render_path_var, bg="#111317", fg="#cdd3da",
+                     anchor="w").pack(side=tk.LEFT, padx=6, pady=3)
             self._render_lbl = tk.Label(win, bg="#111317")
             self._render_lbl.pack(fill=tk.BOTH, expand=True)
             win.bind("<F9>", lambda _e: self.render_pov())
             self._render_win = win
+        self._render_png = png
+        win.title("POV-Ray render - " + os.path.basename(png))
+        self._render_path_var.set(png)
         self._render_img = tk.PhotoImage(file=png)          # keep a reference or Tk drops it
         self._render_lbl.configure(image=self._render_img)
+        # Taichi's GGUI preview is a separate OS window that sits on top; a plain lift() leaves a
+        # freshly rendered image hidden behind it (file on disk, nothing on screen - exactly what
+        # you get after closing the window, moving in Taichi, and hitting C again).  Pulse topmost
+        # to pull it to the front across processes, then release so it doesn't pin over everything.
+        win.deiconify()
         win.lift()
+        win.attributes("-topmost", True)
+        win.update_idletasks()
+        win.after(250, lambda w=win: w.winfo_exists() and w.attributes("-topmost", False))
+
+    def _save_render_copy(self):
+        """Save the shown render under a name you pick (the render itself stays in pov/)."""
+        src = getattr(self, "_render_png", None)
+        if not src or not os.path.exists(src):
+            print("Save a copy: nothing rendered yet")
+            return
+        path = filedialog.asksaveasfilename(parent=self.root, initialdir=POV_DIR,
+                                            initialfile=os.path.basename(src), defaultextension=".png",
+                                            filetypes=[("PNG image", "*.png"), ("All files", "*.*")])
+        if path:
+            try:
+                shutil.copyfile(src, path)
+                print(f"Saved render copy -> {path}")
+            except OSError as exc:
+                print(f"Save a copy failed: {exc}")
+
+    def _reveal(self, path):
+        """Open the folder holding `path` in the OS file browser, selecting the file where possible."""
+        path = path or POV_DIR
+        folder = path if os.path.isdir(path) else os.path.dirname(path)
+        try:
+            if os.name == "nt":
+                if os.path.isfile(path):
+                    subprocess.run(["explorer", "/select,", os.path.normpath(path)])
+                else:
+                    os.startfile(folder)                     # noqa  (Windows only)
+            elif sys.platform == "darwin":
+                subprocess.run(["open", "-R", path] if os.path.isfile(path) else ["open", folder])
+            else:
+                subprocess.run(["xdg-open", folder])
+        except Exception as exc:                             # noqa: BLE001 - just report it
+            print(f"Open folder: {exc}  ({folder})")
 
     def _director_overlay(self, seg, col, path):
         """Draw the Camera Director as 3D markers in the preview (parity with the old viewer's
@@ -4716,7 +5055,11 @@ class App:
             cur[:] = [index[iid] if iid is not None else -1, _sel]
             try:
                 bc, fc = color_of(obj)
-                if isinstance(obj, Sphere3d):
+                if isinstance(obj, mesh_io.Mesh3d):
+                    P = obj.verts[np.asarray(obj.tris, np.intp)] if obj.tris else np.zeros((0, 3, 3))
+                    if len(P):
+                        add(P, flat(P, obj.verts.mean(axis=0)), col(fc, bc))
+                elif isinstance(obj, Sphere3d):
                     c, r = np.array(center_of(obj)), float(obj.get_radius())
                     th = np.linspace(0, math.pi, 13)[:, None]
                     ph = np.linspace(0, 2 * math.pi, 25)[None, :]
@@ -4862,6 +5205,11 @@ class App:
                 "rs_photons": bool(self.render_settings["photons"]),
                 "rs_photons_count": int(self.render_settings["photons_count"]),
                 "rs_max_trace": int(self.render_settings["max_trace"]),
+                "rs_fog": bool(self.render_settings["fog"]),
+                "rs_fog_type": str(self.render_settings["fog_type"]),
+                "rs_fog_distance": float(self.render_settings["fog_distance"]),
+                "rs_fog_height": float(self.render_settings["fog_height"]),
+                "rs_fog_turbulence": float(self.render_settings["fog_turbulence"]),
                 "lights_auto": bool(self.lights is None),
                 "lights_name": np.array([pov_export._light(s)["name"] for s in _lt] or [""], dtype=str),
                 "lights_int": np.array([float(pov_export._light(s)["intensity"]) for s in _lt]
@@ -5213,6 +5561,8 @@ class App:
             self._director_cmd(cmd[4:], args)
         else:
             fn = {"props": self.open_props, "lathe": self.open_lathe, "director": self.open_director,
+                  "prism": self.prism_beam, "exportmesh": self.export_mesh_dialog,
+                  "importmesh": self.import_mesh_dialog,
                   "render": self.render_pov, "select_all": self.select_all,
                   "select_none": self.select_none, "untag": self.untag_group,
                   "undo_tf": self.undo_tf, "run_script": self.ask_run_script,
@@ -5552,6 +5902,9 @@ class App:
             if pg:
                 fills.append((pg[0], pg[1], fill))
 
+        if isinstance(obj, mesh_io.Mesh3d):
+            self.collect_mesh(obj, sel, fills, lines, dots)
+            return
         if isinstance(obj, Sphere3d):
             ctr, r = center_of(obj), float(obj.get_radius())
             color = self.safe(obj.get_color(), DEFAULT_LINE)
@@ -5837,6 +6190,56 @@ class App:
             s = self.seg2d(a, b)
             if s:
                 lines.append((s[0], s[1], bcol if strong else dim, width if strong else 1, None, None))
+        dots.append((center_of(obj), bcol, sel))
+
+    def collect_mesh(self, obj, sel, fills, lines, dots):
+        """Imported STL/OBJ mesh: shade the triangles facing the camera, outline the
+        silhouette (an edge where a front face meets a back face or the mesh boundary).
+        Very large meshes skip the outline and show the bounding box instead."""
+        bc, fc = color_of(obj)
+        bcol = self.safe(bc, DEFAULT_LINE)
+        base = fc if self.rgb(fc or "") else bcol
+        dim = self.blend(bcol, 0.35)
+        width = 3.2 if sel else 1.6
+        verts, tris = obj.verts, obj.tris
+        eye = self.eye()
+        facing = []
+        for i, j, k in tris:
+            a, b, c = verts[i], verts[j], verts[k]
+            nrm = np.cross(b - a, c - a)
+            ln = np.linalg.norm(nrm)
+            if ln < 1e-12:
+                facing.append(0.0)
+                continue
+            to_eye = eye - (a + b + c) / 3.0
+            facing.append(float(nrm / ln @ to_eye) / (np.linalg.norm(to_eye) + 1e-12))
+        for t, (i, j, k) in enumerate(tris):
+            f = facing[t]
+            if f <= 0:
+                continue
+            pg = self.poly2d([verts[i], verts[j], verts[k]])
+            if pg:
+                fills.append((pg[0], pg[1], self.blend(base, 0.15 + 0.55 * min(f * 1.2, 1.0))))
+        if len(tris) <= 40000:                  # true silhouette: front-vs-back shared edges
+            side = {}
+            for t, (i, j, k) in enumerate(tris):
+                front = facing[t] > 0
+                for a, b in ((i, j), (j, k), (k, i)):
+                    side.setdefault((a, b) if a < b else (b, a), []).append(front)
+            for (a, b), fs in side.items():
+                if any(fs) and (len(fs) == 1 or not all(fs)):
+                    s = self.seg2d(verts[a], verts[b])
+                    if s:
+                        lines.append((s[0], s[1], bcol, width, None, None))
+        else:
+            C = obj.corners()
+            for p in range(8):
+                for bit in (1, 2, 4):
+                    q = p ^ bit
+                    if p < q:
+                        s = self.seg2d(C[p], C[q])
+                        if s:
+                            lines.append((s[0], s[1], dim, 1, None, None))
         dots.append((center_of(obj), bcol, sel))
 
     # ------------------------------------------------- infinite plane drawing

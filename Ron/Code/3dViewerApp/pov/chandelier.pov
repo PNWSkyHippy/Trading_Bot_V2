@@ -28,10 +28,10 @@ global_settings {
 // a little below the fitting, looking up; mild focal blur for depth
 camera {
     perspective
-    location  <0.0, 2.2, -9.2>
-    look_at   <0.0, 2.9, 0.0>
-    angle 46
-    aperture 0.14 focal_point <0.0, 3.2, 0.0> blur_samples 24
+    location  <0.0, 3.6, -11.5>
+    look_at   <0.0, 4.7, 0.0>
+    angle 44
+    aperture 0.11 focal_point <0.0, 4.6, 0.0> blur_samples 10 confidence 0.9 variance 1/64
 }
 
 // ---------------------------------------------------------------- room
@@ -98,22 +98,26 @@ plane { z, 14 texture { pigment { color rgb <0.28,0.22,0.17> } finish { diffuse 
         cylinder { <0,1.05,0>, <0,1.14,0>, 0.012 pigment { color rgb <0.05,0.04,0.03> } }
         // flame body - emissive, teardrop from two cones + media glow
         union {
-            cone { <0,1.10,0>, 0.055, <0,1.26,0>, 0.085 }
-            cone { <0,1.26,0>, 0.085, <0,1.62,0>, 0.0 }
-            pigment { color rgb <1.0, 0.72, 0.28> }
-            finish  { emission 2.6 diffuse 0 ambient 0 }
+            cone { <0,1.09,0>, 0.065, <0,1.28,0>, 0.095 }
+            cone { <0,1.28,0>, 0.095, <0,1.70,0>, 0.0 }
+            pigment { color rgb <1.0, 0.68, 0.24> }
+            finish  { emission 6.0 diffuse 0 ambient 0 }
             hollow
-            interior { media { emission <1.1, 0.55, 0.12>*6
+            interior { media { emission <1.3, 0.6, 0.15>*14
                                scattering { 1, <0.5,0.3,0.1> } } }
         }
         // inner blue-white hot core
-        sphere { <0,1.20,0>, 0.03
-                 pigment { color rgb <0.7,0.8,1.0> } finish { emission 4 } }
+        sphere { <0,1.22,0>, 0.045
+                 pigment { color rgb <0.75,0.82,1.0> } finish { emission 9 } }
+        // soft glow halo so the flame blooms into the haze
+        sphere { <0,1.30,0>, 0.22 hollow
+                 pigment { rgbt 1 }
+                 interior { media { emission <1.0,0.55,0.18>*2.2 } } }
         translate <2.28, 0.78, 0>            // sit on the arm tip
     }
     // the light this candle casts - warm, soft, falls off
     light_source {
-        <0, 1.25, 0> color rgb <1.0, 0.68, 0.34> * 2.6
+        <0, 1.25, 0> color rgb <1.0, 0.68, 0.34> * 3.2
         area_light x*0.14, z*0.14, 3, 3 adaptive 1 jitter circular orient
         fade_distance 3.2 fade_power 2
         translate <2.28, 0.78, 0>

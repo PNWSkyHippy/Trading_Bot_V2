@@ -88,6 +88,11 @@ STUDIO = {
     "Prism glass": "texture { pigment { color rgbf <0.98, 0.98, 1, 0.95> }\n"
                    "    finish { ambient 0 diffuse 0.05 reflection 0.1 specular 0.9 roughness 0.005 } }\n"
                    "interior { ior 1.6 dispersion 1.15 dispersion_samples 24 }",
+    # Strong dispersion for a CAST rainbow (caustic on floor/wall).  Needs photons ON (F6),
+    # a non-parallel-faced shape (a 3-sided prism3d, not a box), and a bright narrow spot.
+    "Prism rainbow": "texture { pigment { color rgbf <0.98, 0.98, 1, 0.97> }\n"
+                     "    finish { ambient 0 diffuse 0.02 reflection 0.06 specular 0.7 roughness 0.004 } }\n"
+                     "interior { ior 1.52 dispersion 1.45 dispersion_samples 36 }",
     # Volumes.  The object becomes a see-through container (hollow) filled with media.
     # {fade} thins it out toward the object's edge, {inv} = 1 / object size so a big
     # cloud is not brighter than a small one.
@@ -338,6 +343,17 @@ def shape_pov(item, rgb_of, includes=None):
         import lathe3d
         head, body, frame = lathe3d.pov_shape(v, vec, _n)
         return put(head, body, frame) if frame is not None else put(head, body)
+    if k == "mesh3d":                   # imported STL/OBJ -> POV mesh2 (triangles carried in _mesh)
+        mesh = item.get("_mesh")
+        if not mesh or len(mesh[1]) == 0:
+            return f"//{item.get('name', '')}: mesh3d has no geometry\n"
+        verts, tris = mesh
+        vv = ",\n        ".join(vec(x) for x in verts)
+        ff = ",\n        ".join(f"<{int(a)}, {int(b)}, {int(c)}>" for a, b, c in tris)
+        body = (f"vertex_vectors {{\n        {len(verts)},\n        {vv}\n    }}\n"
+                f"    face_indices {{\n        {len(tris)},\n        {ff}\n    }}\n"
+                f"    inside_vector <0.31, 0.59, 0.74>")
+        return put("mesh2", body)
     import solids3d
     if k in solids3d.KINDS:             # prisms/polyhedra = mesh, cone/ellipsoid/cap = true shapes
         head, body, frame, kw = solids3d.pov_shape(k, v, vec, _n)
@@ -536,6 +552,9 @@ DEFAULT_RENDER = {
     "radiosity": False, "radiosity_quality": "medium",
     "photons": False, "photons_count": 20000,
     "max_trace": 5, "ambient_light": None,
+    # fog / atmosphere (Phase 3): "ground" = low mist layer, "distance" = uniform haze
+    "fog": False, "fog_type": "ground", "fog_color": "#aeb4bf",
+    "fog_distance": 18.0, "fog_height": 3.0, "fog_turbulence": 0.15,
 }
 
 
@@ -555,6 +574,32 @@ def global_settings_pov(render=None):
         q = RADIOSITY.get(r.get("radiosity_quality"), RADIOSITY["medium"])
         lines.append("    radiosity {\n        brightness 1\n        " + q + "\n    }")
     return "global_settings {\n" + "\n".join(lines) + "\n}"
+
+
+def fog_pov(render, rgb_of):
+    """Atmospheric fog (Phase 3).  'distance' = uniform haze that swallows far objects;
+    'ground' = a low-lying mist layer that thins with altitude (y is up).  Smaller distance
+    means thicker fog.  turbulence > 0 breaks a flat mist into drifting wisps.  Returns "" when
+    fog is off.  POV-only: it shows in the render, not the fast GL / Tk preview."""
+    r = _render(render)
+    if not r.get("fog"):
+        return ""
+    col = rgb_of(r.get("fog_color") or "#aeb4bf") or (174, 180, 191)
+    c = tuple(_n(x / 255.0) for x in col)
+    dist = max(0.1, float(r.get("fog_distance", 18.0)))
+    turb = max(0.0, float(r.get("fog_turbulence", 0.0)))
+    lines = ["fog {"]
+    if r.get("fog_type") == "ground":
+        alt = max(0.01, float(r.get("fog_height", 3.0)))
+        lines += ["    fog_type 2", "    fog_offset 0",
+                  f"    fog_alt {_n(alt)}", "    up <0, 1, 0>"]
+    else:
+        lines += ["    fog_type 1"]
+    lines += [f"    distance {_n(dist)}", "    color rgb <%s, %s, %s>" % c]
+    if turb > 0:
+        lines.append(f"    turbulence {_n(turb)}")
+    lines.append("}")
+    return "\n".join(lines)
 
 
 def _reflective(text):
@@ -610,6 +655,7 @@ def scene_pov(items, cam, rgb_of, background="#1b1d22", lights=None, extra="",
            '#include "textures.inc"',
            global_settings_pov(r),
            "background { color rgb <%s, %s, %s> }" % tuple(_n(x / 255.0) for x in bg),
+           *([fog_pov(r, rgb_of)] if r.get("fog") else []),
            "", camera_pov(cam), lt]
     includes = set()
     shapes = combine([shape_pov(it, rgb_of, includes) for it in items], items)

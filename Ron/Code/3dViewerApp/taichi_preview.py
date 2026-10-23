@@ -8,6 +8,7 @@ Plain colors only - no image textures, CSG cuts or hollows (POV-Ray render has t
     arrow keys   look around          Shift     faster      R       back to the viewer's camera
     left-drag on empty space: orbit   middle-drag or Ctrl+left-drag on empty space: pan
     F            fly to what's selected                     Tab     menu on / off (right side)
+    C            render a POV-Ray still from exactly this view (freezes the path first if it's playing)
     left-click   select it in the viewer's tree (Shift adds); selected objects show lighter
     left-drag    do the current tool to it (and its group); on release the viewer does it as a
                  transform (saved + listed, like Move by / Rotate / Scale)
@@ -275,6 +276,13 @@ def main():
         send("CMD cam %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %.6f" % (
             e[0], e[1], e[2], l[0], l[1], l[2], u[0], u[1], u[2], fov[0], w / max(h, 1)))
 
+    def snapshot_here():
+        """Freeze wherever the camera is right now - stop any camera-path playback or fly-to so the
+        frame holds - and render a POV-Ray still from exactly this eye / aim / fov."""
+        play[0] = fly[0] = None
+        send_cam()
+        send("CMD render")
+
     def set_fov(f):
         fov[0] = float(f)
         cam.fov(fov[0])
@@ -503,6 +511,8 @@ def main():
         if g.button("Swap to text menu  (hide this, raise viewer window)"):
             menu["show"] = False                 # 3D view clears; the Tk text menu comes to the front
             send("CMD viewer")                   # (bring it back with the Menu button, top-right, or Tab)
+        if g.button("Render snapshot from here  (C)" + ("  - stops the path" if play[0] is not None else "")):
+            snapshot_here()                       # freeze this exact view (even mid-playback) and render it
         l_name, l_sel = data.get("list_name", []), data.get("list_sel", [])
         chosen = [str(n) for n, s in zip(l_name, l_sel) if s]
         if section("selected", "Selected: " + (chosen[0] + (f" +{len(chosen) - 1}" if len(chosen) > 1 else "")
@@ -556,6 +566,8 @@ def main():
             for i, kind in enumerate(data.get("add_kinds", [])):
                 if g.button(f"{kind}...##add{i}"):
                     send(f"CMD add {i}")
+            if g.button("Prism beam (cast rainbow)##prism"):
+                send("CMD prism")
         if section("view", "View"):
             if g.button("Fly to selected  (F)"):
                 box = selected_box()
@@ -639,15 +651,18 @@ def main():
                 send("CMD open_scene")
             if g.button("Save scene as...  (.csv)"):
                 send("CMD save_scene_as")
+            if g.button("Import mesh...  (STL / OBJ)"):
+                send("CMD importmesh")
+            if g.button("Export mesh for printing...  (STL / OBJ)"):
+                send("CMD exportmesh")
             g.text("edits autosave to scene3d.csv")
         if section("pov", "POV-Ray render"):
             if g.button(f"Quality: {data.get('pov_q', 'Draft')}  (click to switch)"):
                 send("CMD pov_q")
             if g.button(f"Size: {data.get('pov_w', '640')} px..."):
                 send("CMD pov_w")
-            if g.button("Render now  (F9)"):
-                send_cam()
-                send("CMD render")
+            if g.button("Render now - from this view  (C)"):
+                snapshot_here()
             if g.button("Save .pov file..."):
                 send_cam()
                 send("CMD save_pov")
@@ -676,6 +691,18 @@ def main():
                 steps = [5, 8, 10, 12, 15, 20, 30]
                 nxt = steps[(steps.index(mt) + 1) % len(steps)] if mt in steps else 10
                 send(f"CMD rset max_trace {nxt}")
+            fog = bool(data.get("rs_fog", False))
+            if g.checkbox("Fog / mist  (atmosphere)", fog) != fog:
+                send(f"CMD rset fog {0 if fog else 1}")
+            ftp = str(data.get("rs_fog_type", "ground"))
+            if g.button(f"  fog type: {ftp}  (click to toggle)"):
+                send(f"CMD rset fog_type {'distance' if ftp == 'ground' else 'ground'}")
+            fds = float(data.get("rs_fog_distance", 18.0))
+            if g.button(f"  fog distance: {fds:g}  (click to cycle)"):
+                opts = [6, 12, 18, 30, 60]
+                i = min(range(len(opts)), key=lambda k: abs(opts[k] - fds))
+                send(f"CMD rset fog_distance {opts[(i + 1) % len(opts)]}")
+            g.text("fog height / turbulence / colour: full panel (F6)")
             g.text("on = richer light, slower render. Off for quick Draft previews.")
             if g.button("Render now with these  (F9)"):
                 send_cam()
@@ -807,6 +834,8 @@ def main():
             elif e.key == "r" and data is not None:
                 play[0] = fly[0] = None
                 to_view(data)
+            elif e.key == "c":                            # render a still from exactly this view
+                snapshot_here()                           #   (freezes the path first if it's playing)
             elif e.key == "f" and data is not None and "tri_obj" in data:
                 box = selected_box()
                 if box is not None:

@@ -1,9 +1,3 @@
 {
-    "cSpell.ignoreWords": [
-        "mycanvas",
-        "padx",
-        "tilesize"
-    ],
-    "python-envs.defaultEnvManager": "ms-python.python:system",
-    "claudeCodeChat.permissions.yoloMode": false
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }

@@ -144,79 +144,76 @@ class Timed:
             return self
         return types.MethodType(self, instance)
 
-KB = 1024
-MB = KB * 1024
-GB = MB * 1024
-PB = GB * 1024
+KB = 1000
+MB = KB * 1000
+GB = MB * 1000
+TB = GB * 1000
+PB = TB * 1000
 KiB = 1024
-MiB = KiB * 1000
-GiB = MiB * 1000
-PiB = GiB * 1000
+MiB = KiB * 1024
+GiB = MiB * 1024
+TiB = MiB * 1024
+PiB = TiB * 1024
+
+SIZE_UNITS = {"": 1, "B": 1, "BS": 1, "KB": KB, "MB": MB, "GB": GB, "TB": TB, "PB": PB,
+              "KIB": KiB, "MIB": MiB, "GIB": GiB, "TIB": TiB, "PIB": PiB}
 
 DataTable = {
     'KB': 1000,
     'MB': KB * 1000,
     'GB': MB * 1000,
+    'TB': GB * 1000,
     'PB': GB * 1000,
     'KiB': 1024,
     'MiB': KiB * 1024,
     'GiB': MiB * 1024,
-    'PiB': GiB * 1024,
+    'TiB': GiB * 1024,
+    'PiB': TiB * 1024,
 }
 
-def bytes_to_str(insize):
+def bytes_to_str(insize, ibytes=False):
     """ Converts an integer to its PetaByte, GigaByte, Megabyte,KiloByte, Bytes
         equivelant string IE "5GB"
     """
-    if insize > PB:
-        return f'{insize // PB}PB'
-    elif  insize > GB:
-        return f'{insize // GB}GB'
-    elif insize > MB:
-        return f'{insize // MB}MB'
-    elif insize >= KB:
-        return f'{insize // KB}KB'
-    elif insize > PiB:
-        return f'{insize // PiB}PiB'
-    elif  insize > GiB:
-        return f'{insize // GiB}GiB'
-    elif insize > MiB:
-        return f'{insize // MiB}MiB'
-    elif insize >= KiB:
-        return f'{insize // KiB}KiB'
+    if not ibytes:
+        if insize > PB:
+            return f'{insize // PB}PB'
+        if insize > TB:
+            return f'{insize // TB}TB'
+        elif  insize > GB:
+            return f'{insize // GB}GB'
+        elif insize > MB:
+            return f'{insize // MB}MB'
+        elif insize >= KB:
+            return f'{insize // KB}KB'
+        else:
+            return f'{insize}BS'
     else:
-        return f'{insize}B'
+        if insize > PiB:
+            return f'{insize // PiB}PiB'
+        elif insize > TiB:
+            return f'{insize // TiB}TiB'
+        elif  insize > GiB:
+            return f'{insize // GiB}GiB'
+        elif insize > MiB:
+            return f'{insize // MiB}MiB'
+        elif insize >= KiB:
+            return f'{insize // KiB}KiB'
+        else:
+            return f'{insize}BiS'
 
 def str_to_bytes(instr):
-    """ Converts a number expressed as a btyte string
-        Ex. "4PB: or "400GB" or "20MB" or "200KB" or "100Bs"
-        and returns the byte count
+    """ Converts a size string such as "4PB", "1.5MB", "2KiB", "100Bs" or "2048"
+        to a byte count. Returns None if the string isn't a valid size.
     """
-    if chkstr_isnum(instr[:-2]) in (int, float):
-        bites = int(instr[:-2])
-    else:
-        return  None
-    pfx = instr[-2:].upper()
-    if pfx == "PB":
-        return int(bites * PB)
-    elif pfx == "GB":
-        return int(bites * GB)
-    elif pfx == "MB":
-        return int(bites * MB)
-    elif pfx == "KB":
-        return int(bites * KB)
-    elif pfx == "BS":
-        return bites
-    elif pfx == "PiB":
-        return int(bites * PiB)
-    elif pfx == "GiB":
-        return int(bites * GiB)
-    elif pfx == "MiB":
-        return int(bites * MiB)
-    elif pfx == "KiB":
-        return int(bites * KiB)
-    else:
-        return bites
+    m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*([A-Za-z]*)\s*", instr)
+    if not m:
+        return None
+    num, unit = m.groups()
+    mult = SIZE_UNITS.get(unit.upper())
+    return int(float(num) * mult) if mult else None
+
+
 
 colors = {
     # Text Modifiers

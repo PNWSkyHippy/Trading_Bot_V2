@@ -1,3 +1,10 @@
+"""Search for files by name, size, date, and extension from the command line.
+
+Provides the ``Manipulate_files`` class, which parses command-line options,
+walks a directory tree (honoring ``.gitignore`` rules), and writes the sorted
+results to stdout or to a file in several formats.
+"""
+import stat
 from stat import FILE_ATTRIBUTE_HIDDEN
 import argparse
 import os, sys
@@ -10,29 +17,47 @@ from TkFileTool import MyFileUtilityTool
 """
 To Code Yet
     filter by type of file
-    filter by extention of file
-    sort by bytesize
-    forward or reverse the sort method chosen
-    show and sort by timestamp on file (recent command)
-    exlude pattern m add more of whats already skipped via .gitignore
+    filter by extension of file
+**    sort by bytesize ** Done
+**    forward or reverse the sort method chosen ** Done
+**    show and sort by timestamp on file (Lst modification) (recent command) ** Done
+    exlude pattern -more of whats already skipped via .gitignore
     xecute command on each file found
     Xecute a command on entire list of files found IE program | wc -l that takes a list of files on stdin 
 """
 
 
 class Manipulate_files(MyFileUtilityTool):
-    """_summary_ mainengine behind an all around file finding class
-        methods:
-            __init__(): initializes the class and sets up the necessary attributes.
-            find_files(): searches for files in a given directory.
-            list_dir(): lists the contents of a specified directory.
-            write_out(): writes output to a file or stdout.
+    """Provide the main engine behind an all-around file finding tool.
+
+    Attributes:
+        format_list (list[str]): Allowed output file formats.
+        output_file (str | None): Output path, or "stdout" for the console.
+        directory (str | None): Root directory of the search.
+        filename (str | None): Name or glob pattern to search for.
+        gitignore_rules (list[tuple[str, bool]]): Loaded ``.gitignore``
+            rules as (pattern, negated) pairs.
     """
+    # maps every accepted -t spelling to its canonical type name
+    TYPE_ALIASES = {
+        "f": "file", "file": "file",
+        "d": "dir", "dir": "dir", "directory": "dir",
+        "l": "symlink", "link": "symlink", "symlink": "symlink",
+        "x": "executable", "exec": "executable", "executable": "executable",
+        "e": "empty", "empty": "empty",
+        "s": "socket", "socket": "socket",
+        "p": "pipe", "pipe": "pipe", "fifo": "pipe",
+        "c": "char", "char": "char", "char-device": "char",
+        "b": "block", "block": "block", "block-device": "block",
+    }
+
     @Timed
     def __init__(self):
-        """_summary_ parses comandline argumetnts and initiates esarch
+        """Parse command-line arguments, run the search, and print results.
+
         Raises:
-            SystemExit: If no file name is specified or if the specified directory does not exist.            
+            SystemExit: If no file name is specified or the specified
+                directory does not exist.
         """
         self.format_list = [ # list of allowed output file formats
             "txt", "csv", "json", "jsonl", "yaml", "yml"
@@ -51,6 +76,8 @@ class Manipulate_files(MyFileUtilityTool):
         self.file_sz_str = ""
         self.file_hid = 0
         self.gitignore_rules = []
+
+
         self.parse_arguments()
         if not self.dodir and not self.filename:
             sys.stderr.write("Error: Please specify a file name to search for using the -f option.")
@@ -60,11 +87,9 @@ class Manipulate_files(MyFileUtilityTool):
             sys.stderr.write(f"Error: The specified directory '{self.directory}' does not exist.")
             sys.stderr.flush()
             sys.exit(1)
-
         # Directory list asked for, list and exit
         elif self.dodir and os.path.isdir(self.directory):
             self.write_out(self.list_dir())
-            sys.exit(0)
         # Proper arguments given , search for file
         else:
             found_files = self.find_files(self.directory, self.filename)
@@ -73,12 +98,21 @@ class Manipulate_files(MyFileUtilityTool):
                     self.write_out(f'{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
                 elif self.size:
                     self.write_out(f'{"Size":<12}{"File Path"}')
-                if self.sorted == "forward":
+                if self.sortmod and (self.sorted == "reverse"):
+                    found_files.sort(key=lambda x: (x[3]))
+                elif self.sortmod:
+                    found_files.sort(key=lambda x: (x[3] ), reverse = True)
+                elif self.sortsize and (self.sorted == "reverse"):
+                    found_files.sort(key=lambda x: (x[1]), reverse=True)
+                elif self.sortsize:
+                    found_files.sort(key=lambda x: (x[1] ))
+                elif self.sorted == "forward":
                     found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold())
                 elif self.sorted == "reverse":
                     found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold(), reverse=True)
+
                 for found in found_files:
-                    path, size, lines, words, chars = found
+                    path, bsize, size, mod_time, lines, words, chars = found
                     if self.verbose or self.do_long:
                         self.write_out(f'{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
                     elif self.size:
@@ -89,9 +123,17 @@ class Manipulate_files(MyFileUtilityTool):
             else:
                 sys.stderr.write(f"Error: No files named '{self.filename}' found in directory '{self.directory}'.")
                 sys.stderr.flush()
-        
 
     def wide_formatter(self,prog):
+        """Build a wide argparse help formatter.
+
+        Args:
+            prog (str): The program name shown in the help output.
+
+        Returns:
+            argparse.RawDescriptionHelpFormatter: A formatter that keeps the
+                epilog layout and uses a 110-column width.
+        """
         return argparse.RawDescriptionHelpFormatter(
             prog,
             width=110,
@@ -99,7 +141,13 @@ class Manipulate_files(MyFileUtilityTool):
         )
 
     def parse_arguments(self):
-        """_summary_ parses command line arguments and sets the corresponding attributes."""
+        """Parse command-line arguments and set the matching attributes.
+
+        Raises:
+            SystemExit: If an argument is invalid, such as a value for ``-s``
+                other than forward/reverse, a malformed or conflicting ``-S``
+                size filter, or an unsupported output format.
+        """
         parser = argparse.ArgumentParser(
             description="Search for files on various criteria",
             epilog="""\
@@ -111,14 +159,17 @@ class Manipulate_files(MyFileUtilityTool):
 
     Options:
         mfind.py [opt. switches] <file name> [path] current directory used if not given
-        mfind.py -f <file to search for>
+        mfind.py -n <file to search for>
         mfind.py "view*.py" (wildcards * ? [abc] for partial names - quote them on Mac/Linux)
         mfind.py -o <output file name> ((stdout default)
         mfind.py -c (cat file contents if found)
+        mfind.py -E <extension> (filter results by file extension)
         mfind.py -f <input file format>  (txt, csv, jscon, jsonl, yaml, yml)
         mfind.py -d (return a dir of specified directory)
         mfind.py -v (verbose output <file name , size, date>)
         mfind.py -i (ignore case on matches)
+        mfind.py -sm (sort results by fle modification time) **use -s forward/reverse for direction**
+        mfind.py -sz (sort results by fle size) **use -s forward/reverse for direction**
         mfind.py -p (find partial matches (like *filename*))
         mfind.py -l (print file statistics <line count, word count, char count>)
         mfind.py -H Search hidden files and directories
@@ -130,6 +181,7 @@ class Manipulate_files(MyFileUtilityTool):
                   '-': file size must be less than or equal to this
 
                   If neither '+' nor '-' is specified, file size must be exactly equal to this.
+                  Use one + and one - together for a range: -S +10KB -S -20KB
                      'NUM':  The numeric size (e.g. 500)
                      'UNIT': The units for NUM. They are not case-sensitive.
                   Allowed unit values:
@@ -143,7 +195,10 @@ class Manipulate_files(MyFileUtilityTool):
                       'MiB':  megabytes
                       'GiB':  gigabytes
                       'TiB':  terabytes
-                      'PiB':  petabytes       
+                      'PiB':  petabytes    
+                  ** 2 -S arguments, one specifying a +<val> and the other a -<val> are allowed
+                  ** However specifying 2, -S + or 2 -S - raise an ambiguous error  
+                  ** specifying both is saying - if size > this AND < that, show it
         mfind.py -x Execute a command for each search result
         mfind.py -X Execute a command with all search results at once
         mfind.py -t Filter by type: file (f), directory (d/dir), symlink (l),
@@ -242,6 +297,20 @@ class Manipulate_files(MyFileUtilityTool):
         )
 
         parser.add_argument(
+            "-sz",
+            "--sortsize",
+            action="store_true",
+            help="sort results by file size",
+        )
+
+        parser.add_argument(
+            "-sm",
+            "--sortmod",
+            action="store_true",
+            help="sort results by file modification time",
+        )
+
+        parser.add_argument(
             "-s",
             "--sorted",
             metavar="",
@@ -260,7 +329,8 @@ class Manipulate_files(MyFileUtilityTool):
             "-e",
             "--exclude",
             metavar="",
-            help="\t <pattern>          Exclude entries that match the given glob pattern",
+            action="append",
+            help="\t <pattern>          Exclude entries that match the given glob pattern (repeatable)",
         )
 
         parser.add_argument(
@@ -281,6 +351,7 @@ class Manipulate_files(MyFileUtilityTool):
             "-S",
             "--size",
             metavar="",
+            action="append",
             help="-S [+/-]bytes[PB|TB|GB|MB|KB|BS|PiB|TiB|MiB|KiB|BiS]"
             ,
         )
@@ -303,29 +374,73 @@ class Manipulate_files(MyFileUtilityTool):
         parser.add_argument("fname")                                   # 1st bare word
         parser.add_argument("path", nargs="?", default=".")          # 2nd bare word, optional
 
-        args = parser.parse_args()
+        # Glue the -S value onto the switch so argparse doesn't treat "-600MB" as a new option
+        argv = sys.argv[1:]
+        i = 0
+        while i < len(argv) - 1:
+            if argv[i] == "--":
+                break
+            if argv[i] in ("-S", "--size"):
+                argv[i:i + 2] = [f"--size={argv[i + 1]}"]
+            i += 1
+        args = parser.parse_args(argv)
+        self.sortmod = args.sortmod if args.sortmod else False
+        if args.sortsize:
+            self.sorted = "mod"
+        self.sortsize = args.sortsize if args.sortsize else False
+        if args.sortsize:
+            self.sorted = "size"
         if args.sorted:
-            if args.sorted.strip().lower() in ("forward", "reverse"):
-                self.sorted = args.sorted.strip().lower()
+            direction = args.sorted.strip().lower()[:1]
+            if direction == "f":
+                self.sorted = "forward"
+            elif direction == "r":
+                self.sorted = "reverse"
             else:
-                self.sorted = False
-        else:
+                parser.error(f"invalid value '{args.sorted}' for -s (use forward or reverse)")
+        elif not self.sortsize:
             self.sorted = False        
         self.hidden = args.hidden if args.hidden else False
         self.maxdepth = int(args.maxdepth) if args.maxdepth else -1
         self.exclude = args.exclude if args.exclude else None
-        self.extension = args.extension if args.extension else None
-        self.type = args.type if args.type else None
-        siz = args.size if args.size else None
-        if args.size:
-            if siz[0] in ("+", "-"):
-                self.sizegt = True if (siz[0] == "+") else False
-                siz = siz[1:]
-            else:
-                self.sizegt = None
-            self.size = str_to_bytes(siz)
+        # -e patterns reuse the .gitignore matcher, so "build/", "*.log" and "docs/*.md" all work
+        self.exclude_rules = [(pat.strip(), False) for pat in (args.exclude or []) if pat.strip()]
+        self.extension_rules = args.extension.split(",") if args.extension else []
+        if self.extension_rules != []:
+            self.excl_extent = True
         else:
-            self.size = None
+            self.excl_extent = False
+        self.type = None
+        if args.type:
+            self.type = self.TYPE_ALIASES.get(args.type.strip().lower())
+            if self.type is None:
+                parser.error(f"invalid type '{args.type}' for -t (use f, d, l, x, e, s, p, c, or b)")
+        # directories only show up in os.walk's dirs list, so -t needs to look there too
+        self.type_wants_dirs = self.type in ("dir", "symlink", "empty")
+        # -S can be given twice: one +<size> (lower limit) and one -<size> (upper limit)
+        self.size_lower = None      # file must be >= this
+        self.size_upper = None      # file must be <= this
+        self.size_exact = None      # file must be == this
+        for siz in (args.size or []):
+            sign = siz[0] if siz[0] in ("+", "-") else ""
+            nbytes = str_to_bytes(siz[1:] if sign else siz)
+            if nbytes is None:
+                parser.error(f"invalid size '{siz}' for -S (e.g. +15KB, -600MB, 2MiB, 100BS)")
+            if self.size_exact is not None or (not sign and (self.size_lower is not None or self.size_upper is not None)):
+                parser.error(f"-S {siz}: an exact size can't be combined with another -S")
+            if sign == "+":
+                if self.size_lower is not None:
+                    parser.error(f"-S {siz}: -S +<size> already used. Duplicates are ambiguous.")
+                self.size_lower = nbytes
+            elif sign == "-":
+                if self.size_upper is not None:
+                    parser.error(f"-S {siz}: -S -<size> already used. Duplicates are ambiguous.")
+                self.size_upper = nbytes
+            else:
+                self.size_exact = nbytes
+        if self.size_lower is not None and self.size_upper is not None and self.size_lower > self.size_upper:
+            parser.error("-S lower limit (+) is bigger than upper limit (-), nothing can match")
+        self.size = bool(args.size)  # True when any size filter is active (shows the Size column)
         self.execute = args.execute if args.execute else None
         self.exec_batch = args.exec_batch if args.exec_batch else None
         self.do_long = args.long if args.long else False
@@ -347,7 +462,16 @@ class Manipulate_files(MyFileUtilityTool):
             sys.exit(1)
 
     def _load_gitignore(self, directory):
-        """Load the first .gitignore found, or the explicitly supplied one."""
+        """Load the first .gitignore found, or the explicitly supplied one.
+
+        Populates ``gitignore_rules``, ``gitignore_file``, and
+        ``gitignore_base``. Prints a warning to stderr and returns without
+        loading rules if the file is missing or unreadable.
+
+        Args:
+            directory (str): The search root, used to discover a .gitignore
+                when none was given explicitly.
+        """
         ignore_file = self.gitignore_file
         if isinstance(ignore_file, str):
             ignore_file = os.path.abspath(ignore_file)
@@ -438,12 +562,49 @@ class Manipulate_files(MyFileUtilityTool):
             sys.stderr.write(f"Warning: unable to read gitignore file '{self.gitignore_file}': {exc}\n")
 
     def _gitignored(self, path, is_dir=False):
-        """Return whether path is excluded by the loaded gitignore rules."""
+        """Return whether a path is excluded by the loaded gitignore rules.
+
+        Args:
+            path (str): The file or directory path to test.
+            is_dir (bool): Whether ``path`` is a directory. Defaults to False.
+
+        Returns:
+            bool: True if the last matching rule ignores the path, False if
+                no rules are loaded or the path is not ignored.
+        """
         if not self.gitignore_rules:
             return False
-        relative = os.path.relpath(path, self.gitignore_base).replace(os.sep, "/")
+        return self._match_rules(path, self.gitignore_rules, self.gitignore_base)
+
+    def _excluded(self, path):
+        """Return whether a path matches a pattern given with -e.
+
+        Uses the same glob rules as .gitignore, relative to the search root.
+
+        Args:
+            path (str): The file or directory path to test.
+
+        Returns:
+            bool: True if any -e pattern matches the path.
+        """
+        if not self.exclude_rules:
+            return False
+        return self._match_rules(path, self.exclude_rules, self.directory)
+
+    def _match_rules(self, path, rules, base):
+        """Apply gitignore-style rules to a path; the last matching rule wins.
+
+        Args:
+            path (str): The file or directory path to test.
+            rules (list[tuple[str, bool]]): (pattern, negated) pairs.
+            base (str): The directory the patterns are relative to.
+
+        Returns:
+            bool: True if the path ends up ignored by the rules.
+        """
+        relative = os.path.relpath(path, base).replace(os.sep, "/")
         ignored = False
-        for pattern, negated in self.gitignore_rules:
+        for pattern, negated in rules:
             pattern = pattern.replace("\\", "/")
             directory_pattern = pattern.endswith("/")
             pattern = pattern.rstrip("/")
@@ -471,14 +632,14 @@ class Manipulate_files(MyFileUtilityTool):
         return ignored
 
     def count_file_contents(self, path):
-        """
-        Count the number of lines, words, and characters in a file.
+        """Count the lines, words, and characters in a file.
 
         Args:
             path (str): The path to the file.
 
         Returns:
-            tuple: A tuple containing the number of lines, words, and characters.
+            tuple[int, int, int]: The line, word, and character counts, or
+                (0, 0, 0) if the file cannot be read.
         """
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -493,18 +654,85 @@ class Manipulate_files(MyFileUtilityTool):
                 sys.stderr.flush()
             return 0, 0, 0
 
+    def get_extension(self, filename):
+        """Return the extension of a file name.
+
+        Args:
+            filename (str): The file name to inspect.
+
+        Returns:
+            str | "None": The text after the last dot, or empty string if the name
+                contains no dot.
+        """
+        tmp_str = filename.split(".")
+        if len(tmp_str) > 1:
+            return tmp_str[len(tmp_str)-1]
+        else:
+            return "None"
+
+    def matches_type(self, path, mode):
+        """Return whether a path matches the type chosen with -t.
+
+        Args:
+            path (str): The path to test.
+            mode (int): The ``st_mode`` of the path, taken without following
+                symlinks.
+
+        Returns:
+            bool: True if no -t filter is active or the path is of the
+                requested type.
+        """
+        if self.type is None:
+            return True
+        if self.type == "file":
+            return stat.S_ISREG(mode)
+        if self.type == "dir":
+            return stat.S_ISDIR(mode)
+        if self.type == "symlink":
+            return stat.S_ISLNK(mode)
+        if self.type == "socket":
+            return stat.S_ISSOCK(mode)
+        if self.type == "pipe":
+            return stat.S_ISFIFO(mode)
+        if self.type == "char":
+            return stat.S_ISCHR(mode)
+        if self.type == "block":
+            return stat.S_ISBLK(mode)
+        if self.type == "executable":
+            if not stat.S_ISREG(mode):
+                return False
+            if os.name == "nt":
+                # Windows has no execute bit; go by the PATHEXT extensions
+                pathext = os.environ.get("PATHEXT", ".EXE;.BAT;.CMD;.COM").lower().split(";")
+                return os.path.splitext(path)[1].lower() in pathext
+            return os.access(path, os.X_OK)
+        if self.type == "empty":
+            if stat.S_ISREG(mode):
+                return os.path.getsize(path) == 0
+            if stat.S_ISDIR(mode):
+                try:
+                    return not os.listdir(path)
+                except OSError:
+                    return False
+            return False
+        return False
 
     def find_files(self, directory, filename):
-        """
-        Recursively search for files with the specified filename in the given directory.
+        """Recursively search a directory for files matching a name or glob.
+
+        Applies the depth, gitignore, hidden, extension, and size filters
+        configured from the command line.
 
         Args:
             directory (str): The directory to search in.
-            filename (str): The name of the file to search for.
+            filename (str): The file name or glob pattern to search for.
 
         Returns:
-            list: A list of paths to the found files.
+            list[tuple]: One tuple per match, containing (path, size in
+                bytes, size string, modification time, line count, word
+                count, character count).
         """
+
         found_files = []
         if self.ignoregit:
             if self.verbose:
@@ -518,7 +746,12 @@ class Manipulate_files(MyFileUtilityTool):
         wild = any(c in filename for c in "*?[")         # glob pattern like *.py or view*
         for root, dirs, files in os.walk(directory):      # os.walk already goes into every subfolder
  
-            if (self.maxdepth> 0) and(len(root.split("\\")) >= int(self.maxdepth)):
+            listed_dirs = list(dirs)    # -t d/l/e still match these even when we stop descending
+            if self.maxdepth > 0:
+                # level 1 is the starting directory itself, measured from where the search began
+                rel = os.path.relpath(root, directory)
+                level = 1 if rel == "." else rel.count(os.sep) + 2
+                if level >= self.maxdepth:
                     dirs.clear()
             if not self.ignoregit:
                 ignored_dirs = [d for d in dirs
@@ -530,51 +763,73 @@ class Manipulate_files(MyFileUtilityTool):
                     sys.stderr.flush()
                 dirs[:] = [d for d in dirs
                            if not self._gitignored(os.path.join(root, d), is_dir=True)]
-            for f in files:
+            if self.exclude_rules:
+                dirs[:] = [d for d in dirs if not self._excluded(os.path.join(root, d))]
+            for f in (files + listed_dirs if self.type_wants_dirs else files):
                 path = os.path.join(root, f)
                 file_sz = -1
                 try:
                     statinfo = os.stat(path)
-                except:
-                    sys.stderr.write("Error reading file stats")
-                    sys.stderr.flush()
-                    continue
-                else:
-                    file_sz = statinfo.st_size
-                    file_sz = float(f'{file_sz}')
-                    file_sz_str = bytes_to_str(file_sz)
-                    self.file_hid = statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN
-                if self.size != None:
-                    if self.sizegt is True:
-                        if (self.size != None) and (file_sz < self.size):
+                    # lstat so a symlink reports as a link, not as its target
+                    file_mode = os.lstat(path).st_mode
+                except OSError:
+                    if self.type == "symlink":
+                        # a broken link can't be stat'ed but is still a link
+                        try:
+                            statinfo = os.lstat(path)
+                            file_mode = statinfo.st_mode
+                        except OSError:
                             continue
-                    elif self.sizegt is False:
-                        if (self.size != None) and (file_sz >= self.size):
-                            continue                        
                     else:
-                        if (self.size != None) and (file_sz != self.size):
-                            continue
+                        sys.stderr.write("Error reading file stats")
+                        sys.stderr.flush()
+                        continue
+                file_sz = statinfo.st_size
+                mod_time = statinfo.st_mtime
+                file_sz = float(f'{file_sz}')
+                file_sz_str = bytes_to_str(file_sz)
+                self.file_hid = statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN
+                if not self.matches_type(path, file_mode):
+                    continue
+                if self.excl_extent:
+                    matched = False
+                    for extension in self.extension_rules:
+                        if self.excl_extent and (self.get_extension(f).lower() == extension.lower()):
+                            matched = True
+                    if not matched:
+                        continue
+                if self.size_lower is not None and file_sz < self.size_lower:
+                    continue
+                if self.size_upper is not None and file_sz > self.size_upper:
+                    continue
+                if self.size_exact is not None and file_sz != self.size_exact:
+                    continue
                 if not self.hidden and self.file_hid:   
                     continue   
                 if not self.ignoregit and self._gitignored(path):
                     continue
+                if self._excluded(path):
+                    continue
                 have = f.lower() if self.ignorecase else f
                 if fnmatch.fnmatchcase(have, want) if wild else have == want:
-                        lines, words, chars = self.count_file_contents(path)
-                        found_files.append((path,file_sz_str, lines, words, chars))    # f = name as it is on disk
+                        if stat.S_ISREG(file_mode):
+                            lines, words, chars = self.count_file_contents(path)
+                        else:
+                            # never open dirs, pipes, or devices (a pipe read can block)
+                            lines = words = chars = 0
+                        found_files.append((path,file_sz,file_sz_str, mod_time, lines, words, chars))    # f = name as it is on disk
+     #           found_files.append((path,file_sz,file_sz_str, mod_time, lines, words, chars))    # f = name as it is on disk
             if self.verbose:
                 sys.stderr.write(f"\rSearching in: {root} ...\n")
                 sys.stderr.flush()
         return found_files 
 
     def list_dir(self):
-        """
-        List the contents of the specified directory.
-        Args:
-            directory (str): The directory to list.
+        """List the non-hidden contents of ``self.directory``.
 
         Returns:
-            list: a list of the contents of the directory.
+            str: One line per entry, with its modification time, size in
+                bytes, and name.
         """
        
         ret_str = ""
@@ -586,11 +841,13 @@ class Manipulate_files(MyFileUtilityTool):
         return ret_str
       
     def write_out(self, inp_str):
-        """
-        Write the output to the specified file or stdout.
+        """Write output to the chosen file, format, or stdout.
+
+        When ``cat`` mode is on, file paths found in ``inp_str`` are replaced
+        by their contents.
 
         Args:
-            inp_str (str): The string to write out.
+            inp_str (str): The text to write out.
         """
         if self.docat:
             file_list = [f for f in inp_str.splitlines() if os.path.isfile(f)]
@@ -670,6 +927,7 @@ class Manipulate_files(MyFileUtilityTool):
                     f.write(str(inp_str))
 
 def main():
+    """Run the file search and print the elapsed time."""
     timer = Manipulate_files()
     print(f'Time Elapsed: {timer.__init__.elapsed}')
 if __name__ == "__main__":

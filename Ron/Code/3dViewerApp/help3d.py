@@ -519,6 +519,12 @@ The Director (F8) builds a flythrough from a series of camera keys.
 - Each key stores an eye position, an aim point and a field of view.
 - The keys join into a path; Play flies the camera through them in order.
 - Select a key to edit its eye / aim / fov in the View panel.
+- Lights tab: the shot carries its own lamps (drag them in the preview).
+  Each one can now be a plain point light, a Spotlight cone (aims at the
+  camera target, with cone radius / softness / tightness), a Shadowless
+  fill, and/or have a Fade distance.  These are separate from the F5 scene
+  lights - F5 lights a still of the main scene, the Director's own lights
+  light the movie.  No shot lights = the viewer's auto key + moving fill.
 
 Use it for walkthroughs and turntable animations of your scene.
 """, _d_director)
@@ -532,6 +538,15 @@ POV-Ray makes the final lit, shaded picture (F9).
   POV-Ray itself.
 
 Set your camera in the 3D view (or with the Director) first - that's the shot.
+(In the Taichi preview, press C to render from exactly where you're standing.)
+
+Where renders go:
+- Every render is saved in the pov/ folder beside the app, with a unique
+  timestamped name: render_YYYYMMDD-HHMMSS.png - so nothing is ever overwritten.
+- render.png is always refreshed to the most recent one, for convenience.
+- The render window's title bar shows the file name; the toolbar on it has
+  "Open folder" (reveals the file on disk) and "Save as…" (write it anywhere
+  under a name you choose).  The console also prints the full path each time.
 
 For how the scene is lit, see Lights (F5) and Lighting / global illumination (F6).
 """, _d_pov)
@@ -549,10 +564,95 @@ two extra passes POV-Ray can run for a richer, more realistic picture:
   them; shadowless fill lights don't shoot them.
 - Max trace level: how many times a ray may bounce through glass and mirrors.
   Raise it when deep glass or many reflections look black or cut off.
+- Fog / atmosphere: haze in the air.  "Ground" is a low mist layer that hugs
+  the floor and thins with height (set Mist height); "distance" is a uniform
+  haze that fades far objects out.  Distance sets the thickness - smaller is
+  thicker.  Turbulence breaks a flat mist into drifting wisps, and Colour tints
+  it.  Fog shows in the render only, not the fast live preview.
 
-Both passes add render time.  Turn them on for the final beauty render; leave
+These passes add render time.  Turn them on for the final beauty render; leave
 them off for quick Draft previews.  The same controls are in the Taichi menu
-under "Lighting / global illumination".
+under "Lighting / global illumination" (fog on/off, type and distance there;
+height, turbulence and colour live in the full F6 panel).
+
+Fog is baked into Director movies too, so a whole fly-through can sit in mist.
+""", None)
+
+_topic("prism", "Prism beam - cast a rainbow", """
+Scene menu -> "Prism beam (cast rainbow)" (also in the Taichi menu's Add
+section) drops a complete little rainbow rig in one click:
+
+- a triangular glass prism (three sides - that's what splits white light into
+  a spectrum; a box has parallel faces that recombine it, so no rainbow),
+- a bright, narrow white spotlight aimed through it,
+- a plain floor for the rainbow to land on (only if the scene has none yet),
+- and it switches photons on (200k, max trace 8) so the caustic actually casts.
+
+Render it with F9.  The rainbow lands on the floor on the far side of the prism
+from the light - red through blue, with a bright refracted spot beside it.
+
+Tips:
+- Dim or delete the other lamps (F5) for a bolder, cleaner rainbow against dark.
+- The prism, floor and "prism beam" lamp are ordinary objects - move, aim or
+  recolour them like anything else.  Aim the beam squarely at a flat face.
+- The effect lives in the "Prism rainbow" material (strong dispersion) plus
+  photons; it only shows in the F9 render, not the fast live preview.
+""", None)
+
+_topic("export", "Export STL / OBJ - print your objects", """
+File menu -> "Export mesh (STL/OBJ)..." (also in the Taichi menu's Scene file
+section) turns your objects into a triangle mesh and writes a file any slicer
+(Cura, PrusaSlicer, Bambu) can open.
+
+The dialog asks three things:
+
+- Scope: just the Selected objects, or the Whole scene.
+- Format: STL (binary) - smallest, the usual choice; STL (ASCII) - text you
+  can read; or OBJ - keeps each object as its own named group.
+- Scale (units -> mm): how many millimetres one viewer unit becomes in the
+  slicer.  A 2-unit cube at scale 10 prints as a 20 mm cube.  The console
+  prints the final bounding-box size in mm so you can sanity-check it.
+
+What exports: every solid - cube, sphere, cylinder, cone, the prisms /
+pyramids / polyhedra, truncated cones and caps, lathe surfaces, and curved
+tubes (torus / curved cylinder).  All current transforms are baked in, so what
+you see is what prints.  Flat helpers with no volume - points, lines, vectors,
+bare planes, squares and circles - have nothing to print, so they are listed as
+"skipped" and left out.
+
+Print notes:
+- The solids come out watertight (manifold), which is what a slicer needs.
+- No axis flip: the viewer and every slicer are both Z-up, so up stays up.
+- CSG (cut / union) objects export as they render.  Very thin walls may need a
+  larger scale to survive slicing.
+""", None)
+
+_topic("import", "Import a mesh - bring in STL / OBJ", """
+File menu -> "Import mesh (STL/OBJ)..." (also in the Taichi menu's Scene file
+section) reads a 3D model off disk and drops it into the scene as one object.
+Point it at any STL (binary or text) or Wavefront OBJ - the kind of file a
+slicer, Thingiverse download or another 3D app gives you.
+
+What happens:
+
+- The file is copied into the app's meshes/ folder and the scene row just
+  remembers its name, so the model travels with the scene and the original on
+  disk is never touched.
+- It becomes an ordinary "mesh3d" object.  Move, rotate, scale, group, layer,
+  twin, cut/union (CSG) and re-export it exactly like a cube or a lathe shape -
+  all the same controls apply.
+- No axis flip: the viewer and every slicer are Z-up, so a model keeps its
+  orientation coming in and going back out.
+
+Notes:
+- The mesh is welded on load (duplicate corners merged, collapsed facets
+  dropped) so it stays watertight for printing and CSG.
+- Geometry stays as it was authored - the import does not re-tessellate or
+  smooth it.  A heavy model (hundreds of thousands of triangles) draws as a
+  bounding box in the Tk viewport to stay responsive; the Taichi preview and
+  the POV render show every triangle.
+- Scale on import is 1:1 (one file unit = one viewer unit).  If a model comes in
+  tiny or huge, select it and scale it once in the scene.
 """, None)
 
 _topic("lights", "Lights - lamps in the scene (F5)", """
@@ -584,6 +684,13 @@ The Taichi preview (F10) is a fast GPU window, handy for big scenes.
 - The collapsible menu has the same actions as the main window - Add, Transform,
   Group, Layers, Scripts, POV and Help.
 
+Render a still from exactly where you're standing:
+- Fly/orbit to the spot and angle you want, then press C (or the "Render snapshot
+  from here" button at the top of the menu).  POV-Ray frames the render on the
+  preview's live eye, aim and FOV - not the Camera Director's camera.
+- It works mid-playback too: press C while the Director's path is playing and it
+  freezes the path at that frame and renders that still.  (Plain Play/Stop is P.)
+
 It runs as its own window and stays in step with the main scene.
 """, _d_taichi)
 
@@ -601,7 +708,7 @@ Scripts are the way to build anything repetitive or math-driven.
 _topic("keys", "Keyboard shortcuts", """
 F1   / ?         this help (on whatever is selected)
 F5   / Ctrl+L    Lights (lamps: soft shadows, spots, fade)
-F6   / Ctrl+G    Lighting / global illumination (radiosity, photons)
+F6   / Ctrl+G    Lighting / global illumination (radiosity, photons, fog)
 F7   / Ctrl+T    Lathe tool
 F8   / Ctrl+D    Director (camera paths)
 F9   / Ctrl+R    POV-Ray render
@@ -626,6 +733,8 @@ double-click  Properties editor
 
 In the 3D view:  left-drag orbit, right-drag pan, wheel zoom,
 W A S D / R F fly, arrows turn, Shift to go faster.
+In the Taichi preview:  C renders a POV-Ray still from exactly the view you're
+in (freezes the Director path first if it's playing); P plays/stops that path.
 """, None)
 
 _topic("files", "Scene files & saving", """
@@ -655,7 +764,7 @@ GROUPS = [
     ("Changing objects", ["transforms", "pivot", "replicate", "ring", "align"]),
     ("Combining", ["groups", "twin", "csg", "hollow"]),
     ("Looks", ["colors", "material", "layers"]),
-    ("Camera & output", ["snapshots", "director", "pov", "lights", "lighting", "taichi"]),
+    ("Camera & output", ["snapshots", "director", "pov", "lights", "lighting", "prism", "import", "export", "taichi"]),
 ]
 
 # which topic to open for a selected object of a given kind (context help)
