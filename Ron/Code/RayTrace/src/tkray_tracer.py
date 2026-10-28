@@ -870,16 +870,7 @@ class LiveRayTraceViewer(ToolView):
             default="Book 2: The Next Week",
             on_change=self._on_book_changed,
         )
-    def on_mag(self, event=None):
-        # already open? close it (the key toggles) instead of stacking copies
-        if self._mag is not None and self._mag.master.winfo_exists():
-            self._mag.master.destroy()
-            self._mag = None
-            return "break"
-
-        self._mag = run_magnifyer(self.app.root)
-        return "break"
-
+ 
         # Scene Selection (Book 1 and 3 have a single default render, Book 2 has the 9 scene presets)
         self.scene_combo = self.form.add_dropdown(
             "scene",
@@ -1042,6 +1033,16 @@ class LiveRayTraceViewer(ToolView):
         self.bind_all("<Control-z>", self.stack_pop)
 
     #        self.bind_all("<Shift-KeyPress-plus>", self.zoom_in_window)
+    def on_mag(self, event=None):
+        # already open? close it (the key toggles) instead of stacking copies
+        if self._mag is not None and self._mag.master.winfo_exists():
+            self._mag.master.destroy()
+            self._mag = None
+            return "break"
+
+        self._mag = run_magnifyer(self.app.root)
+        return "break"
+
 
     # =========================================================================
     # OPTION 1: MODAL POPUP DIALOG (self.prompt_form)
