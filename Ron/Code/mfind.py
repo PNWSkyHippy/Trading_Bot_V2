@@ -5,27 +5,165 @@ walks a directory tree (honoring ``.gitignore`` rules), and writes the sorted
 results to stdout or to a file in several formats.
 """
 import stat
-from stat import FILE_ATTRIBUTE_HIDDEN
+FILE_ATTRIBUTE_HIDDEN = getattr(stat, "FILE_ATTRIBUTE_HIDDEN", 0x2)
 import argparse
 import os, sys
 import fnmatch
 from datetime import datetime
 import yaml
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from local_functions import colorize, Timed, bytes_to_str, str_to_bytes
 from TkFileTool import MyFileUtilityTool
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+def safe_print_stdout(content):
+    try:
+        sys.stdout.write(content)
+        sys.stdout.flush()
+    except (UnicodeEncodeError, OSError):
+        sys.stdout.buffer.write(content.encode("utf-8", errors="replace"))
+        sys.stdout.buffer.flush()
+
+def safe_print_stderr(content):
+    try:
+        sys.stderr.write(content)
+        sys.stderr.flush()
+    except (UnicodeEncodeError, OSError):
+        sys.stderr.buffer.write(content.encode("utf-8", errors="replace"))
+        sys.stderr.buffer.flush()
+
 """
 To Code Yet
-    filter by type of file
-    filter by extension of file
+**    filter by type of file ** Done
+**    filter by extension of file ** Done
 **    sort by bytesize ** Done
 **    forward or reverse the sort method chosen ** Done
 **    show and sort by timestamp on file (Lst modification) (recent command) ** Done
-    exlude pattern -more of whats already skipped via .gitignore
-    xecute command on each file found
-    Xecute a command on entire list of files found IE program | wc -l that takes a list of files on stdin 
+**    exlude pattern -more of whats already skipped via .gitignore ** Done
+**    execute command on each file found (-x) ** Done
+**    execute a command on entire list of files found (-X) ** Done
 """
 
+def is_binary_file(filepath):
+    """Check if a file appears to contain binary data."""
+    try:
+        if os.path.isdir(filepath):
+            return False
+        with open(filepath, "rb") as f:
+            chunk = f.read(1024)
+            return b"\x00" in chunk
+    except OSError:
+        return False
+
+def run_for_file(args):
+    """Run command template for an individual file result."""
+    template, name = args
+    if "{}" in template:
+        cmd = template.replace("{}", f'"{name}"')
+    else:
+        cmd = f'{template} "{name}"'
+    is_bin = is_binary_file(name)
+    try:
+        p = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            stdin=subprocess.DEVNULL
+        )
+        return name, p.returncode, p.stdout or "", p.stderr or "", is_bin
+    except Exception as e:
+        return name, -1, "", str(e), is_bin
+
+def exec_on_files(template, files, workers=8, output_file="stdout"):
+    """Run a command template on each matching file in parallel."""
+    file_paths = [f[0] if isinstance(f, (tuple, list)) else f for f in files]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = list(pool.map(run_for_file, [(template, f) for f in file_paths]))
+
+    output_lines = []
+    had_binary = False
+    had_error = False
+    for name, rc, out, err, is_bin in results:
+        header = f"== {name} (rc={rc})"
+        output_lines.append(header)
+        if out:
+            output_lines.append(out.rstrip("\r\n"))
+        if err:
+            safe_print_stderr(err if err.endswith("\n") else err + "\n")
+        if is_bin:
+            had_binary = True
+        if rc != 0:
+            had_error = True
+
+    content = "\n".join(output_lines) + "\n" if output_lines else ""
+    if output_file == "stdout":
+        safe_print_stdout(content)
+    else:
+        try:
+            with open(output_file, "w", encoding="utf-8", errors="replace") as f:
+                f.write(content)
+        except OSError as e:
+            safe_print_stderr(f"Error writing to {output_file}: {e}\n")
+
+    if had_binary and had_error:
+        safe_print_stderr("[mfind] Note: one or more matching files appeared to be binary. Tip: use '-E <ext>' or '-t f' to narrow search to text files.\n")
+    elif had_error:
+        safe_print_stderr("[mfind] Note: command returned non-zero exit code for some files. Tip: verify command syntax or file types.\n")
+
+def exec_batch_on_files(template, files, output_file="stdout"):
+    """Run a command once passing all matching files as arguments and via stdin."""
+    file_paths = [f[0] if isinstance(f, (tuple, list)) else f for f in files]
+    if not file_paths:
+        return
+
+    quoted_files = " ".join(f'"{f}"' for f in file_paths)
+    if "{}" in template:
+        cmd = template.replace("{}", quoted_files)
+    else:
+        cmd = f"{template} {quoted_files}"
+
+    had_binary = any(is_binary_file(f) for f in file_paths)
+    try:
+        p = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            input="\n".join(file_paths) + "\n",
+        )
+        if output_file == "stdout":
+            if p.stdout:
+                safe_print_stdout(p.stdout)
+        else:
+            with open(output_file, "w", encoding="utf-8", errors="replace") as f:
+                if p.stdout:
+                    f.write(p.stdout)
+
+        if p.stderr:
+            safe_print_stderr(p.stderr)
+
+        if p.returncode != 0:
+            safe_print_stderr(f"[mfind] Note: batch command exited with code {p.returncode}. (Tip: verify command syntax or file types)\n")
+            if had_binary:
+                safe_print_stderr("[mfind] Note: batch list included binary files. Tip: use '-E <ext>' or '-t f' to search only text files.\n")
+    except Exception as e:
+        safe_print_stderr(f"[mfind] Error executing batch command: {e}\n")
 
 class Manipulate_files(MyFileUtilityTool):
     """Provide the main engine behind an all-around file finding tool.
@@ -62,7 +200,6 @@ class Manipulate_files(MyFileUtilityTool):
         self.format_list = [ # list of allowed output file formats
             "txt", "csv", "json", "jsonl", "yaml", "yml"
         ]
-        cur_dir = os.path.dirname(__file__)
         self.output_file = None
         self.docat = None
         self.dodir = None
@@ -76,28 +213,35 @@ class Manipulate_files(MyFileUtilityTool):
         self.file_sz_str = ""
         self.file_hid = 0
         self.gitignore_rules = []
+        self.execute = None
+        self.exec_batch = None
+        self.doexec = False
+        self.doexec_batch = False
+        self.tree = False
+        self.use_ascii = False
+        self.found_files = []
 
 
         self.parse_arguments()
         if not self.dodir and not self.filename:
-            sys.stderr.write("Error: Please specify a file name to search for using the -f option.")
+            sys.stderr.write("Error: Please specify a search pattern (e.g. -n <name> or positional pattern).\n")
             sys.stderr.flush()
             sys.exit(1)
         if self.dodir and not os.path.isdir(self.directory):
-            sys.stderr.write(f"Error: The specified directory '{self.directory}' does not exist.")
+            sys.stderr.write(f"Error: The specified directory '{self.directory}' does not exist.\n")
             sys.stderr.flush()
             sys.exit(1)
         # Directory list asked for, list and exit
         elif self.dodir and os.path.isdir(self.directory):
-            self.write_out(self.list_dir())
+            output = self.list_dir()
+            safe_print_stdout(output)
+            return
+
         # Proper arguments given , search for file
         else:
             found_files = self.find_files(self.directory, self.filename)
+            self.found_files = found_files
             if found_files:
-                if self.verbose or self.do_long:
-                    self.write_out(f'{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
-                elif self.size:
-                    self.write_out(f'{"Size":<12}{"File Path"}')
                 if self.sortmod and (self.sorted == "reverse"):
                     found_files.sort(key=lambda x: (x[3]))
                 elif self.sortmod:
@@ -107,21 +251,37 @@ class Manipulate_files(MyFileUtilityTool):
                 elif self.sortsize:
                     found_files.sort(key=lambda x: (x[1] ))
                 elif self.sorted == "forward":
-                    found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold())
+                    found_files.sort(key=lambda x: os.path.basename(x[0]).casefold())
                 elif self.sorted == "reverse":
-                    found_files.sort(key=lambda x: (x[0].split("\\")[-1]).casefold(), reverse=True)
+                    found_files.sort(key=lambda x: os.path.basename(x[0]).casefold(), reverse=True)
 
-                for found in found_files:
-                    path, bsize, size, mod_time, lines, words, chars = found
+                if self.doexec:
+                    exec_on_files(self.execute, found_files, output_file=self.output_file)
+                elif self.doexec_batch:
+                    exec_batch_on_files(self.exec_batch, found_files, output_file=self.output_file)
+                elif self.tree:
+                    self.write_tree_out(found_files)
+                else:
+                    output_rows = []
                     if self.verbose or self.do_long:
-                        self.write_out(f'{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
+                        output_rows.append(f'{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
                     elif self.size:
-                        self.write_out(f'{size:<12}{colorize(found[0], "blue")}')
-                    else:
-                        self.write_out(colorize(found[0], "blue"))
+                        output_rows.append(f'{"Size":<12}{"File Path"}')
+
+                    for found in found_files:
+                        path, bsize, size, mod_time, lines, words, chars = found
+                        if self.verbose or self.do_long:
+                            output_rows.append(f'{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
+                        elif self.size:
+                            output_rows.append(f'{size:<12}{colorize(found[0], "blue")}')
+                        else:
+                            output_rows.append(colorize(found[0], "blue"))
+
+                    self.write_out("\n".join(output_rows), raw_files=[f[0] for f in found_files])
 
             else:
-                sys.stderr.write(f"Error: No files named '{self.filename}' found in directory '{self.directory}'.")
+                entity_type = "directories" if self.type == "dir" else "files"
+                sys.stderr.write(f"Error: No {entity_type} named '{self.filename}' found in directory '{self.directory}'.\n")
                 sys.stderr.flush()
 
     def wide_formatter(self,prog):
@@ -161,15 +321,15 @@ class Manipulate_files(MyFileUtilityTool):
         mfind.py [opt. switches] <file name> [path] current directory used if not given
         mfind.py -n <file to search for>
         mfind.py "view*.py" (wildcards * ? [abc] for partial names - quote them on Mac/Linux)
-        mfind.py -o <output file name> ((stdout default)
+        mfind.py -o <output file name> (stdout default)
         mfind.py -c (cat file contents if found)
         mfind.py -E <extension> (filter results by file extension)
-        mfind.py -f <input file format>  (txt, csv, jscon, jsonl, yaml, yml)
+        mfind.py -f <output file format>  (txt, csv, json, jsonl, yaml, yml)
         mfind.py -d (return a dir of specified directory)
         mfind.py -v (verbose output <file name , size, date>)
         mfind.py -i (ignore case on matches)
-        mfind.py -sm (sort results by fle modification time) **use -s forward/reverse for direction**
-        mfind.py -sz (sort results by fle size) **use -s forward/reverse for direction**
+        mfind.py -sm (sort results by file modification time) **use -s forward/reverse for direction**
+        mfind.py -sz (sort results by file size) **use -s forward/reverse for direction**
         mfind.py -p (find partial matches (like *filename*))
         mfind.py -l (print file statistics <line count, word count, char count>)
         mfind.py -H Search hidden files and directories
@@ -201,6 +361,7 @@ class Manipulate_files(MyFileUtilityTool):
                   ** specifying both is saying - if size > this AND < that, show it
         mfind.py -x Execute a command for each search result
         mfind.py -X Execute a command with all search results at once
+        mfind.py -T Display search results in a visual tree hierarchy
         mfind.py -t Filter by type: file (f), directory (d/dir), symlink (l),
                                    executable (x), empty (e), socket (s), pipe (p), char-device
                                    (c), block-device (b`
@@ -262,7 +423,7 @@ class Manipulate_files(MyFileUtilityTool):
             "-p",
             "--partial",
             action="store_true",
-            help="\tifind partial matches (like *filename*)",
+            help="\tfind partial matches (like *filename*)",
         )
 
         parser.add_argument(
@@ -337,7 +498,8 @@ class Manipulate_files(MyFileUtilityTool):
             "-E",
             "--extension",
             metavar="",
-            help="\t <ext>            Filter by file extension",
+            action="append",
+            help="\t <ext>            Filter by extension: comma list and/or repeatable (-E txt,json -E .jpg)",
         )
 
         parser.add_argument(
@@ -355,24 +517,35 @@ class Manipulate_files(MyFileUtilityTool):
             help="-S [+/-]bytes[PB|TB|GB|MB|KB|BS|PiB|TiB|MiB|KiB|BiS]"
             ,
         )
+        parser.add_argument(
+            "-T",
+            "--tree",
+            action="store_true",
+            help="Display search results in a visual tree hierarchy",
+        )
+
+        parser.add_argument(
+            "--ascii",
+            action="store_true",
+            help=r"Use plain ASCII characters (|--, \--) for tree rendering",
+        )
 
         parser.add_argument(
             "-x",
             "--execute",
-            metavar="",
-            help="\t<cmd>...              Execute a command for each search result",
+            metavar="cmd",
+            help="Execute a command for each search result",
         )
 
         parser.add_argument(
             "-X",
             "--exec-batch",
-            metavar="",
-            help="\t <cmd>...        Execute a command with all search results at once",
+            metavar="cmd",
+            help="Execute a command with all search results at once",
         )
 
-
-        parser.add_argument("fname")                                   # 1st bare word
-        parser.add_argument("path", nargs="?", default=".")          # 2nd bare word, optional
+        parser.add_argument("fname", nargs="?")                        # 1st bare word, optional with -E or -t
+        parser.add_argument("path", nargs="?")                         # 2nd bare word, optional
 
         # Glue the -S value onto the switch so argparse doesn't treat "-600MB" as a new option
         argv = sys.argv[1:]
@@ -384,11 +557,19 @@ class Manipulate_files(MyFileUtilityTool):
                 argv[i:i + 2] = [f"--size={argv[i + 1]}"]
             i += 1
         args = parser.parse_args(argv)
+        # With -E or -t the name pattern is optional: "mfind.py -E txt,json [folder]" or "mfind.py -t d [folder]" lists every match
+        if (args.extension or args.type) and not args.name:
+            if args.fname is not None and args.path is None and os.path.isdir(args.fname):
+                args.path, args.fname = args.fname, None    # lone bare word is the folder
+            if args.fname is None:
+                args.fname = "*"
+        elif args.fname is None and not args.name:
+            parser.error("the following arguments are required: fname (or use -E or -t)")
         self.sortmod = args.sortmod if args.sortmod else False
-        if args.sortsize:
+        if self.sortmod:
             self.sorted = "mod"
         self.sortsize = args.sortsize if args.sortsize else False
-        if args.sortsize:
+        if self.sortsize:
             self.sorted = "size"
         if args.sorted:
             direction = args.sorted.strip().lower()[:1]
@@ -405,11 +586,13 @@ class Manipulate_files(MyFileUtilityTool):
         self.exclude = args.exclude if args.exclude else None
         # -e patterns reuse the .gitignore matcher, so "build/", "*.log" and "docs/*.md" all work
         self.exclude_rules = [(pat.strip(), False) for pat in (args.exclude or []) if pat.strip()]
-        self.extension_rules = args.extension.split(",") if args.extension else []
+        self.extension_rules = [e.strip().lstrip(".").lower()
+                                for arg in (args.extension or []) for e in arg.split(",")
+                                if e.strip().lstrip(".")]
         if self.extension_rules != []:
-            self.excl_extent = True
+            self.filterby_ext = True
         else:
-            self.excl_extent = False
+            self.filterby_ext = False
         self.type = None
         if args.type:
             self.type = self.TYPE_ALIASES.get(args.type.strip().lower())
@@ -441,17 +624,27 @@ class Manipulate_files(MyFileUtilityTool):
         if self.size_lower is not None and self.size_upper is not None and self.size_lower > self.size_upper:
             parser.error("-S lower limit (+) is bigger than upper limit (-), nothing can match")
         self.size = bool(args.size)  # True when any size filter is active (shows the Size column)
+    
+        self.tree = args.tree if args.tree else False
+        self.use_ascii = args.ascii if args.ascii else False
         self.execute = args.execute if args.execute else None
         self.exec_batch = args.exec_batch if args.exec_batch else None
+        self.doexec = bool(self.execute)
+        self.doexec_batch = bool(self.exec_batch)
+        if self.doexec and self.doexec_batch:
+            parser.error("cannot combine -x/--execute and -X/--exec-batch")
         self.do_long = args.long if args.long else False
         self.partial = args.partial if args.partial else False
         self.ignorecase = args.ignore if args.ignore else False
         self.filename = args.name if args.name else None
         self.filename = args.fname if args.fname else self.filename
         self.output_file = args.outfile if args.outfile else "stdout"
-        self.directory = args.path if args.path else "."
         self.docat = args.cat if args.cat else False
         self.dodir = args.dir if args.dir else False
+        if self.dodir:
+            self.directory = self.filename
+        else:
+              self.directory = args.path if args.path else "."  
         self.verbose = args.verbose if args.verbose else False
         self.format = args.format if args.format else None
         self.gitignore_file = args.gitignore
@@ -642,7 +835,7 @@ class Manipulate_files(MyFileUtilityTool):
                 (0, 0, 0) if the file cannot be read.
         """
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
                 contents = f.read()
                 lines = contents.count("\n") + 1 if contents else 0
                 words = len(contents.split())
@@ -661,14 +854,10 @@ class Manipulate_files(MyFileUtilityTool):
             filename (str): The file name to inspect.
 
         Returns:
-            str | "None": The text after the last dot, or empty string if the name
-                contains no dot.
+            str: The extension without leading dot, or empty string if none.
         """
-        tmp_str = filename.split(".")
-        if len(tmp_str) > 1:
-            return tmp_str[len(tmp_str)-1]
-        else:
-            return "None"
+        ext = os.path.splitext(filename)[1]
+        return ext.lstrip(".").lower() if ext else ""
 
     def matches_type(self, path, mode):
         """Return whether a path matches the type chosen with -t.
@@ -717,6 +906,21 @@ class Manipulate_files(MyFileUtilityTool):
             return False
         return False
 
+    def _is_hidden_entry(self, path, name=None, statinfo=None):
+        """Return whether an entry is hidden (starts with a dot or has hidden attribute)."""
+        basename = name if name is not None else os.path.basename(path)
+        if basename.startswith("."):
+            return True
+        if os.name == "nt":
+            if statinfo is not None and hasattr(statinfo, "st_file_attributes"):
+                return bool(statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN)
+            try:
+                attrs = os.stat(path).st_file_attributes
+                return bool(attrs & FILE_ATTRIBUTE_HIDDEN)
+            except (OSError, AttributeError):
+                pass
+        return False
+
     def find_files(self, directory, filename):
         """Recursively search a directory for files matching a name or glob.
 
@@ -745,6 +949,9 @@ class Manipulate_files(MyFileUtilityTool):
         want = filename.lower() if self.ignorecase else filename
         wild = any(c in filename for c in "*?[")         # glob pattern like *.py or view*
         for root, dirs, files in os.walk(directory):      # os.walk already goes into every subfolder
+
+            if not self.hidden:
+                dirs[:] = [d for d in dirs if not self._is_hidden_entry(os.path.join(root, d), d)]
  
             listed_dirs = list(dirs)    # -t d/l/e still match these even when we stop descending
             if self.maxdepth > 0:
@@ -788,39 +995,14 @@ class Manipulate_files(MyFileUtilityTool):
                 mod_time = statinfo.st_mtime
                 file_sz = float(f'{file_sz}')
                 file_sz_str = bytes_to_str(file_sz)
-                """
-The problem is only statinfo.st_file_attributes — that field exists exclusively on Windows’ stat 
-result. (FILE_ATTRIBUTE_HIDDEN itself resolved fine, so your import of it is OK.) Unix has no “hidden” 
-bit at all; a file is “hidden” there purely by a leading-dot name.
-
-The fix — replace the single line at mfind.py:791 with a branch:
-
-Test hasattr(statinfo, "st_file_attributes") rather than checking the OS name — it asks the exact right
- question (“does this stat result even carry the attribute?”) and can’t drift if you move Pythons.
-If it has it (Windows): keep your existing statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN.
-
-If it doesn’t (Linux/Mac): set hidden from the dotfile convention — does the file’s own name 
-(os.path.basename(path)) start with ".".
-Wrap both in bool(...) so self.file_hid is always a clean True/False. Right now the Windows side 
-gives you an int (0 or 2), and the Unix side would give a bool — make them consistent so any is 
-True/== checks downstream behave the same on both platforms.
-
-That’s the whole change — one if/else where the one line is now. Nothing else in find_files is 
-Windows-bound as far as that traceback goes; if it pukes again further down, send me the next trace
- and we’ll knock it out the same way.
-                """
-                if hasattr(statinfo, "st_file_attributes"):
-                    # Windows
-                    self.file_hid = bool(statinfo.st_file_attributes & FILE_ATTRIBUTE_HIDDEN)
-                else:
-                    self.file_hid = ((os.path.basename(path))[0] == ".")
+                self.file_hid = self._is_hidden_entry(path, f, statinfo)
 
                 if not self.matches_type(path, file_mode):
                     continue
-                if self.excl_extent:
+                if self.filterby_ext:
                     matched = False
                     for extension in self.extension_rules:
-                        if self.excl_extent and (self.get_extension(f).lower() == extension.lower()):
+                        if self.filterby_ext and (self.get_extension(f).lower() == extension.lower()):
                             matched = True
                     if not matched:
                         continue
@@ -832,7 +1014,7 @@ Windows-bound as far as that traceback goes; if it pukes again further down, sen
                     continue
                 if not self.hidden and self.file_hid:   
                     continue   
-                if not self.ignoregit and self._gitignored(path):
+                if not self.ignoregit and self._gitignored(path, is_dir=stat.S_ISDIR(file_mode)):
                     continue
                 if self._excluded(path):
                     continue
@@ -844,7 +1026,6 @@ Windows-bound as far as that traceback goes; if it pukes again further down, sen
                             # never open dirs, pipes, or devices (a pipe read can block)
                             lines = words = chars = 0
                         found_files.append((path,file_sz,file_sz_str, mod_time, lines, words, chars))    # f = name as it is on disk
-     #           found_files.append((path,file_sz,file_sz_str, mod_time, lines, words, chars))    # f = name as it is on disk
             if self.verbose:
                 sys.stderr.write(f"\rSearching in: {root} ...\n")
                 sys.stderr.flush()
@@ -866,95 +1047,216 @@ Windows-bound as far as that traceback goes; if it pukes again further down, sen
 
         return ret_str
       
-    def write_out(self, inp_str):
+    def write_out(self, inp_str, raw_files=None):
         """Write output to the chosen file, format, or stdout.
 
-        When ``cat`` mode is on, file paths found in ``inp_str`` are replaced
-        by their contents.
+        When ``cat`` mode is on, file paths are read and their contents
+        are appended.
 
         Args:
-            inp_str (str): The text to write out.
+            inp_str (str): The text or lines to write out.
+            raw_files (list[str] | None): Clean list of matching file paths (uncolored).
         """
         if self.docat:
-            file_list = [f for f in inp_str.splitlines() if os.path.isfile(f)]
+            file_list = raw_files if raw_files is not None else [f for f in inp_str.splitlines() if os.path.isfile(f)]
             out_buff = ""
             for file in file_list:
                 try:
-                   with open(file, "r") as f:
-                        temp_buff = f.read()
+                    with open(file, "r", encoding="utf-8", errors="replace") as f:
+                        content = f.read()
+                    out_buff += f'\n\n#--- Contents of {file} ---\n' + content
                 except Exception as e:
-                    sys.stderr.write(f"Error reading {file}: {e}")
-                    sys.stderr.flush()
-                else:
-                    with open(file, "r") as f:
-                        out_buff += f'\n\n#--- Contents of {file} ---\n'
-                        out_buff += f.read()
-                        exc_flag = False
-        if self.format is not None:
-            try:
-                outfile, _ = self.output_file.split(".")
-            except ValueError:
-                outfile = self.output_file 
-            outfile = outfile + "." + self.format
-            if self.format == "txt":
-                if self.docat:
-                    with open(outfile, "w") as f:
-                        f.write(out_buff)
-                else:
-                    with open(outfile, "w") as f:
-                        f.write(str(inp_str))
-            elif self.format == "csv":
-                import csv
-                if self.docat:
-                    with open(outfile, "w", newline="") as f:
-                        writer = csv.writer(f)
-                        for line in out_buff.splitlines():
-                            writer.writerow([line])
-                else:
-                    with open(outfile, "w", newline="") as f:
-                        writer = csv.writer(f)
-                        for line in inp_str.splitlines():
-                            writer.writerow([line])
-            elif self.format in ["json", "jsonl"]:
-                import json
-                if self.docat:
-                    with open(outfile, "w") as f:
-                        if self.format == "json":
-                            json.dump(out_buff.splitlines(), f)
-                        else:  # jsonl
-                            for line in out_buff.splitlines():
-                                f.write(json.dumps(line) + "\n")
-                else:
-                    with open(outfile, "w") as f:
-                        if self.format == "json":
-                            json.dump(inp_str.splitlines(), f)
-                        else:  # jsonl
-                            for line in inp_str.splitlines():
-                                f.write(json.dumps(line) + "\n")
-            elif self.format in ["yaml", "yml"]:
-                if self.docat:
-                    with open(outfile, "w") as f:
-                        yaml.dump(out_buff.splitlines(), f)
-                else:
-                    with open(outfile, "w") as f:
-                        yaml.dump(inp_str.splitlines(), f)
-
-        if self.output_file == "stdout":
-            if self.docat:
-                print(out_buff)
-            else:
-                print(inp_str)
+                    safe_print_stderr(f"Error reading {file}: {e}\n")
+            payload = out_buff
         else:
-            if self.docat:
-                with open(self.output_file, "w") as f:
-                    f.write(out_buff)
+            payload = inp_str
+
+        # Structured export formats
+        if self.format is not None:
+            import re
+            ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+            clean_payload = ansi_escape.sub('', payload)
+            lines = clean_payload.splitlines()
+            if self.format in ("json", "jsonl"):
+                import json
+                formatted = json.dumps(lines, indent=2) if self.format == "json" else "\n".join(json.dumps(l) for l in lines)
+            elif self.format in ("yaml", "yml"):
+                import yaml
+                formatted = yaml.dump(lines)
+            elif self.format == "csv":
+                import csv, io
+                buf = io.StringIO()
+                writer = csv.writer(buf)
+                for l in lines:
+                    writer.writerow([l])
+                formatted = buf.getvalue()
+            else:  # txt
+                formatted = payload
+
+            if self.output_file == "stdout":
+                safe_print_stdout(formatted + "\n")
+                return
             else:
-                with open(self.output_file, "w") as f:
-                    f.write(str(inp_str))
+                base_out = os.path.splitext(self.output_file)[0]
+                target_file = f"{base_out}.{self.format}"
+                try:
+                    with open(target_file, "w", encoding="utf-8", errors="replace") as f:
+                        f.write(formatted)
+                except OSError as e:
+                    safe_print_stderr(f"Error writing to {target_file}: {e}\n")
+                return
+
+        # Plain output
+        if self.output_file == "stdout":
+            safe_print_stdout(payload + "\n" if payload and not payload.endswith("\n") else payload)
+        else:
+            try:
+                with open(self.output_file, "w", encoding="utf-8", errors="replace") as f:
+                    f.write(payload + "\n" if payload and not payload.endswith("\n") else payload)
+            except OSError as e:
+                safe_print_stderr(f"Error writing to {self.output_file}: {e}\n")
+
+    def write_tree_out(self, found_files):
+        """Render search results as a visual directory tree hierarchy."""
+        tree = {}
+        base_dir = os.path.abspath(self.directory)
+        for item in found_files:
+            path = item[0]
+            abs_p = os.path.abspath(path)
+            try:
+                rel = os.path.relpath(abs_p, base_dir)
+            except ValueError:
+                rel = path
+            parts = rel.split(os.sep)
+
+            curr = tree
+            for part in parts[:-1]:
+                if part not in curr:
+                    curr[part] = {"__meta__": None, "__children__": {}}
+                curr = curr[part]["__children__"]
+
+            leaf = parts[-1]
+            if leaf not in curr:
+                curr[leaf] = {"__meta__": item, "__children__": {}}
+            else:
+                curr[leaf]["__meta__"] = item
+
+        root_label = colorize(self.directory, "blue") if self.output_file == "stdout" else self.directory
+        lines = [root_label]
+
+        def _render_node(node_dict, prefix=""):
+            sorted_keys = sorted(
+                node_dict.keys(),
+                key=lambda s: (not bool(node_dict[s]["__children__"]), s.casefold())
+            )
+            for i, name in enumerate(sorted_keys):
+                is_last = (i == len(sorted_keys) - 1)
+                if self.use_ascii:
+                    connector = "\\-- " if is_last else "|-- "
+                    sub_indent = "    " if is_last else "|   "
+                else:
+                    connector = "└── " if is_last else "├── "
+                    sub_indent = "    " if is_last else "│   "
+
+                meta = node_dict[name]["__meta__"]
+                meta_str = ""
+                if (self.verbose or self.do_long) and meta is not None:
+                    _, _, size_str, _, lines_cnt, words_cnt, _ = meta
+                    if os.path.isfile(meta[0]):
+                        meta_str = f" [{size_str.strip()}, {lines_cnt} lines, {words_cnt} words]"
+                    else:
+                        meta_str = f" [{size_str.strip()}]"
+                elif self.size and meta is not None:
+                    _, _, size_str, _, _, _, _ = meta
+                    meta_str = f" [{size_str.strip()}]"
+
+                is_dir_entry = bool(node_dict[name]["__children__"]) or (meta and os.path.isdir(meta[0]))
+                display_name = colorize(name, "blue") if is_dir_entry and self.output_file == "stdout" else name
+                lines.append(f"{prefix}{connector}{display_name}{meta_str}")
+
+                children = node_dict[name]["__children__"]
+                if children:
+                    _render_node(children, prefix + sub_indent)
+
+        _render_node(tree)
+        self.write_out("\n".join(lines))
+
+    def get_summary(self, elapsed=None):
+        """Build a descriptive summary of the search criteria and results."""
+        total = len(self.found_files)
+        parts = []
+
+        if total == 0:
+            count_str = "0 results found"
+        elif total == 1:
+            is_d = os.path.isdir(self.found_files[0][0]) or (self.type in ("d", "dir"))
+            count_str = f"1 {'directory' if is_d else 'file'} found"
+        else:
+            num_dirs = sum(1 for f in self.found_files if os.path.isdir(f[0]) or (self.type in ("d", "dir")))
+            num_files = total - num_dirs
+            if num_dirs == 0:
+                count_str = f"{total} files found"
+            elif num_files == 0:
+                count_str = f"{total} directories found"
+            else:
+                count_str = f"{total} results ({num_files} files, {num_dirs} dirs)"
+        parts.append(count_str)
+
+        norm_dir = os.path.normpath(self.directory)
+        parts.append(f"in '{norm_dir}'")
+
+        if elapsed is not None:
+            time_str = f"{elapsed:.2f}s" if isinstance(elapsed, (int, float)) else str(elapsed)
+            parts.append(f"({time_str})")
+
+        criteria = []
+        if self.filename and self.filename != "*":
+            criteria.append(f"pattern: '{self.filename}'")
+        if self.type:
+            type_names = {
+                "f": "regular files", "file": "regular files",
+                "d": "directories", "dir": "directories",
+                "l": "symlinks", "symlink": "symlinks",
+                "x": "executables", "executable": "executables",
+                "e": "empty entries", "empty": "empty entries"
+            }
+            criteria.append(f"filtered by {type_names.get(self.type.lower(), self.type)}")
+        if self.filterby_ext:
+            criteria.append(f"ext: {','.join(self.extension_rules)}")
+        if self.maxdepth > 0:
+            criteria.append(f"maxdepth: {self.maxdepth}")
+        if self.size_lower is not None or self.size_upper is not None or self.size_exact is not None:
+            size_conds = []
+            if self.size_lower is not None: size_conds.append(f">={bytes_to_str(self.size_lower)}")
+            if self.size_upper is not None: size_conds.append(f"<={bytes_to_str(self.size_upper)}")
+            if self.size_exact is not None: size_conds.append(f"=={bytes_to_str(self.size_exact)}")
+            criteria.append(f"size: {', '.join(size_conds)}")
+        if self.sortmod:
+            criteria.append("sorted by mod time" + (" (reverse)" if self.sorted == "reverse" else ""))
+        elif self.sortsize:
+            criteria.append("sorted by file size" + (" (reverse)" if self.sorted == "reverse" else ""))
+        elif self.sorted:
+            criteria.append(f"sorted {self.sorted}")
+        if self.hidden:
+            criteria.append("including hidden")
+        if self.ignoregit:
+            criteria.append("bypassing .gitignore")
+        if self.tree:
+            criteria.append("tree view")
+
+        summary = " ".join(parts)
+        if criteria:
+            summary += f" | {', '.join(criteria)}"
+        return summary
 
 def main():
-    """Run the file search and print the elapsed time."""
-    timer = Manipulate_files()
-    print(f'Time Elapsed: {timer.__init__.elapsed}')
+    """Run the file search and print the elapsed time and summary."""
+    app = Manipulate_files()
+    elapsed = getattr(app.__init__, "elapsed", None)
+    summary = app.get_summary(elapsed)
+    if app.doexec or app.doexec_batch or app.output_file != "stdout":
+        safe_print_stderr(summary + "\n")
+    else:
+        safe_print_stdout(summary + "\n")
 if __name__ == "__main__":
     main()

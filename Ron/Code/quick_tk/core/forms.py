@@ -1319,14 +1319,31 @@ class FormPanel(ttk.Frame):
 
     def add_button(
         self,
-        label: str,
+        *args,
+        label: Optional[str] = None,
         callback: Optional[Callable] = None,
         variant: str = "primary",  # "primary", "default", "danger"
         command: Optional[Callable] = None,
         **kwargs,
     ) -> ttk.Button:
         """Adds an action button that triggers a callback with form values."""
-        cb = callback if callback is not None else command
+        # Flexible argument handling supporting:
+        # 1) add_button("Execute", callback=...)
+        # 2) add_button("Execute", on_click_fn)
+        # 3) add_button("name", "Label", callback=...)
+        if len(args) == 1:
+            btn_label = str(args[0])
+            cb = callback if callback is not None else command
+        elif len(args) >= 2:
+            if callable(args[1]):
+                btn_label = str(args[0])
+                cb = args[1]
+            else:
+                btn_label = str(args[1])
+                cb = callback if callback is not None else (args[2] if len(args) > 2 and callable(args[2]) else command)
+        else:
+            btn_label = str(label or "Button")
+            cb = callback if callback is not None else command
         frame = ttk.Frame(self.inner_frame, style="Surface.TFrame")
         frame.grid(row=self._inner_row, column=0, sticky="ew", pady=(10, 4))
         frame.columnconfigure(0, weight=1)
@@ -1347,7 +1364,7 @@ class FormPanel(ttk.Frame):
                 except TypeError:
                     cb()
 
-        btn = ttk.Button(frame, text=label, style=style_name, command=_on_click)
+        btn = ttk.Button(frame, text=btn_label, style=style_name, command=_on_click)
         btn.grid(row=0, column=0, sticky="ew")
         return btn
 

@@ -1,0 +1,25 @@
+; shapes.logo - library parts.   use shapes   then   place cube6 20 as crate
+; Local frame: the cube fills x 0..s, y 0..-s, z 0..s from where it is placed.
+
+to square :s
+  beginfill repeat 4 [ fd :s rt 90 ] endfill
+end
+
+; six plates, each one a square flipped into place by the turtle
+part cube6 :s
+  pu fillthick :s/20
+  push square :s pop                          ; bottom
+  push up 90 fd 0 square :s pop               ; x=0 wall
+  push roll 0-90 square :s pop                ; y=0 wall
+  push up 90 fd :s down 90 square :s pop      ; top
+  push fd :s up 90 square :s pop              ; x=s wall
+  push rt 90 fd :s lt 90 roll 0-90 square :s pop   ; y=-s wall
+endpart
+
+; twelve tube edges of the same cube
+part wirecube :s
+  pd
+  repeat 4 [ fd :s rt 90 ]
+  push up 90 fd :s down 90 repeat 4 [ fd :s rt 90 ] pop
+  repeat 4 [ push up 90 fd :s pop fd :s rt 90 ]
+endpart

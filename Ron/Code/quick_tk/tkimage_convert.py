@@ -14,7 +14,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRATCH_DIR = os.path.dirname(BASE_DIR)
 sys.path.insert(0, SCRATCH_DIR)
 sys.path.insert(0, BASE_DIR)
-
+from local_functions import run_magnifyer
 try:
     from quick_tk import QuickApp, ToolView
 except ImportError:
@@ -30,6 +30,18 @@ sys.path.insert(0, BASE_DIR)
 
 
 class ImageConvertFrontEnd(ToolView):
+    """Provide a form-and-preview tool for converting and adjusting images.
+
+    Attributes:
+        title (str): The tool's display title.
+        description (str): The tool's short description.
+        rotated_deg (int): The last rotation angle in degrees.
+        image_width (int): The target width in pixels.
+        image_height (int): The target height in pixels.
+        infile (str | None): The path of the input file.
+        is_rotated (bool): Whether a rotation has been requested.
+        aspratio (str): The chosen aspect ratio as ``"w/h"``, or ``"None/None"``.
+    """
     title = "Image Convert"
     description = "Convert Graphical Images"
     rotated_deg = 0
@@ -40,6 +52,12 @@ class ImageConvertFrontEnd(ToolView):
     aspratio = "None/None"
 
     def build_ui(self):
+        """Build the options form and the image preview, then set up the menus.
+
+        The form holds filter checkboxes, an input file picker, a save button,
+        sliders for contrast, color, brightness, scale and rotation, an aspect
+        ratio dropdown, and width and height fields. The preview sits to its right.
+        """
         self.source_image = None  # Holds th
         self.orig_image_height = 600
         self.orig_image_width = 600
@@ -51,6 +69,10 @@ class ImageConvertFrontEnd(ToolView):
         # 1. Left Input Form
         self.form = self.add_form("Image Creation Options", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+
+        self._mag = None
+        self.bind_all("<Control-Shift-M>", self.on_mag)
+        self.bind_all("<Control-Shift-m>", self.on_mag)
 
         #        self.form.add_dropdown("format", "Output Format", ["bmp", "jpg", "ppm", "gif", "pcx","tga","ico","png","tif"], default="ppm", on_change=self.update_live_preview)
         self.form.add_checkbox(
@@ -167,6 +189,15 @@ class ImageConvertFrontEnd(ToolView):
 
         self.setup_menus()
 
+    def on_mag(self, event=None):
+        # already open? close it (the key toggles) instead of stacking copies
+        if self._mag is not None and self._mag.master.winfo_exists():
+            self._mag.master.destroy()
+            self._mag = None
+            return "break"
+        self._mag = run_magnifyer(self.app.root)
+        return "break"
+
     def _auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         self.on_calculate(self.form.get_values())
@@ -223,10 +254,24 @@ class ImageConvertFrontEnd(ToolView):
         self.update_live_preview()
 
     def pre_on_file_selected(self):
+        """Refresh the preview, then run the file-selected handler.
+
+        Raises:
+            TypeError: If called without a file path, because ``on_file_selected``
+                requires one.
+        """
         self.update_live_preview()
         self.on_file_selected()
 
     def on_save_image(self, values: dict | None = None):
+        """Ask for a file name and save the transformed image.
+
+        A warning is shown if no image has been loaded, and an error dialog is
+        shown if saving fails.
+
+        Args:
+            values (dict | None): Accepted for the button callback but unused.
+        """
         if self.source_image is None:
             messagebox.showwarning("Save Image", "No rendered image data to save yet!")
             return
@@ -370,6 +415,18 @@ class ImageConvertFrontEnd(ToolView):
         )
 
     def on_calculate(self, values: dict):
+        """Copy the form values onto the tool and refresh the preview.
+
+        Updates the scale, filter, size and file attributes, then shows the input
+        file in the preview or clears the preview if there is no such file.
+
+        Args:
+            values (dict): The current form values keyed by field name.
+
+        Raises:
+            TypeError: If ``values`` has no ``width`` entry, because ``int(None)``
+                is not valid.
+        """
         #       self.format = values.get("format", "ppm")
         self.is_demo = values.get("is_demo", "False")
         self.scale_fac = min(10, float(values.get("scalefac", 1.0)))
@@ -405,6 +462,7 @@ class ImageConvertFrontEnd(ToolView):
     #        )
 
     def setup_menus(self):
+        """Add the File menu with its Exit item."""
         # 1. FILE MENU (Fluent Chained Style)
         file_menu = self.menu("File")
         file_menu.add_item("Exit Application", self.app.root.quit, shortcut="Alt+F4")

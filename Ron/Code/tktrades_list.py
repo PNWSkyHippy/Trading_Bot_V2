@@ -41,6 +41,15 @@ from trade_report_table import TradeReportTable
 
 # Constants stay global; report settings and results belong to each tool instance.
 def _get_default_db_path() -> str:
+    """Locate the default ``trading_bot.db`` file.
+
+    Searches upward from the launched script or executable (ignoring temp
+    extraction folders), then tries a known project path.
+
+    Returns:
+        str: Path to the first database found larger than 1 KB, or the
+        expected location two levels above this file if none exists.
+    """
     # In Nuitka --onefile mode, BOTH __file__ and sys.executable point to the
     # temporary extracted directory (AppData\Local\Temp\onefile_...).
     # sys.argv[0] is the only path that points to the original .exe launched by the user!
@@ -138,6 +147,13 @@ def insert_colored_report(widget, content):
 
 
 class TradeAnalyzerTool(ToolView):
+    """Filter trades from a database and open independent report windows.
+
+    Attributes:
+        title (str): Title shown for the tool.
+        description (str): One-line summary shown for the tool.
+    """
+
     title = "Trade Analyzer"
     description = "Filter your trades and open independent report windows"
 
@@ -586,6 +602,7 @@ class TradeAnalyzerTool(ToolView):
         return '"' + str(name).replace('"', '""') + '"'
 
     def choose_database(self):
+        """Ask for a local database file and reload the field lists from it."""
         path = filedialog.askopenfilename(
             parent=self,
             title="Choose trades database",
@@ -606,6 +623,7 @@ class TradeAnalyzerTool(ToolView):
             self.load_database_fields()
 
     def choose_output_file(self):
+        """Ask where to save the report and store the chosen path."""
         path = filedialog.asksaveasfilename(
             parent=self,
             title="Choose report output name",
@@ -632,6 +650,7 @@ class TradeAnalyzerTool(ToolView):
                 pass
 
         def use_date():
+            """Store the calendar date, with a default time, and close the popup."""
             time = "00:00" if name == "start" else "23:59"
             self.option_vars[name].set(calendar.get_date().isoformat() + "T" + time)
             win.destroy()
@@ -669,6 +688,7 @@ class TradeAnalyzerTool(ToolView):
         self.status_var.set(f"Loading database from {self.args.ssh_host} via SSH… You can keep editing settings.")
 
         def read_remote():
+            """Read the remote database fields and queue the result or error."""
             try:
                 results.put((worker.read_database_fields(), None))
             except Exception as exc:
@@ -734,6 +754,11 @@ class TradeAnalyzerTool(ToolView):
                                 "\n".join(self.hdr_list) or "No database fields available.", parent=self)
 
     def database_load_error(self, detail):
+        """Clear all database-derived choices and show why loading failed.
+
+        Args:
+            detail (str): The error text to show in the status bar.
+        """
         self.hdr_list = []
         self.available_trades = []
         self.table_names = []
@@ -825,6 +850,13 @@ class TradeAnalyzerTool(ToolView):
         self.populate_filter_choices()
 
     def select_filter_values(self, index, values):
+        """Apply the checked values to one filter row.
+
+        Args:
+            index (int): Zero-based filter row.
+            values (list[str]): The checked values. ``"ALL"`` selects the
+                whole field.
+        """
         # If a specific value is checked while ALL was selected, use specifics.
         # Checking ALL after specific values switches back to the whole field.
         previous = self.value_vars[index].get().split(",")
@@ -844,6 +876,11 @@ class TradeAnalyzerTool(ToolView):
         box._update_summary()
 
     def refresh_values(self, event=None):
+        """List the distinct values of the field being inspected.
+
+        Args:
+            event (tk.Event | None): The triggering event, if any.
+        """
         self.available_values.delete(0, "end")
         field = self.inspect_var.get()
         if field not in self.hdr_list:
@@ -856,6 +893,11 @@ class TradeAnalyzerTool(ToolView):
         )
 
     def inspect_filter(self, index):
+        """Show the values available for a filter row's chosen field.
+
+        Args:
+            index (int): Zero-based filter row to inspect.
+        """
         key = self.key_vars[index].get()
         if key:
             self.inspect_var.set(key)
@@ -867,6 +909,7 @@ class TradeAnalyzerTool(ToolView):
             self.populate_filter_choices()
 
     def use_selected_values(self):
+        """Copy the selected values into the targeted filter row."""
         index = int(self.target_filter.get()) - 1
         values = [
             self.available_values.get(i) for i in self.available_values.curselection()
@@ -877,6 +920,7 @@ class TradeAnalyzerTool(ToolView):
             self.populate_filter_choices()
 
     def choose_output_fields(self):
+        """Open a popup for choosing which columns appear in the report."""
         win = tk.Toplevel(self)
         win.title("Select output columns (Ctrl-click for more than one)")
         choices = tk.Listbox(
@@ -899,6 +943,7 @@ class TradeAnalyzerTool(ToolView):
                 choices.selection_set(i)
 
         def use_fields():
+            """Store the selected columns and close the popup."""
             self.option_vars["outfields"].set(
                 ",".join(choices.get(i) for i in choices.curselection())
             )
@@ -911,6 +956,7 @@ class TradeAnalyzerTool(ToolView):
         ).pack(pady=10)
 
     def show_field_names(self):
+        """Reload the database fields and display their names."""
         self.load_database_fields(show_names=True)
 
     def read_controls(self):
@@ -991,6 +1037,7 @@ class TradeAnalyzerTool(ToolView):
         self.status_var.set("Running report — reading database and preparing results…")
 
         def generate():
+            """Run the report on a worker thread and queue the outcome."""
             messages = io.StringIO()
             error = None
             try:
@@ -1011,6 +1058,11 @@ class TradeAnalyzerTool(ToolView):
         self.after(75, self._poll_report, results)
 
     def _report_error(self, detail):
+        """Show a report failure in the status bar and an error dialog.
+
+        Args:
+            detail (str): The error text to display.
+        """
         self.status_var.set("Report could not finish. " + detail[-500:])
         messagebox.showerror("Report options / database", detail, parent=self)
 
@@ -1240,6 +1292,11 @@ class TradeAnalyzerTool(ToolView):
         )
 
         def export(as_csv):
+            """Save the visible report rows to a folder the user picks.
+
+            Args:
+                as_csv (bool): True to write CSV, False for a text report.
+            """
             folder = filedialog.askdirectory(
                 parent=win,
                 title="Choose export folder (a unique filename is created)",
@@ -1286,6 +1343,14 @@ class TradeAnalyzerTool(ToolView):
         """One option list for both startup modes. Parsing never starts a report."""
 
         def wide_formatter(prog):
+            """Build a help formatter with wide columns.
+
+            Args:
+                prog (str): The program name.
+
+            Returns:
+                argparse.RawDescriptionHelpFormatter: The configured formatter.
+            """
             return argparse.RawDescriptionHelpFormatter(
                 prog,
                 width=110,
@@ -2089,6 +2154,15 @@ Usage examples:
         return [dict(r) for r in c.fetchall()]
 
     def get_open_trades(self, conn):
+        """Fetch all open trades, newest entry first.
+
+        Args:
+            conn (sqlite3.Connection): An open connection whose rows support
+                conversion with ``dict``.
+
+        Returns:
+            list[dict]: One dict per trade with ``status`` equal to ``"open"``.
+        """
         c = conn.cursor()
         c.execute(
             "SELECT * FROM trades WHERE status=? ORDER BY entry_time DESC",

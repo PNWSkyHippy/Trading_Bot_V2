@@ -295,7 +295,9 @@ class QuickApp:
         width: Optional[int] = None,
         height: Optional[int] = None,
         use_ctk: bool = False,
+        caller = None,
     ):
+        self.cdict = {}
         if width is not None or height is not None:
             w = width if width is not None else size[0]
             h = height if height is not None else size[1]
@@ -309,7 +311,15 @@ class QuickApp:
             self.root = ctk.CTk()
         else:
             self.root = tk.Tk()
-
+        if caller:
+            for name, value in vars(caller).items(): 
+                # Store caller var as self.app.variavle = value
+                setattr(self, f'_{name}', value)
+#                Store caller var as self.app.cdict["name"] = value
+                self.cdict[f'_{name}'] = value
+            self.caller = caller
+        else:
+            self.caller = None
         self.root.title(title)
         self.root.geometry(f"{size[0]}x{size[1]}")
         self.root.minsize(700, 480)
@@ -369,6 +379,12 @@ class QuickApp:
         self._tools: Dict[str, Type[ToolView]] = {}
         self._nav_buttons: Dict[str, ttk.Button] = {}
 
+    def set_caller(self, caller):
+        self.caller = caller
+        
+    def get_caller(self):
+        return self.caller
+            
     def _setup_default_menus(self):
         """Sets up default top menus including theme picker."""
         theme_menu = self.menu_builder.add_menu("Themes")

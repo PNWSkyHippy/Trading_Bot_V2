@@ -30,6 +30,7 @@ import traceback
 import tkinter as tk
 from tkinter import ttk, colorchooser, filedialog, messagebox
 import numpy as np
+from local_functions import run_magnifyer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -42,6 +43,7 @@ import pov_export  # noqa: E402
 from lathe3d import Lathe3d, LatheTool  # noqa: E402
 import solids3d  # noqa: E402  prisms, pyramids, polyhedra, ellipsoid, caps, truncated cone
 import mesh_io  # noqa: E402  STL/OBJ export (tessellation reused from solids/lathe/tube)
+import boolmesh  # noqa: E402  real combine / cut / overlap / hollow on triangle meshes
 import ui_scroll  # noqa: E402  scrollable side panels
 import help3d  # noqa: E402  context help + master help menu (F1)
 
@@ -554,6 +556,59 @@ def bbox(es):
     return arr.min(axis=0), arr.max(axis=0)
 
 
+def low_z(obj):
+    """Exact lowest Z of one object.  Spheres and the round ends of cylinders/cones/circles use
+    their true curve (a tilted ring dips below its 8 sample points); everything else its samples."""
+    pts = sample_points(obj)
+    z = min(p[2] for p in pts) if pts else 0.0
+    if isinstance(obj, Sphere3d):
+        return min(z, float(center_of(obj)[2] - obj.get_radius()))
+    if is_round(obj) and not solids3d.is_solid(obj):
+        ctr, n, r, h = round_geom(obj)
+        dip = r * math.sqrt(max(0.0, 1.0 - float(n[2]) ** 2))
+        z = min(z, float(ctr[2]) - dip)                   # the base ring
+        if h and not (Cone3d and isinstance(obj, Cone3d)):
+            z = min(z, float(ctr[2] + n[2] * h) - dip)    # a cylinder's top ring (a cone ends in a point)
+    return float(z)
+
+
+def settle_dz(es):
+    """How far to move the entries (objects and twins) along Z so their lowest point sits at Z = 0."""
+    zs = [low_z(o) for e in es for o in (e.obj, e.twin_obj) if o is not None]
+    return -min(zs) if zs else 0.0
+
+
+def measure_text(a, b=None, fmt_=None):
+    """Plain-text measurements: one set of entries = its box size; two = how far apart they are
+    (centre to centre with the X/Y/Z split, the gap between their boxes, the closest sample points)."""
+    f = fmt_ or (lambda v: f"{v:.4g}")
+    alo, ahi = bbox(a)
+    nm = lambda s: s[0].name + (f" +{len(s) - 1}" if len(s) > 1 else "")
+    ac = (alo + ahi) / 2
+    out = [f"{nm(a)}: size {f(ahi[0] - alo[0])} x {f(ahi[1] - alo[1])} x {f(ahi[2] - alo[2])}  (X x Y x Z), "
+           f"low ({', '.join(f(v) for v in alo)}) high ({', '.join(f(v) for v in ahi)})"]
+    if b is None:
+        return "\n".join(out)
+    blo, bhi = bbox(b)
+    bc = (blo + bhi) / 2
+    d = bc - ac
+    out.append(f"{nm(b)}: size {f(bhi[0] - blo[0])} x {f(bhi[1] - blo[1])} x {f(bhi[2] - blo[2])}")
+    out.append(f"Centre to centre: {f(float(np.linalg.norm(d)))}   (dx {f(d[0])}, dy {f(d[1])}, dz {f(d[2])})")
+    gap = np.maximum(0.0, np.maximum(blo - ahi, alo - bhi))     # per axis; 0 where the boxes overlap
+    out.append(f"Gap between boxes: {f(float(np.linalg.norm(gap)))}"
+               + ("  (they overlap)" if not gap.any() else f"   (x {f(gap[0])}, y {f(gap[1])}, z {f(gap[2])})"))
+    pa = np.array([p for e in a for o in (e.obj, e.twin_obj) if o is not None for p in sample_points(o)], float)
+    pb = np.array([p for e in b for o in (e.obj, e.twin_obj) if o is not None for p in sample_points(o)], float)
+    if len(pa) and len(pb):
+        step_a, step_b = max(1, len(pa) // 2000), max(1, len(pb) // 2000)
+        sa, sb = pa[::step_a], pb[::step_b]
+        dist = np.linalg.norm(sa[:, None, :] - sb[None, :, :], axis=2)
+        i, j = np.unravel_index(int(np.argmin(dist)), dist.shape)
+        out.append(f"Closest corner/sample points: {f(float(dist[i, j]))}  (curved surfaces are approximate)"
+                   + f"   ({', '.join(f(v) for v in sa[i])}) -> ({', '.join(f(v) for v in sb[j])})")
+    return "\n".join(out)
+
+
 # ----------------------------------------------------------------------------
 # scene entries  (one CSV object row + its transform rows)
 # ----------------------------------------------------------------------------
@@ -711,6 +766,121 @@ def entry_from_obj(name, obj):
     if isinstance(obj, Point3d):
         return Entry("point3d", name, c1, "", xyz(obj))
     raise TypeError(type(obj).__name__)
+
+
+# ----------------------------------------------------------------------------
+# real booleans: combine / cut / overlap / hollow / twin as one triangle mesh.
+# Shared by the previews (live), the STL/OBJ export and the headless commands.
+# Geometry is tessellated from the LIVE objects (entry.nums is the pre-transform shape).
+# ----------------------------------------------------------------------------
+def obj_facets(obj):
+    """(oriented world triangles [(a, b, c, n)...], None) for a live object, or (None, reason)."""
+    try:
+        e = entry_from_obj("t", obj)
+        verts, tris, trust = mesh_io.object_triangles(e.kind, e.nums, obj)
+    except Exception as exc:                          # noqa: BLE001 - one bad object mustn't stop a file
+        return None, f"{type(exc).__name__}: {exc}"
+    if verts is None:
+        return None, tris                             # tris holds the reason here
+    return mesh_io._orient(verts, tris, trust), None
+
+
+def bool_need(entries, twins=True):
+    """Names of the entries a boolean pass has to touch: hollow / csg / twin ones, csg targets
+    and every member of a target or tool group."""
+    by = {e.name: e for e in entries if e.obj is not None}
+    need = set()
+    for e in by.values():
+        if e.hollow or e.csg or (twins and e.twin_obj is not None):
+            need.add(e.name)
+        if e.csg:
+            tgt, grp = e.csg[1], (e.csg[2] if len(e.csg) > 2 else "")
+            if tgt.startswith("@"):
+                need |= {o.name for o in by.values() if tgt[1:] in gsegs(o)}
+            elif tgt in by:
+                need.add(tgt)
+            if grp:
+                need |= {o.name for o in by.values() if grp in gsegs(o)}
+    return need
+
+
+def bool_scene(entries, twins=True):
+    """(results, failed): boolmesh.solve over the entries a boolean pass touches.
+    failed maps entry name -> why it was left out (not a watertight solid, hollow didn't fit...)."""
+    if not boolmesh.available():
+        return [], {}
+    need = bool_need(entries, twins)
+    items, failed = [], {}
+    for e in entries:
+        if e.name not in need or e.obj is None:
+            continue
+        try:
+            parts, holes = [], []
+            for o in (e.obj, e.twin_obj):
+                if o is None:
+                    continue
+                fac, why = obj_facets(o)
+                if fac is None:
+                    raise boolmesh.BoolError(why)
+                parts.append(fac)
+                if e.hollow:
+                    fac, why = obj_facets(hollow_inner(o, *e.hollow))
+                    if fac is None:
+                        raise boolmesh.BoolError(why)
+                    holes.append(fac)
+        except (boolmesh.BoolError, ValueError, TypeError) as exc:
+            failed[e.name] = str(exc)
+            continue
+        items.append({"name": e.name, "parts": parts, "holes": holes, "csg": e.csg,
+                      "groups": gsegs(e)})
+    results, bad = boolmesh.solve(items)
+    failed.update(bad)
+    return results, failed
+
+
+def scene_groups(entries, scale=1.0, only=None):
+    """Printable geometry, mesh_io.collect style: (groups, skipped) with the booleans done.
+    only: entries to write (a result is written when its host entry is among them); the
+    whole `entries` list still decides what cuts what."""
+    live = [e for e in entries if e.obj is not None]
+    want = None if only is None else {e.name for e in only}
+    results, failed = bool_scene(live)
+    groups, skipped, done = [], [], set()
+
+    def sc(fac):
+        return fac if scale == 1.0 else [(a * scale, b * scale, c * scale, n) for a, b, c, n in fac]
+    for r in results:
+        done |= set(r["members"])
+        if want is None or r["host"] in want:
+            if r["facets"]:
+                groups.append((r["host"], sc(r["facets"])))
+            else:
+                skipped.append((r["host"], "nothing left after the cuts"))
+    for e in live:
+        if e.name in done or (want is not None and e.name not in want):
+            continue
+        if e.csg and e.csg[0] in ("cut", "overlap"):
+            skipped.append((e.name, "tool left out" + (f" ({failed[e.name]})" if e.name in failed
+                                                       else " (its target isn't a solid)")))
+            continue
+        fac_all = []
+        for o in (e.obj, e.twin_obj):
+            if o is not None:
+                fac, why = obj_facets(o)
+                if fac is None:
+                    skipped.append((e.name, why))
+                    break
+                fac_all += fac
+        else:
+            if fac_all:
+                groups.append((e.name, sc(fac_all)))
+            else:
+                skipped.append((e.name, "no faces"))
+            if e.name in failed:
+                skipped.append((e.name, f"kept as a plain shell, boolean skipped: {failed[e.name]}"))
+    if not boolmesh.available() and any(e.hollow or e.csg for e in live):
+        skipped.append(("(booleans)", "manifold3d not installed: pip install manifold3d"))
+    return groups, skipped
 
 
 def load_scene(path):
@@ -1300,6 +1470,7 @@ class App:
         if not self.classic:           # Taichi is the main window: launch it, tuck this menu away
             root.after(260, self._start_taichi_mode)
 
+
     def _confirm_quit(self):
         """Closing this window quits the whole program (it's the main window in Taichi mode).
         Confirm first so a reflex click can't drop you out mid-work."""
@@ -1350,6 +1521,7 @@ class App:
              None,
              ("Import mesh (STL/OBJ)…", self.import_mesh_dialog),
              ("Export mesh (STL/OBJ)…", self.export_mesh_dialog),
+             ("Run turtle script (.logo)…", self.run_turtle_dialog),
              None,
              ("Save .pov…", self.save_pov_here),
              ("POV GUI", self.open_pov_gui_here))
@@ -1397,7 +1569,9 @@ class App:
                  ("Go to position", self.move_to),
                  ("Scale", self.scale_by),
                  ("Rotate", self.rotate),
-                 ("Align", self.align)]),
+                 ("Align", self.align),
+                 ("Settle to Z=0", self.settle),
+                 ("Measure", self.measure)]),
              ("Copies", [
                  ("Replicate", self.replicate),
                  ("Ring copy", self.ring_copy)]))
@@ -1461,11 +1635,15 @@ class App:
         self.canvas.bind("<B3-Motion>", self._drag_move)
         self.canvas.bind("<Motion>", lambda e: self.director is not None and self.director.hover(e.x, e.y))
         self.canvas.bind("<MouseWheel>", self._wheel)
+        self.canvas.bind_all("<Control-Shift-M>", self.on_mag)
+        self.canvas.bind_all("<Control-Shift-m>", self.on_mag)        
         ui_scroll.x11_wheel(self.canvas, self._wheel)
         try:                          # Tk 9: two-finger trackpad scroll arrives as its own event
             self.canvas.bind("<TouchpadScroll>", self._touch_scroll)
         except tk.TclError:
             pass
+        self.top_mag = None
+ 
         self._mac = self.root.tk.call("tk", "windowingsystem") == "aqua"
         if self._mac:                  # Mac: right button is Button-2; Ctrl-click also pans
             for b in ("<ButtonPress-2>", "<Control-ButtonPress-1>"):
@@ -1504,6 +1682,15 @@ class App:
         ys.pack(side=tk.RIGHT, fill=tk.Y)
         xs.pack(side=tk.BOTTOM, fill=tk.X)
         self.out.pack(fill=tk.BOTH, expand=True)
+
+    def on_mag(self, event=None):
+        # already open? close it (the key toggles) instead of stacking copies
+        if self._mag is not None and self._mag.master.winfo_exists():
+            self._mag.master.destroy()
+            self._mag = None
+            return "break"
+        self._mag = run_magnifyer(self)
+        return "break"
 
     def _build_panel(self, p):
         r1 = ttk.Frame(p)
@@ -2638,10 +2825,12 @@ class App:
             o.csg = None if op == "none" else (op, tgt, g)
         self.save()
         self.refresh()
+        self.redraw()
         who = f"group {g}" if g else e.name
         if op != "none":
-            print(f"{who} {op}s {tgt}" + (" - shown as a dashed wire here, the render does the real cut"
-                                          if op != "combine" else " - merged into one solid in the render"))
+            print(f"{who} {op}s {tgt}" + (" - the tool shows as a dashed wire, the target shows the real cut"
+                                          if op != "combine" else " - merged into one solid") +
+                  ("" if boolmesh.available() else "  (install manifold3d to see/export it)"))
         else:
             print(f"{who}: CSG removed")
 
@@ -2653,6 +2842,145 @@ class App:
     def is_cutter(self, e):
         """Cut / overlap tools draw as dashed wire only (the viewer can't carve faces)."""
         return bool(e.csg and e.csg[0] in ("cut", "overlap") and self.csg_target_ok(e.csg[1]))
+
+    def slice_entry(self, e, c, nd, flip=False, closed=True):
+        """Chop entry e at the plane through c with normal nd: the half the normal points to goes
+        (the other half when flip).  The object becomes a closed mesh3d of what's left (hollow and
+        twin baked in; its position, name, colors, group and layer stay).  Returns a message."""
+        if not boolmesh.available():
+            return "Slice needs manifold3d  (pip install manifold3d)"
+        if e.obj is None:
+            return f"{e.name}: not built"
+        try:
+            man = self.entry_manifold(e)
+        except (boolmesh.BoolError, ValueError, TypeError) as exc:
+            return f"{e.name}: can't slice - {exc}  (needs a closed solid)"
+        nd = np.asarray(nd, float)
+        nd = nd / np.linalg.norm(nd)
+        keep = nd if flip else -nd
+        cut = man.trim_by_plane(tuple(keep), float(keep @ np.asarray(c, float)))
+        if cut.is_empty():
+            return f"{e.name}: the plane misses it or takes all of it - nothing changed"
+        facets = boolmesh.to_facets(cut)
+        if len(facets) == len(boolmesh.to_facets(man)) and abs(cut.volume() - man.volume()) < 1e-9:
+            return f"{e.name}: the plane doesn't touch it - nothing changed"
+        if not closed:                             # drop the flat cap lying on the plane: an open shell
+            cn = np.asarray(c, float)
+            facets = [f for f in boolmesh.to_facets(cut)
+                      if max(abs(float(keep @ (np.asarray(p, float) - cn))) for p in f[:3]) > 1e-4]
+            if not facets:
+                return f"{e.name}: nothing left once the cap is left off"
+            self.bake_entry(e, facets, "slice")
+            return f"{e.name}: sliced and left OPEN - a hollow shell (can't be cut again or printed until closed)"
+        self.bake_entry(e, cut, "slice")
+        return f"{e.name}: sliced - half removed, it's a plain mesh now (move / rotate / flip it like anything else)"
+
+    def entry_manifold(self, e):
+        """Closed solid of entry e (twin unioned, hollow subtracted) in world coordinates."""
+        parts, holes = [], []
+        for o in (e.obj, e.twin_obj):
+            if o is None:
+                continue
+            fac, why = obj_facets(o)
+            if fac is None:
+                raise ValueError(why)
+            parts.append(fac)
+            if e.hollow:
+                hf, why = obj_facets(hollow_inner(o, *e.hollow))
+                if hf is None:
+                    raise ValueError(why)
+                holes.append(hf)
+        man = boolmesh._union([boolmesh.to_manifold(p) for p in parts])
+        if holes:
+            man = man - boolmesh._union([boolmesh.to_manifold(h) for h in holes])
+        return man
+
+    def bake_entry(self, e, man, tag):
+        """Make entry e the plain mesh3d of manifold man (position, name, colors, group stay)."""
+        os.makedirs(MESH_DIR, exist_ok=True)
+        dest = f"{e.name}_{tag}_{time.strftime('%Y%m%d-%H%M%S')}.stl"
+        mesh_io.write_stl(os.path.join(MESH_DIR, dest), [(e.name, man if isinstance(man, list) else boolmesh.to_facets(man))])
+        e.kind, e.mesh_src, e.nums = "mesh3d", dest, []
+        e.transforms, e.hollow, e.twin, e.twin_obj = [], None, None, None
+        self.rebuild(e)
+
+    def quickcut_cmd(self, args):
+        """CMD quickcut [keep] [stay]: the selected solid is the scissors.  Every other solid it
+        overlaps is cut by it (or, with keep, trimmed to the overlap) and baked to a mesh; the
+        scissors vanish unless stay.  One undo step."""
+        tool = self.sel_entry()
+        if tool is None:
+            return
+        if not boolmesh.available():
+            print("Quick cut needs manifold3d  (pip install manifold3d)")
+            return
+        keep, stay = "keep" in args, "stay" in args
+        try:
+            tm = self.entry_manifold(tool)
+        except (boolmesh.BoolError, ValueError, TypeError) as exc:
+            print(f"{tool.name}: can't be scissors - {exc}  (needs a closed solid)")
+            return
+        hit = []
+        for o in list(self.entries):
+            if o is tool or o.obj is None:
+                continue
+            try:
+                om = self.entry_manifold(o)
+            except (boolmesh.BoolError, ValueError, TypeError):
+                continue                          # planes, open shapes: not cuttable
+            res = (om ^ tm) if keep else (om - tm)
+            if res.is_empty():
+                if not (om ^ tm).is_empty():
+                    hit.append((o, None))         # swallowed whole
+            elif abs(res.volume() - om.volume()) > 1e-9:
+                hit.append((o, res))
+        if not hit:
+            print(f"{tool.name} doesn't overlap any solid - nothing changed")
+            return
+        for o, res in hit:
+            if res is None:
+                self.entries.remove(o)
+            else:
+                self.bake_entry(o, res, "cut")
+        if not stay:
+            self.entries.remove(tool)
+        self.selected = None
+        self._pick_order = []
+        names = {o.name for o in self.entries}
+        for o in self.entries:
+            if o.csg and o.csg[1] not in names:
+                o.csg = None
+        self.save()
+        self.refresh()
+        self.redraw()
+        print("Quick cut: " + ", ".join(o.name + (" (gone)" if r is None else "") for o, r in hit)
+              + ("" if stay else f"   ({tool.name} used up)") + "   (Ctrl+Z undoes)")
+
+    def slice_cmd(self, args):
+        """CMD slice <cx cy cz nx ny nz flip> [more planes...]: all cuts, one undo step."""
+        e = self.sel_entry()
+        if e is None:
+            return
+        msgs = []
+        closed = "open" not in args
+        args = [a for a in args if a != "open"]
+        try:
+            for i in range(0, len(args) - 6, 7):
+                p = [float(x) for x in args[i:i + 6]]
+                msgs.append(self.slice_entry(e, p[:3], p[3:6], args[i + 6] == "1", closed))
+        except ValueError:
+            print("Slice: bad plane")
+            return
+        self.save()
+        self.refresh()
+        self.redraw()
+        done = sum("sliced" in m for m in msgs)
+        print(msgs[-1] if done <= 1 else f"{e.name}: {done} cuts applied")
+        for m in msgs:
+            if "sliced" not in m:
+                print("  " + m)
+        if done:
+            print("  (Ctrl+Z undoes it)")
 
     def apply_hollow(self):
         e = self.sel_entry()
@@ -2681,7 +3009,8 @@ class App:
         self.refresh()
         self.redraw()
         print(f"{e.name}: " + (f"hollow, walls {num(e.hollow[0])}, open {e.hollow[1]}"
-                               " - inner wall dashed here, the render cuts it out" if e.hollow else "solid again"))
+                               " - inner wall dashed, the object is really hollow (preview, STL, render)"
+                               if e.hollow else "solid again"))
 
     def apply_colors(self):
         e = self.sel_entry()
@@ -3035,6 +3364,28 @@ class App:
                 self._queue_tf(s[0], {"op": "move", "d": d})
             else:
                 print(f"{s[0].name}: already aligned")
+
+    def settle(self):
+        """Drop each selected object (or whole group) so its lowest point sits on Z = 0."""
+        sets = self._sets_of_selection()
+        if not sets:
+            print("Settle: select an object (whole group when group mode is on)")
+            return
+        for s in sets:
+            dz = settle_dz(s)
+            if abs(dz) > 1e-9:
+                print(f"Settle {s[0].name}: Z {fmt(dz)}")
+                self._queue_tf(s[0], {"op": "move", "d": (0.0, 0.0, float(dz))})
+            else:
+                print(f"{s[0].name}: already on Z = 0")
+
+    def measure(self):
+        """One selected object: its size and corners.  Two: distances between the first and second picked."""
+        sets = self._sets_of_selection()
+        if not sets:
+            print("Measure: select one object for its size, or two (Ctrl-click) for the distance between them")
+            return
+        print(measure_text(sets[0], sets[1] if len(sets) > 1 else None, fmt))
 
     @staticmethod
     def _fresh(base, taken):
@@ -4153,7 +4504,7 @@ class App:
         """Write entries to a printable mesh file.  Pure (no GUI) so a headless / MCP caller
         can build an STL/OBJ too.  fmt: 'stl_binary' | 'stl_ascii' | 'obj'.  Returns
         (facet_count, skipped list, bbox) where bbox is (min,max) in the file's units (mm)."""
-        groups, skipped = mesh_io.collect(entries, scale=scale)
+        groups, skipped = scene_groups(self.entries, scale, only=entries)   # cuts / hollows / twins done
         if not groups:
             raise ValueError("nothing printable to export (only points/lines/planes, or empty)")
         if fmt == "obj":
@@ -4244,6 +4595,33 @@ class App:
         if scale and abs(scale - 1.0) > 1e-12:
             e.transforms.append(["scale", num(scale)])
         return e
+
+    def run_turtle_dialog(self):
+        """Run a 3D LOGO program (turtle3d) and add its meshes to the scene, grouped."""
+        import turtle3d
+        path = filedialog.askopenfilename(
+            parent=self.root, initialdir=turtle3d.LIB_DIR if os.path.isdir(turtle3d.LIB_DIR) else HERE,
+            title="Run a turtle script", filetypes=[("Turtle scripts", "*.logo *.txt"), ("All files", "*.*")])
+        if not path:
+            return
+        app = self
+
+        class _Sess:                      # the bits turtle3d.run needs, backed by this App
+            Entry = Entry
+            entries = app.entries
+            mesh_dir = MESH_DIR
+
+            @staticmethod
+            def _rebuild(e):
+                app.rebuild(e)
+        try:
+            msg = turtle3d.run_file(path, _Sess)
+        except (turtle3d.TurtleError, ValueError, OSError) as exc:
+            messagebox.showerror("Turtle script", str(exc), parent=self.root)
+            return
+        self.save()
+        self.refresh()
+        print(msg)
 
     def import_mesh_dialog(self):
         """Pick an STL/OBJ file and drop it into the scene as a mesh3d object."""
@@ -5594,9 +5972,13 @@ class App:
             names = self.layer_names()
             if len(args) >= 2 and args[0].isdigit() and int(args[0]) < len(names):
                 self.toggle_layer_show(names[int(args[0])], args[1] == "1")
-        elif cmd in ("rename", "colors", "material", "twin", "csg", "hollow", "align") and \
+        elif cmd in ("rename", "colors", "material", "twin", "csg", "hollow", "align", "slice", "quickcut") and \
                 (self.selected is None or self.selected[0] != "s"):
             print("Taichi preview: click an object first")
+        elif cmd == "slice":
+            self.slice_cmd(args)
+        elif cmd == "quickcut":
+            self.quickcut_cmd(args)
         elif cmd == "rename":
             self._ask("Rename", [("Name", self.v_name)], self.rename)
         elif cmd == "colors":
@@ -5632,6 +6014,7 @@ class App:
                   "importmesh": self.import_mesh_dialog,
                   "render": self.render_pov, "select_all": self.select_all,
                   "select_none": self.select_none, "untag": self.untag_group,
+                  "settle": self.settle, "measure": self.measure,
                   "undo_tf": self.undo_tf, "run_script": self.ask_run_script,
                   "replay": self.replay, "keep_script": self.keep_script_objs,
                   "save_pov": self.save_pov, "pov_gui": self.open_pov_gui,
@@ -5793,6 +6176,41 @@ class App:
     def safe(self, color, default):
         return color if color and self.rgb(color) is not None else default
 
+    def live_bool(self):
+        """The booleans as the previews show them: {"show": {host name: Mesh3d}, "hide": names
+        merged into a result}.  Cached until a shape, transform, hollow or csg changes."""
+        none = {"show": {}, "hide": set()}
+        if not boolmesh.available():
+            return none
+        es = [e for e in self.entries if e.obj is not None]
+        if not any(e.hollow or e.csg for e in es):
+            return none
+        need = bool_need(es, twins=False)
+        sig = tuple((e.name, e.hollow, e.csg, e.group, e.twin_obj is not None,
+                     tuple(np.round(np.asarray(sample_points(o), float), 5).tobytes()
+                           for o in (e.obj, e.twin_obj) if o is not None))
+                    for e in es if e.name in need)
+        cache = getattr(self, "_bool_cache", None)
+        if cache and cache[0] == sig:
+            return cache[1]
+        by = {e.name: e for e in es}
+        show, hide = {}, set()
+        results, failed = bool_scene([e for e in es if e.name in need], twins=False)
+        for r in results:
+            hide |= set(r["members"])
+            if r["facets"]:
+                tv = np.array([[f[0], f[1], f[2]] for f in r["facets"]], float).reshape(-1, 3)
+                bc, fc = color_of(by[r["host"]].obj)
+                show[r["host"]] = mesh_io.Mesh3d(tv, [(3 * i, 3 * i + 1, 3 * i + 2) for i in range(len(tv) // 3)],
+                                                 r["host"], bc, fc)
+        for n, why in failed.items():
+            if (n, why) not in getattr(self, "_bool_warned", set()):
+                self._bool_warned = getattr(self, "_bool_warned", set()) | {(n, why)}
+                print(f"{n}: boolean skipped - {why}")
+        out = {"show": show, "hide": hide}
+        self._bool_cache = (sig, out)
+        return out
+
     def visible_objects(self):
         out = []
         self._meta = meta = {}              # id(obj) -> (tree iid, drawn as cutter wire)
@@ -5801,14 +6219,20 @@ class App:
         if self.v_show_scene.get():
             cur = self.selected[1] if self.selected and self.selected[0] == "s" else None
             mates = {id(o) for o in self.group_entries(cur)} if cur is not None else set()
+            bl = self.live_bool()
             for i, e in enumerate(self.entries):
                 if e.obj is not None and (e.layer or "Default") not in hidden:
                     sel = id(e) in mates
                     cut = self.is_cutter(e)
+                    if e.name in bl["show"]:        # cut / merged / hollowed result stands in for its parts
+                        res = bl["show"][e.name]
+                        out.append((e.name, res, sel))
+                        meta[id(res)] = (f"s{i}", False)
                     for o in (e.obj, e.twin_obj):
                         if o is not None:
-                            out.append((e.name, o, sel))
-                            meta[id(o)] = (f"s{i}", cut)
+                            if e.name not in bl["hide"] or cut:
+                                out.append((e.name, o, sel))
+                                meta[id(o)] = (f"s{i}", cut)
                             if e.hollow:
                                 try:
                                     inner = hollow_inner(o, *e.hollow)

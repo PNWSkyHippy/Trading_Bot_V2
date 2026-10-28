@@ -43,7 +43,7 @@ OUTPUT RULES:
 
 if AGENT_NAME == "claude":
     response = anthropic_client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+        model="claude-sonnet-5-5",
         max_tokens=4000,
         messages=[{"role": "user", "content": stage_1_prompt}]
     ).content.text
@@ -78,7 +78,7 @@ Cross-analyze their changes against the original code context. Write a direct cr
 
 if AGENT_NAME == "claude":
     critique = anthropic_client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+        model="claude-sonnet-5-5",
         max_tokens=4000,
         messages=[{"role": "user", "content": stage_2_prompt}]
     ).content.text
@@ -127,7 +127,7 @@ while turn < 12:
         chat_history.append({"role": "user", "content": raw_text})
         
         if AGENT_NAME == "claude":
-            reply = anthropic_client.messages.create(model="claude-3-5-sonnet-20241022", max_tokens=4000, messages=chat_history).content.text
+            reply = anthropic_client.messages.create(model="claude-sonnet-5-5", max_tokens=4000, messages=chat_history).content.text
         else:
             reply = openai_client.chat.completions.create(model="gpt-4o", messages=chat_history).choices.message.content
             

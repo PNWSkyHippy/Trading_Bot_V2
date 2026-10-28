@@ -1,3 +1,5 @@
+"""Provide a Tk calculator with standard, scientific and unit converter modes."""
+
 import base64
 import collections as col
 import math
@@ -5,7 +7,7 @@ import re
 import sys
 import tkinter as tk
 from tkinter import PhotoImage, ttk
-
+from local_functions import run_magnifyer
 from calc_inc import *
 from quick_tk import QuickApp, ToolView
 
@@ -16,6 +18,12 @@ class TkCalc(ToolView):
     """A TK Based Calculator"""
 
     def __init__(self, parent, **kwargs):
+        """Initialize the calculator view and its mode flags.
+
+        Args:
+            parent (tk.Widget): The widget that contains this view.
+            **kwargs: Extra options passed to ``ToolView``.
+        """
         super().__init__(parent, **kwargs)
         self.title = "TK Calculator"
         self.scientific_extended = False
@@ -23,6 +31,12 @@ class TkCalc(ToolView):
         self.angle_mode = "radians"
 
     def build_ui(self):
+        """Build the mode selector, shared display and every mode frame.
+
+        Raises:
+            FileNotFoundError: If ``buttonicon.gif`` or ``buttonicon2.gif``
+                is missing from the working directory.
+        """
         with open("buttonicon.gif", "rb") as image:
             image_string = base64.encodebytes(image.read())
         self.icon = PhotoImage(data=image_string)
@@ -44,6 +58,11 @@ class TkCalc(ToolView):
         top_bar.columnconfigure(0, weight=0)
         top_bar.columnconfigure(1, weight=1)
         top_bar.columnconfigure(2, weight=1)
+
+
+        self._mag = None
+        self.bind_all("<Control-Shift-M>", self.on_mag)
+        self.bind_all("<Control-Shift-m>", self.on_mag)
 
         self.mode_var = tk.StringVar(value="Standard")
         mode_combo = ttk.Combobox(
@@ -115,6 +134,7 @@ class TkCalc(ToolView):
 
 
     def setup_menus(self):
+        """Add the File menu with its Exit item and About submenu."""
         # 1. FILE MENU (Fluent Chained Style)
        # 1. FILE MENU (Fluent Chained Style)
         file_menu = self.menu("File")
@@ -123,26 +143,51 @@ class TkCalc(ToolView):
         # Cascading Submenu: File > Export > ...
         export_sub = file_menu.add_submenu("About")
         export_sub.add_item(
-            "TKCalc 09/2026", lambda: self.log_action("Exported data to CSV")
+            "TKCalc 09/2026", lambda: self.log_action("")
         )
         export_sub.add_item(
-            "Coded By: Ron Hensley", lambda: self.log_action("Exported data to CSV")
+            "Coded By: Ron Hensley", lambda: self.log_action("")
         )
         export_sub.add_item(
-            "ronkhensley@gmail.com", lambda: self.log_action("Exported data to CSV")
+            "ronkhensley@gmail.com", lambda: self.log_action("")
         )
-       
+
+    def on_mag(self, event=None):
+        # already open? close it (the key toggles) instead of stacking copies
+        if self._mag is not None and self._mag.master.winfo_exists():
+            self._mag.master.destroy()
+            self._mag = None
+            return "break"
+        self._mag = run_magnifyer(self.app.root)
+        return "break"
+
     def log_action(self, msg):
-        pass
+        """Record a menu action. Currently a no-op.
+
+        Args:
+            msg (str): Description of the action.
+        """
+        return msg
 
     
     def show_mode(self, mode_name: str):
+        """Raise the frame for a calculator mode and update the status bar.
+
+        Args:
+            mode_name (str): Key into ``mode_frames``. Unknown names are
+                ignored.
+        """
         target_frame = self.mode_frames.get(mode_name)
         if target_frame:
             target_frame.tkraise()  # Brings target to front without destroying anything!
             self.set_status(f"Switched to {mode_name} mode")
 
     def on_mode_switched(self, event=None):
+        """Handle a new selection in the mode dropdown.
+
+        Args:
+            event (tk.Event | None): The ``<<ComboboxSelected>>`` event, if any.
+        """
         mode = self.mode_var.get()
         if mode == "Scientific Extended":
             self.scientific_extended = True
@@ -156,6 +201,11 @@ class TkCalc(ToolView):
         self.show_mode(mode)
 
     def _build_standard_mode(self):
+        """Build the standard calculator frame.
+
+        Returns:
+            ttk.LabelFrame: The populated frame, placed in ``container``.
+        """
         frame = ttk.LabelFrame(
             self.container, text=" Standard Mode ", padding=8, relief=tk.RAISED
         )
@@ -340,6 +390,11 @@ class TkCalc(ToolView):
         return frame
 
     def _build_scientific_mode(self):
+        """Build the scientific calculator frame.
+
+        Returns:
+            ttk.LabelFrame: The populated frame, placed in ``container``.
+        """
         scientific_buttons1 = [
             ("⇄", "Rad", "\u221a", "\u007cx\u007c"),
             ("sin", "cos", "tan", "\u03c0"),
@@ -472,6 +527,11 @@ class TkCalc(ToolView):
         return frame
 
     def _build_scientific_mode_ext(self):
+        """Build the extended scientific frame with inverse and hyperbolic keys.
+
+        Returns:
+            ttk.LabelFrame: The populated frame, placed in ``container``.
+        """
         scientific_buttons2 = [
             ("⇄", "Rad", "\u221b", "2\u02e3"),  # 2 to x
             (
@@ -606,6 +666,11 @@ class TkCalc(ToolView):
         return frame
 
     def _build_converter_mode(self) -> ttk.Frame:
+        """Build the unit converter frame.
+
+        Returns:
+            ttk.Frame: The populated frame, placed in ``container``.
+        """
         frame = ttk.LabelFrame(
             self.container,
             text=" Unit Converter & Calculations ",
@@ -861,6 +926,17 @@ class TkCalc(ToolView):
     def _on_update_choices(
         self, src_key: str, target_key: str, choice: str, options: list
     ):
+        """Flip the opposite unit dropdown. Currently disabled.
+
+        The method returns immediately, so the auto-flip logic below it
+        never runs.
+
+        Args:
+            src_key (str): Form key of the dropdown that changed.
+            target_key (str): Form key of the dropdown to update.
+            choice (str): The unit just selected.
+            options (list): The two units available in the category.
+        """
         return
         """Auto-flips the opposite dropdown to the other unit."""
         if len(options) >= 2:

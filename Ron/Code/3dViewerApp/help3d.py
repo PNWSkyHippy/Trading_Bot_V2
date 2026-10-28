@@ -451,6 +451,11 @@ Constructive solid geometry fuses or cuts one solid with another.
 
 Click the FIRST object, open CSG, choose the operation, then pick the target by
 name.  Use @name as the target to combine with a whole group at once.
+
+The cut is real geometry: the preview shows the carved target (the tool stays as a
+dashed wire), and the STL/OBJ export and the render carry it too.  A cut that sits
+completely inside a solid makes a sealed void - let the tool poke out through a face
+to open it.  Needs the manifold3d package (pip install manifold3d).
 """, _d_csg)
 
 _topic("hollow", "Hollow (shell out a solid)", """
@@ -653,6 +658,83 @@ Notes:
   the POV render show every triangle.
 - Scale on import is 1:1 (one file unit = one viewer unit).  If a model comes in
   tiny or huge, select it and scale it once in the scene.
+""", None)
+
+_topic("slice", "Slice plane - section view and cut", """
+Taichi menu -> Slice plane (section view / cut an object).  Tick it and a
+translucent plane appears through the selected object (the plane re-centres on
+whatever you select, so switching objects moves it there).
+
+- Arrows on the plane slide it; grab a coloured ring (the line itself) to turn it.
+  The X/Y/Z position and "turn about" sliders do the same numerically, and the
+  three buttons snap it flat (cuts across Z) or facing X or Y.
+- The white arrow points to the half that goes.  "Cut away the other side" flips it.
+- By default only the SELECTED object is clipped in the preview; tick "Cut
+  everything in the preview" to see the whole scene in section.
+- "Leave the cut OPEN" shows the hollow inside instead of a flat cap.
+- "Add this plane, set up another cut" stacks planes (a wedge, a slot, a corner);
+  "Drop the last added plane" undoes the last one.
+
+Nothing is changed until you press "CUT the selected object here".  That bakes
+every staged plane into the object, which becomes a closed mesh (name, colours,
+group and layer stay).  Ctrl+Z undoes it.  Each cut result is a real solid, so it
+exports to STL and takes part in CSG like anything else.
+
+Notes:
+- The object must be a closed solid (cube, sphere, cylinder, imported mesh ...).
+  Planes, lines and open shapes can't be cut.
+- Needs the manifold3d package in the viewer's Python.  On the Mac the viewer runs
+  on python3.15 (has it) and launches Taichi from the venv via TAICHI_PYTHON.
+- If the plane misses the object, or takes all of it, nothing changes and the
+  console says so.
+""", None)
+
+_topic("quickcut", "Quick cut / Quick keep - scissors", """
+Taichi menu, under the Slice plane controls.  Use another solid as a pair of
+scissors - no plane needed.
+
+1. Move the cutter so it overlaps the thing to cut (a cylinder through a block,
+   a sphere biting a corner ...).
+2. Select the CUTTER (the scissors).
+3. Press one of:
+   - QUICK CUT: every other solid it overlaps has the overlap removed and is
+     baked to a mesh.  The scissors vanish ("poof").
+   - QUICK KEEP: every other solid it overlaps is trimmed down to ONLY the part
+     inside the scissors (an intersection).
+
+One undo step (Ctrl+Z) restores everything.  A solid the scissors swallow whole
+is deleted by Quick cut.  Things that aren't closed solids (planes, lines) are
+skipped.  Holes drilled this way keep their name, colours, group and layer, and
+export to STL as real geometry.
+
+Tip: for a persistent, editable version instead of a one-way bake, give the cutter a
+CSG cut in the object's CSG settings.
+""", None)
+
+_topic("turtle", "Turtle - 3D LOGO programs", """
+File menu -> "Run turtle script (.logo)...", or the command  turtle file.logo
+A turtle walks in 3D and builds objects from a short text program.  Samples are
+in the turtle_lib folder (mickey.logo, shapes.logo, gen_example.py).
+
+  fd bk rt lt up down roll   move and turn (degrees; starts facing +X, up = +Z)
+  pu pd  pensize r  color c  pen up/down, tube radius, colour
+  cube box sphere cylinder cone      stamp a solid at the turtle
+  beginfill ... endfill (fillthick t)   fill the path as a flat polygon / slab
+  push pop        save / restore the turtle (position, heading, pen, colour)
+  repeat n [..]  if e [..] else [..]  for i a b [..]  make x e  to name :a .. end
+  part name :a .. endpart     a reusable assembly in its own local frame
+  place name args as inst [mirror l|f|u] [scale s]
+  group name .. endgroup   use file   (library: turtle_lib/file.logo)
+
+Build an arm ONCE, then  place arm 12 as arm_l  and  place arm 12 as arm_r mirror l
+for the other side.  Parts nest: arm and head inside torso.  Each placed part
+becomes a group in the object tree (mickey/torso/head/ear_l) and each group/colour
+becomes a mesh object, so colours, materials, move/rotate/scale, POV-Ray and STL
+export all work on it normally.
+
+A Python program can write the .logo text (fractals, equations, loops) - see
+turtle_lib/gen_example.py.  Negative arguments: "goto 5 -3 0" is three numbers;
+write 5-3 or 5 - 3 to subtract.  A part must be defined before it is placed.
 """, None)
 
 _topic("lights", "Lights - lamps in the scene (F5)", """

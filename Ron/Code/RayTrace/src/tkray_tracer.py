@@ -143,7 +143,7 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any, cast
-
+from local_functions import run_magnifyer
 import camera_path as director
 import rayincludes as ri
 from camera_path_editor import CameraPathEditor
@@ -169,6 +169,16 @@ def _read_pov_ppm(stream):
     """Read a binary PPM pipe, returning dimensions and an iterator of RGB rows."""
 
     def token():
+        """Read the next whitespace-delimited header token from the stream.
+
+        Comments starting with ``#`` are skipped.
+
+        Returns:
+            bytes: The token that was read.
+
+        Raises:
+            RuntimeError: If POV-Ray ends before the PPM image is complete.
+        """
         value = bytearray()
         while True:
             char = stream.read(1)
@@ -197,6 +207,17 @@ def _read_pov_ppm(stream):
         raise RuntimeError(f"Invalid PPM header: {width}x{height}, maximum {maximum}.")
 
     def rows():
+        """Yield the image one row at a time as RGB tuples.
+
+        Reads binary (P6) or ASCII (P3) pixel data and scales every sample to the
+        0-255 range.
+
+        Yields:
+            list[tuple[int, int, int]]: The (red, green, blue) pixels of one row.
+
+        Raises:
+            RuntimeError: If the stream ends mid-row or a pixel value is out of range.
+        """
         sample_bytes = 1 if maximum < 256 else 2
         for row in range(height):
             if magic == b"P6":
@@ -337,7 +358,19 @@ scene1 = make_scene1(ri.scene1_keyframes, ri.common_scene1_settings)
 
 
 class RayTraceTimer:
+    """Time a render and report elapsed minutes at a throttled interval.
+
+    Attributes:
+        total_pixels (int): The pixel count of the render, when supplied.
+        start_time (float): The ``time.perf_counter`` value when timing began.
+        last_report_time (float): The counter value at the last progress report.
+    """
     def __init__(self, total_pixels=None):
+        """Start the timer.
+
+        Args:
+            total_pixels (int | None): The pixel count of the render, if known.
+        """
         if total_pixels is not None:
             self.total_pixels = total_pixels
         # Start the clock
@@ -402,6 +435,14 @@ class CanvasSelector:
             self.canvas.focus_set()
 
     def _canvas_point(self, event):
+        """Convert event coordinates to canvas coordinates.
+
+        Args:
+            event (tk.Event): The mouse event.
+
+        Returns:
+            tuple[float, float]: The x and y position on the canvas.
+        """
         return self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
 
     def on_press(self, event):
@@ -595,10 +636,20 @@ class _CheckboxVarWrapper:
     """Safely wraps a boolean checkbox state, synchronizing with an optional UI widget."""
 
     def __init__(self, val=False):
+        """Initialize the wrapper.
+
+        Args:
+            val (bool): The starting value.
+        """
         self._val = bool(val)
         self._widget = None
 
     def attach_widget(self, widget):
+        """Link a widget and push the stored value to it.
+
+        Args:
+            widget (object | None): A widget with ``set`` or ``select``/``deselect``.
+        """
         self._widget = widget
         if widget is not None:
             try:
@@ -613,9 +664,15 @@ class _CheckboxVarWrapper:
                 pass
 
     def detach_widget(self):
+        """Unlink the widget."""
         self._widget = None
 
     def set(self, val):
+        """Store a value and update the attached widget.
+
+        Args:
+            val (bool): The new value.
+        """
         self._val = bool(val)
         if self._widget is not None:
             try:
@@ -632,6 +689,11 @@ class _CheckboxVarWrapper:
                 self._widget = None
 
     def get(self):
+        """Return the current value, preferring the attached widget.
+
+        Returns:
+            bool: The widget's value, or the stored value if there is no widget.
+        """
         if self._widget is not None:
             try:
                 if hasattr(self._widget, "winfo_exists") and not self._widget.winfo_exists():
@@ -643,9 +705,19 @@ class _CheckboxVarWrapper:
         return self._val
 
     def __bool__(self):
+        """Return the current value.
+
+        Returns:
+            bool: The result of ``get``.
+        """
         return self.get()
 
     def __repr__(self):
+        """Return a representation showing the value and widget.
+
+        Returns:
+            str: The representation.
+        """
         return f"_CheckboxVarWrapper(val={self._val!r}, widget={self._widget!r})"
 
 
@@ -748,6 +820,9 @@ class LiveRayTraceViewer(ToolView):
         self.sharpness_timer_id = None
         self.scale_timer_id = None
         self.setup_menus()
+        self._mag = None
+        self.app.root.bind_all("<Control-Shift-M>", self.on_mag)
+        self.app.root.bind_all("<Control-Shift-m>", self.on_mag)
 
         self.form.add_dropdown(
             "aspratio",
@@ -795,6 +870,15 @@ class LiveRayTraceViewer(ToolView):
             default="Book 2: The Next Week",
             on_change=self._on_book_changed,
         )
+    def on_mag(self, event=None):
+        # already open? close it (the key toggles) instead of stacking copies
+        if self._mag is not None and self._mag.master.winfo_exists():
+            self._mag.master.destroy()
+            self._mag = None
+            return "break"
+
+        self._mag = run_magnifyer(self.app.root)
+        return "break"
 
         # Scene Selection (Book 1 and 3 have a single default render, Book 2 has the 9 scene presets)
         self.scene_combo = self.form.add_dropdown(
@@ -893,6 +977,7 @@ class LiveRayTraceViewer(ToolView):
         self.sequence_info_label.grid(row=0, column=5, sticky="e")
 
     def setup_menus(self):
+        """Build the File and Edit menus and bind their keyboard shortcuts."""
         # 1. FILE MENU (Fluent Chained Style)
         #        file_menu = self.menu("File")
         # Top-level Menu: Configuration
@@ -911,7 +996,7 @@ class LiveRayTraceViewer(ToolView):
         file_menu.add_separator()
         file_menu.add_item("Exit Application <Alt-F4>", command=self.app.root.quit)
         self.bind_all("<Alt-F4>", lambda _event: self.app.root.quit())
-        self.bind_all("<Control-p>", lambda _event: self.app.root.quit())
+        self.bind_all("<Control-P>", lambda _event: self.open_floating_window())
         # 3. VIEW MENU (With Toggle Checkboxes and Radio Groups)
         #        view_menu = self.menu("View")
 
@@ -980,6 +1065,11 @@ class LiveRayTraceViewer(ToolView):
     # Use if you want the window to stay open while working on the main screen
     # =========================================================================
     def open_floating_window(self):
+        """Open the floating palette of image and scene actions.
+
+        The palette offers save, movie maker, GIF export, sequence loading and
+        scene studio buttons plus an input file field.
+        """
         popup = tk.Toplevel(self)
         popup.title("Floating Configuration Palette")
         popup.geometry("480x440")
@@ -1045,6 +1135,7 @@ class LiveRayTraceViewer(ToolView):
 
         # Action Buttons inside the popup
         def _on_submit():
+            """Load the typed image path and close the palette."""
             vals = form.get_values()
             # Browsing already loads the image; this also handles a typed path.
             # The image loader safely skips a file that is already open.
@@ -1078,6 +1169,11 @@ class LiveRayTraceViewer(ToolView):
         self.prog_bar.set(self._progress_completed_frames / self._progress_total_frames)
 
     def restore_def_ctrls(self):
+        """Reset all adjustment state and checkbox wrappers to their defaults.
+
+        Clears pending edits and slider timers, and resets rotation, contrast,
+        color, brightness, sharpness, scale and the filter flags.
+        """
         self.pending_control = None
         self.pending_snapshot = None
         self.last_rotation_value = self.rotation
@@ -1130,6 +1226,7 @@ class LiveRayTraceViewer(ToolView):
             self.debug_var.set(False)
 
     def close_debug_window(self):
+        """Close the debug window and clear its console and checkbox state."""
         if self.debug_win is not None:
             self.debug_win.destroy()
 
@@ -1142,6 +1239,12 @@ class LiveRayTraceViewer(ToolView):
                 pass
 
     def open_debug_window(self, state=None):
+        """Open the debug console window, or raise it if it is already open.
+
+        Args:
+            state (bool | None): The checkbox state. A false value closes an
+                already open window.
+        """
         win = self.debug_win
 
         if win is not None and win.winfo_exists():
@@ -1167,6 +1270,13 @@ class LiveRayTraceViewer(ToolView):
         win.protocol("WM_DELETE_WINDOW", self.close_debug_window)
 
     def open_adjustments_window(self, event=None):
+        """Open the floating Image Adjustments window, or raise it if open.
+
+        The window holds sliders and filter checkboxes for live adjustments.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         # If the window is already open, just bring it to the front
         if (
             getattr(self, "adjustments_win", None)
@@ -1183,6 +1293,7 @@ class LiveRayTraceViewer(ToolView):
         self.adjustments_win = win
 
         def _on_close_adjustments():
+            """Detach the checkbox wrappers and destroy the adjustments window."""
             self.blur_var.detach_widget()
             self.contour_var.detach_widget()
             self.smooth_var.detach_widget()
@@ -1360,6 +1471,15 @@ class LiveRayTraceViewer(ToolView):
         self.bind_all("<Control-d>", self.open_debug_window)
 
     def _snapshot_editor_state(self, reason="Generic"):
+        """Capture the editor state for the undo stack.
+
+        Args:
+            reason (str): A label describing the action about to be performed.
+
+        Returns:
+            dict: The images, sizes, filter flags, adjustment values and form
+            values at this moment.
+        """
         snapshot = {
             "reason": reason,
             "form_values": self.form.get_values().copy()
@@ -1402,6 +1522,11 @@ class LiveRayTraceViewer(ToolView):
         return snapshot
 
     def _restore_editor_state(self, snapshot):
+        """Restore the editor from a snapshot made by ``_snapshot_editor_state``.
+
+        Args:
+            snapshot (dict | None): The saved state. An empty value does nothing.
+        """
         if not snapshot:
             return
 
@@ -1492,6 +1617,7 @@ class LiveRayTraceViewer(ToolView):
             )
 
     def clear_stack(self):
+        """Discard the undo stack and any pending edit."""
         self.stack_cnt = 0
         self.image_stack.clear()
         self.stack_desc.clear()
@@ -1499,6 +1625,14 @@ class LiveRayTraceViewer(ToolView):
         self.pending_snapshot = None
 
     def stack_pop(self, event=None):
+        """Undo the most recent edit.
+
+        For a loaded image sequence this reverts the last sequence edit on a
+        background thread. Otherwise it restores the previous editor snapshot.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         if self.sequence_images:
             if self.sequence_edit_in_progress:
                 messagebox.showinfo(
@@ -1522,6 +1656,7 @@ class LiveRayTraceViewer(ToolView):
             originals = list(self.sequence_original_images)
 
             def worker():
+                """Reapply the remaining edit history to every original frame."""
                 edited = [
                     self._apply_sequence_history(original, history)
                     for original in originals
@@ -1580,6 +1715,12 @@ class LiveRayTraceViewer(ToolView):
         self.pending_snapshot = self._snapshot_editor_state(control_name)
 
     def stack_add(self, img=None, reason="Generic"):
+        """Push the current editor state onto the undo stack.
+
+        Args:
+            img (PIL.Image.Image | None): An image to store with the snapshot.
+            reason (str): A label describing the action about to be performed.
+        """
         # Crop, zoom, and similar actions call stack_add directly. They are
         # discrete actions, so commit any open slider session before recording
         # the new action's starting state.
@@ -1592,6 +1733,12 @@ class LiveRayTraceViewer(ToolView):
         self.stack_cnt += 1
 
     def get_cur_img(self):
+        """Return a copy of the image currently being shown.
+
+        Returns:
+            PIL.Image.Image | None: The current sequence frame, transformed image,
+            source image or rendered buffer, or None if there is no image.
+        """
         if self.sequence_images:
             img = self.sequence_images[self.sequence_index]
         elif self.current_transformed_image is not None:
@@ -1651,6 +1798,11 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def zoom_in_window(self, event=None):
+        """Enlarge the current image, or every sequence frame, by 10 percent.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         img = self.get_cur_img()
         if img is None:
             return
@@ -1678,6 +1830,11 @@ class LiveRayTraceViewer(ToolView):
         self._commit_discrete_image(zoomed)
 
     def zoom_out_window(self, event=None):
+        """Shrink the current image, or every sequence frame, by 10 percent.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         img = self.get_cur_img()
         if img is None:
             return
@@ -1705,6 +1862,11 @@ class LiveRayTraceViewer(ToolView):
         self._commit_discrete_image(zoomed)
 
     def zoom_select_window(self, event=None):
+        """Show the image and start a drag-to-select zoom.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         #       self.update_live_preview()
         img = self.get_cur_img()
         if img is None:
@@ -1718,6 +1880,11 @@ class LiveRayTraceViewer(ToolView):
         self.setup_zoom_image_workspace(self.live_photo, working_image=img)
 
     def bokeh_window(self, event=None):
+        """Show the image and start a polygon selection for a bokeh blur.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         # 1. Start from clean RAM copy
         img = self.get_cur_img()
         if img is None:
@@ -1736,6 +1903,11 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def crop_window(self, event=None):
+        """Show the image and start a drag-to-select crop.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         # 1. Start from clean RAM copy
         img = self.get_cur_img()
         if self.debug_console is not None:
@@ -1753,6 +1925,11 @@ class LiveRayTraceViewer(ToolView):
         self.setup_image_workspace(self.live_photo, working_image=img)
 
     def _on_book_changed(self, selected_book: str):
+        """Refill the scene dropdown for the selected book.
+
+        Args:
+            selected_book (str): The name of the chosen book.
+        """
         config = BOOK_BINARIES.get(selected_book, {})
         choices = BOOK_SCENE_CHOICES.get(selected_book, ["1: Default Scene"])
         self.scene_combo["values"] = choices
@@ -1761,9 +1938,10 @@ class LiveRayTraceViewer(ToolView):
         if has_scenes:
             self.scene_combo.config(state="readonly")
         else:
-            self.scene_combo.config(state="readonly")
+            self.scene_combo.config(state="disabled")
 
     def _clear_loaded_sequence(self):
+        """Stop playback and forget any loaded image sequence."""
         self.on_stop_sequence()
         self.sequence_generation += 1
         self.sequence_images = []
@@ -1963,6 +2141,14 @@ class LiveRayTraceViewer(ToolView):
             messagebox.showerror("Preview display error", str(e))
 
     def on_start_render(self, values: dict):
+        """Start a homemade ray tracer render using the form values.
+
+        Resets the image buffers and preview, then launches the book's binary
+        (through WSL on Windows).
+
+        Args:
+            values (dict): The form values, such as book, scene, width and height.
+        """
         if self.is_rendering:
             messagebox.showinfo(
                 "Rendering",
@@ -2138,6 +2324,14 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def on_load_pov_scene(self, event=None):
+        """Ask for a POV-Ray scene file and make it the active scene.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+
+        Returns:
+            bool: True if a scene was chosen, False if the dialog was cancelled.
+        """
         chosen_path = filedialog.askopenfilename(
             title="Select POV-Ray Scene",
             filetypes=[("POV-Ray Scene", "*.pov"), ("All Files", "*.*")],
@@ -2156,6 +2350,11 @@ class LiveRayTraceViewer(ToolView):
         return True
 
     def _require_pov_scene(self):
+        """Return the active POV-Ray scene, asking for one if needed.
+
+        Returns:
+            pathlib.Path | None: The scene path, or None if none was chosen.
+        """
         scene_path = self.pov_scene_path
         if scene_path is not None and scene_path.is_file():
             return scene_path
@@ -2164,6 +2363,13 @@ class LiveRayTraceViewer(ToolView):
         return None
 
     def _start_pov_render(self, frames, output_suffix):
+        """Queue and start a POV-Ray render of the active scene.
+
+        Args:
+            frames (list | None): The camera frames for a strip, or None for a
+                single still.
+            output_suffix (str): A label for the output folder and file names.
+        """
         if self.is_rendering:
             messagebox.showinfo(
                 "Rendering",
@@ -2271,6 +2477,11 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def _on_scene_studio_applied(self, scene_path: Path):
+        """Make a scene saved in Scene Studio the active scene.
+
+        Args:
+            scene_path (pathlib.Path): The path of the updated scene file.
+        """
         self.pov_scene_path = scene_path
         self.director_shot = None
         self.director_pov = False
@@ -2341,6 +2552,7 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def use_original_camera_path(self):
+        """Clear any Director shot so the original camera path is used."""
         if self.is_rendering:
             messagebox.showinfo(
                 "Camera path", "Finish or stop the current render first."
@@ -2353,18 +2565,40 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def on_click_povray_still(self, argument=None):
+        """Render a single POV-Ray still.
+
+        Args:
+            argument (object | None): The button argument, unused.
+        """
         self._start_pov_render(frames=None, output_suffix="still")
 
     def on_click_povray_strip(self, argument=None):
+        """Render a POV-Ray strip of frames from the movie frame settings.
+
+        Args:
+            argument (object | None): The button argument, unused.
+        """
         frames = self._requested_scene1_frames()
         if frames is not None:
             self._start_pov_render(frames=frames, output_suffix="strip")
 
     # Compatibility for any existing binding that still references this name.
     def on_click_povray(self, argument=None):
+        """Render a POV-Ray still, as an alias for ``on_click_povray_still``.
+
+        Args:
+            argument (object | None): The button argument, passed through.
+        """
         self.on_click_povray_still(argument)
 
     def on_click_render2(self, argument=None):
+        """Render a series of homemade ray tracer frames along the camera path.
+
+        Creates a scene_data output folder and queues one frame per camera shot.
+
+        Args:
+            argument (object | None): The button argument, unused.
+        """
         if self.is_rendering:
             messagebox.showinfo(
                 "Rendering",
@@ -2408,6 +2642,10 @@ class LiveRayTraceViewer(ToolView):
         self._start_next_scene_render()
 
     def _start_next_povray_scene_render(self):
+        """Start the next queued POV-Ray frame, or finish if the queue is empty.
+
+        Shows an error dialog if the queue or frame template fails.
+        """
         try:
             render_job = next(self._pov_render_queue)
         except StopIteration:
@@ -2486,6 +2724,18 @@ class LiveRayTraceViewer(ToolView):
 
     @staticmethod
     def _pov_vector(value):
+        """Format three values as a POV-Ray vector.
+
+        Args:
+            value (str | Iterable): A comma-separated string or a sequence of
+                three values.
+
+        Returns:
+            str: The vector as ``<a, b, c>``.
+
+        Raises:
+            ValueError: If the value does not have exactly three parts.
+        """
         if isinstance(value, str):
             parts = [part.strip() for part in value.split(",")]
         else:
@@ -2496,6 +2746,17 @@ class LiveRayTraceViewer(ToolView):
 
     @staticmethod
     def _windows_path_to_wsl(path):
+        """Convert a Windows path to its WSL ``/mnt`` equivalent.
+
+        Args:
+            path (str | os.PathLike): The Windows path.
+
+        Returns:
+            str: The path as seen from WSL.
+
+        Raises:
+            ValueError: If the path has no drive letter.
+        """
         resolved_path = Path(path).resolve()
         drive = resolved_path.drive.rstrip(":").lower()
         if not drive:
@@ -2631,6 +2892,13 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def on_start_render2(self, values: dict, render_args: list[str], on_complete=None):
+        """Run a render command and stream its output into the preview.
+
+        Args:
+            values (dict): The form values, such as book, width and height.
+            render_args (list[str]): The command line arguments for the binary.
+            on_complete (Callable | None): Called after a successful render.
+        """
         if self.is_rendering:
             messagebox.showinfo(
                 "Rendering",
@@ -2777,6 +3045,7 @@ class LiveRayTraceViewer(ToolView):
                     self.debug_console.write(f"{raytimer.print_final()}")
 
                 def finish_render():
+                    """Update the render state and status after the render ends."""
                     self.is_rendering = False
                     self.current_proc = None
                     if render_error is not None:
@@ -2809,6 +3078,16 @@ class LiveRayTraceViewer(ToolView):
         working_dir: Path | None = None,
         on_complete=None,
     ):
+        """Run POV-Ray and stream its PPM output into the preview.
+
+        Args:
+            values (dict): The form values.
+            render_args (list[str]): The command line arguments for POV-Ray.
+            output_path (pathlib.Path | None): Where to save the frame, if saving.
+            frame_label (str): A label for status messages.
+            working_dir (pathlib.Path | None): The directory to run in.
+            on_complete (Callable | None): Called after a successful render.
+        """
         if self.is_rendering:
             messagebox.showinfo(
                 "Rendering",
@@ -2960,6 +3239,10 @@ class LiveRayTraceViewer(ToolView):
                     self.debug_console.write(f"{raytimer.print_final()}")
 
                 def finish_render():
+                    """Update the render state and status after the render ends.
+
+                    Starts the next queued frame if ``on_complete`` was given.
+                    """
                     self.is_rendering = False
                     self.current_proc = None
                     if render_error is not None:
@@ -2992,6 +3275,14 @@ class LiveRayTraceViewer(ToolView):
         self.img_label.config(image=self.live_photo, text="")
 
     def _draw_row(self, row_idx, row_hex_string, width, height):
+        """Paint one scanline into the live preview and update progress.
+
+        Args:
+            row_idx (int): The row index to draw.
+            row_hex_string (str): The row's pixels in Tk hex color format.
+            width (int): The image width in pixels.
+            height (int): The image height in pixels.
+        """
         try:
             if self.live_photo is None:
                 return
@@ -3011,6 +3302,11 @@ class LiveRayTraceViewer(ToolView):
             pass
 
     def on_stop_render(self, values: dict | None = None):
+        """Terminate the running render process.
+
+        Args:
+            values (dict | None): The form values, unused.
+        """
         if self.is_rendering and self.current_proc:
             self.is_rendering = False
             try:
@@ -3028,6 +3324,14 @@ class LiveRayTraceViewer(ToolView):
         ]
 
     def on_load_image_sequence(self, event=None):
+        """Ask for image files and load them as a frame sequence.
+
+        Frames are sorted naturally and converted to RGB. A dialog reports
+        any file that cannot be opened.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         if self.is_rendering:
             messagebox.showinfo(
                 "Rendering",
@@ -3112,6 +3416,15 @@ class LiveRayTraceViewer(ToolView):
 
     @staticmethod
     def _apply_sequence_history(image, history):
+        """Apply a list of recorded edits to an image.
+
+        Args:
+            image (PIL.Image.Image): The original image.
+            history (list[dict]): Edits, each with a ``transform`` callable.
+
+        Returns:
+            PIL.Image.Image: A new edited image. The original is unchanged.
+        """
         result = image.copy()
         for edit in history:
             result = edit["transform"](result)
@@ -3171,6 +3484,7 @@ class LiveRayTraceViewer(ToolView):
         originals = list(self.sequence_original_images)
 
         def worker():
+            """Apply the new edit history to every frame on a background thread."""
             edited = [None] * len(originals)
             edited[visible_index] = visible_image
             try:
@@ -3194,6 +3508,14 @@ class LiveRayTraceViewer(ToolView):
         return True
 
     def _finish_sequence_edit(self, edited_images, generation, description):
+        """Store the edited frames and show the current one.
+
+        Args:
+            edited_images (list[PIL.Image.Image]): The edited frames.
+            generation (int): The sequence generation the edit was made for.
+                A stale value is ignored.
+            description (str): A label for the status message.
+        """
         if generation != self.sequence_generation:
             return
         self.sequence_images = edited_images
@@ -3204,6 +3526,13 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def _finish_sequence_edit_error(self, error, generation):
+        """Roll back a failed sequence edit and report the error.
+
+        Args:
+            error (Exception): The error raised while editing.
+            generation (int): The sequence generation the edit was made for.
+                A stale value is ignored.
+        """
         if generation != self.sequence_generation:
             return
         self.sequence_edit_in_progress = False
@@ -3221,6 +3550,13 @@ class LiveRayTraceViewer(ToolView):
         self.show_sequence_frame(self.sequence_index)
 
     def on_save_edited_sequence(self, event=None):
+        """Save the edited sequence frames into a chosen folder.
+
+        Each frame keeps its original file name.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         if not self.sequence_images:
             messagebox.showinfo("Save Edited Sequence", "Load an image sequence first.")
             return
@@ -3259,6 +3595,11 @@ class LiveRayTraceViewer(ToolView):
         self.set_status(f"Saved {saved_count} edited sequence frames.")
 
     def show_sequence_frame(self, frame_index):
+        """Display one frame of the loaded sequence.
+
+        Args:
+            frame_index (int): The frame number, clamped to the valid range.
+        """
         if not self.sequence_images:
             return
 
@@ -3274,10 +3615,21 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def on_sequence_scrub(self, value):
+        """Show the frame selected by the scrubber.
+
+        Args:
+            value (str | float): The scrubber position.
+        """
         if self.sequence_images:
             self.show_sequence_frame(round(float(value)))
 
     def _sequence_fps(self):
+        """Return the playback rate from the fps field.
+
+        Returns:
+            int: The frames per second, limited to 1-60. An invalid entry resets
+            the field and returns 8.
+        """
         try:
             return max(1, min(60, int(self.sequence_fps_var.get())))
         except (ValueError, tk.TclError):
@@ -3285,6 +3637,7 @@ class LiveRayTraceViewer(ToolView):
             return 8
 
     def on_play_sequence(self):
+        """Start playing the loaded sequence."""
         if not self.sequence_images:
             messagebox.showinfo("Image Sequence", "Load rendered frames first.")
             return
@@ -3295,6 +3648,7 @@ class LiveRayTraceViewer(ToolView):
         self._play_sequence_tick()
 
     def _play_sequence_tick(self):
+        """Show the current frame and schedule the next one."""
         if not self.sequence_playing or not self.sequence_images:
             return
 
@@ -3304,6 +3658,7 @@ class LiveRayTraceViewer(ToolView):
         self.sequence_after_id = self.after(interval_ms, self._play_sequence_tick)
 
     def on_stop_sequence(self):
+        """Stop sequence playback and cancel the pending timer."""
         self.sequence_playing = False
         if self.sequence_after_id is not None:
             try:
@@ -3313,6 +3668,11 @@ class LiveRayTraceViewer(ToolView):
             self.sequence_after_id = None
 
     def on_export_sequence_gif(self, event=None):
+        """Save the loaded sequence as an animated GIF.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         if not self.sequence_images:
             messagebox.showinfo("Export GIF", "Load rendered frames first.")
             return
@@ -3353,6 +3713,11 @@ class LiveRayTraceViewer(ToolView):
             messagebox.showerror("GIF Export Error", f"Could not save GIF:\n{exc}")
 
     def on_save_image(self, event=None):
+        """Ask for a file name and save the current image.
+
+        Args:
+            event (tk.Event | None): The triggering event, unused.
+        """
         img = self.get_cur_img()
 
         if img is None:
@@ -3386,6 +3751,15 @@ class LiveRayTraceViewer(ToolView):
             messagebox.showerror("Save Error", f"Failed to save image: {e}")
 
     def buffer_to_img(self, rendered_pixels):
+        """Convert rendered scanlines to an image.
+
+        Args:
+            rendered_pixels (dict[int, list[tuple[int, int, int]]]): The pixel
+                rows keyed by row number.
+
+        Returns:
+            PIL.Image.Image: An RGB image, black where no row was rendered.
+        """
         img = Image.new(
             "RGB", (self.current_width, self.current_height), color=(0, 0, 0)
         )
@@ -3397,6 +3771,11 @@ class LiveRayTraceViewer(ToolView):
         return img
 
     def blur_auto_calc(self, state=None):
+        """Apply or remove the blur filter.
+
+        Args:
+            state (bool | None): The checkbox state. None just refreshes the preview.
+        """
         if state is not None and self.sequence_images:
             enabled = bool(state)
             accepted = self._submit_sequence_edit(
@@ -3418,6 +3797,11 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def contour_auto_calc(self, state=None):
+        """Apply or remove the contour filter.
+
+        Args:
+            state (bool | None): The checkbox state. None just refreshes the preview.
+        """
         if state is not None and self.sequence_images:
             enabled = bool(state)
             accepted = self._submit_sequence_edit(
@@ -3440,6 +3824,11 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def smooth_auto_calc(self, state=None):
+        """Apply or remove the smooth filter.
+
+        Args:
+            state (bool | None): The checkbox state. None just refreshes the preview.
+        """
         if state is not None and self.sequence_images:
             enabled = bool(state)
             accepted = self._submit_sequence_edit(
@@ -3462,6 +3851,11 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def sharpen_auto_calc(self, state=None):
+        """Apply or remove the sharpen filter.
+
+        Args:
+            state (bool | None): The checkbox state. None just refreshes the preview.
+        """
         if state is not None and self.sequence_images:
             enabled = bool(state)
             accepted = self._submit_sequence_edit(
@@ -3484,6 +3878,13 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def scaled_auto_calc(self, _=None):
+        """Apply the scale factor from the form.
+
+        The factor is limited to 0.1-10.0.
+
+        Args:
+            _ (object | None): The widget value, unused.
+        """
         values = self.form.get_values()
         new_scale = min(10.0, max(0.1, float(values.get("scalefac", 1.0))))
         if self.sequence_images:
@@ -3510,9 +3911,20 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def zoon_auto_calc(self, _=None):
+        """Do nothing. Serve as a placeholder zoom callback.
+
+        Args:
+            _ (object | None): The widget value, unused.
+        """
         pass
 
     def resizedw_auto_calc(self, _, control_name: str | None = "resize"):
+        """Apply the width field, adjusting height to keep any aspect ratio.
+
+        Args:
+            _ (object): The widget value, unused.
+            control_name (str | None): The undo label, or None to skip recording.
+        """
         values = self.form.get_values()
         self.image_width = int(values.get("width", self.orig_image_width))
         if "/" in self.aspratio:
@@ -3546,6 +3958,12 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def resizedh_auto_calc(self, _, control_name: str | None = "resize"):
+        """Apply the height field, adjusting width to keep any aspect ratio.
+
+        Args:
+            _ (object): The widget value, unused.
+            control_name (str | None): The undo label, or None to skip recording.
+        """
         values = self.form.get_values()
         self.image_height = int(values.get("height", self.orig_image_height))
         if "/" in self.aspratio:
@@ -3579,6 +3997,11 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def aspratio_auto_calc(self, _=None):
+        """Apply the aspect ratio chosen in the form.
+
+        Args:
+            _ (object | None): The widget value, unused.
+        """
         if not self.sequence_images:
             self._begin_control_edit("aspect ratio")
         values = self.form.get_values()
@@ -3593,6 +4016,16 @@ class LiveRayTraceViewer(ToolView):
     def _schedule_adjustment(
         self, timer_name: str, value: float, callback, delay_ms: int = 180
     ):
+        """Debounce a slider change by scheduling a delayed callback.
+
+        Any earlier pending call for the same timer is cancelled.
+
+        Args:
+            timer_name (str): The attribute that holds the timer id.
+            value (float): The slider value to pass on.
+            callback (Callable): Called with ``value`` after the delay.
+            delay_ms (int): The delay in milliseconds.
+        """
         existing = getattr(self, timer_name, None)
         if existing is not None:
             try:
@@ -3602,11 +4035,21 @@ class LiveRayTraceViewer(ToolView):
         setattr(self, timer_name, self.after(delay_ms, lambda: callback(value)))
 
     def on_rotation_change(self, val):
+        """Schedule a rotation update after the slider settles.
+
+        Args:
+            val (str | float): The slider value in degrees.
+        """
         self._schedule_adjustment(
             "rotation_timer_id", float(val), self.finalize_rot_stack
         )
 
     def finalize_rot_stack(self, finval):
+        """Apply a settled rotation value.
+
+        Args:
+            finval (str | float): The rotation in degrees.
+        """
         self.rotation_timer_id = None
         if abs(float(finval) - self.rotation) < 1e-9:
             return
@@ -3626,11 +4069,21 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def on_contrast_change(self, val):
+        """Schedule a contrast update after the slider settles.
+
+        Args:
+            val (str | float): The slider value.
+        """
         self._schedule_adjustment(
             "contrast_timer_id", float(val), self.finalize_cont_stack
         )
 
     def finalize_cont_stack(self, val):
+        """Apply a settled contrast value.
+
+        Args:
+            val (str | float): The contrast factor.
+        """
         self.contrast_timer_id = None
         if abs(float(val) - self.contrast) < 1e-9:
             return
@@ -3652,11 +4105,21 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def on_color_change(self, val):
+        """Schedule a color update after the slider settles.
+
+        Args:
+            val (str | float): The slider value.
+        """
         self._schedule_adjustment(
             "color_timer_id", float(val), self.finalize_color_stack
         )
 
     def finalize_color_stack(self, val):
+        """Apply a settled color value.
+
+        Args:
+            val (str | float): The color factor.
+        """
         self.color_timer_id = None
         if abs(float(val) - self.color) < 1e-9:
             return
@@ -3676,11 +4139,21 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def on_brightness_change(self, val):
+        """Schedule a brightness update after the slider settles.
+
+        Args:
+            val (str | float): The slider value.
+        """
         self._schedule_adjustment(
             "brightness_timer_id", float(val), self.finalize_brightness_stack
         )
 
     def finalize_brightness_stack(self, val):
+        """Apply a settled brightness value.
+
+        Args:
+            val (str | float): The brightness factor.
+        """
         self.brightness_timer_id = None
         if abs(float(val) - self.brightness) < 1e-9:
             return
@@ -3702,11 +4175,21 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def on_sharpness_change(self, val):
+        """Schedule a sharpness update after the slider settles.
+
+        Args:
+            val (str | float): The slider value.
+        """
         self._schedule_adjustment(
             "sharpness_timer_id", float(val), self.finalize_sharpness_stack
         )
 
     def finalize_sharpness_stack(self, val):
+        """Apply a settled sharpness value.
+
+        Args:
+            val (str | float): The sharpness factor.
+        """
         self.sharpness_timer_id = None
         if abs(float(val) - self.sharpness) < 1e-9:
             return
@@ -3728,11 +4211,21 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def on_scale_change(self, val):
+        """Schedule a scale update after the slider settles.
+
+        Args:
+            val (str | float): The slider value.
+        """
         self._schedule_adjustment(
             "scale_timer_id", float(val), self.finalize_scale_stack
         )
 
     def finalize_scale_stack(self, val):
+        """Apply a settled scale value.
+
+        Args:
+            val (str | float): The scale factor.
+        """
         self.scale_timer_id = None
         if abs(float(val) - self.scale_fac) < 1e-9:
             return
@@ -3759,6 +4252,14 @@ class LiveRayTraceViewer(ToolView):
         self.update_live_preview()
 
     def setup_zoom_image_workspace(self, image, working_image, target_frame=None):
+        """Overlay a canvas on the preview for choosing a zoom region.
+
+        Args:
+            image (tk.PhotoImage): The image shown on the overlay.
+            working_image (PIL.Image.Image): The image to zoom.
+            target_frame (tk.Widget | None): The frame to cover. Defaults to the
+                canvas frame.
+        """
         display_frame = target_frame if target_frame is not None else self.canvas_frame
 
         self.live_photo = image
@@ -3790,6 +4291,14 @@ class LiveRayTraceViewer(ToolView):
 
         # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
         def handle_selection(x0, y0, x1, y1):
+            """Zoom to the selected box.
+
+            Args:
+                x0 (int): The left edge.
+                y0 (int): The top edge.
+                x1 (int): The right edge.
+                y1 (int): The bottom edge.
+            """
             overlay_canvas.destroy()
 
             img = working_image.copy()
@@ -3816,6 +4325,14 @@ class LiveRayTraceViewer(ToolView):
         CanvasSelector(overlay_canvas, callback=handle_selection)
 
     def setup_bokeh_image_workspace(self, image, working_image, target_frame=None):
+        """Overlay a canvas on the preview for outlining a bokeh region.
+
+        Args:
+            image (tk.PhotoImage): The image shown on the overlay.
+            working_image (PIL.Image.Image): The image to blur.
+            target_frame (tk.Widget | None): The frame to cover. Defaults to the
+                canvas frame.
+        """
         display_frame = target_frame if target_frame is not None else self.canvas_frame
 
         self.live_photo = image
@@ -3847,6 +4364,12 @@ class LiveRayTraceViewer(ToolView):
 
         # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
         def handle_selection(points):
+            """Ask for a blur amount and blur the outside of the polygon.
+
+            Args:
+                points (list[tuple[int, int]]): The polygon corners. Fewer than three
+                    cancel the operation.
+            """
             if len(points) < 3:
                 overlay_canvas.destroy()
                 return
@@ -3878,12 +4401,19 @@ class LiveRayTraceViewer(ToolView):
             blur_radius = blur_amt * 20.0
 
             def apply_bokeh(frame, selected_points=tuple(points), radius=blur_radius):
+                """Blur a frame except inside the selected polygon.
+
+                Args:
+                    frame (PIL.Image.Image): The image to process.
+                    selected_points (tuple): The polygon corners.
+                    radius (float): The Gaussian blur radius.
+
+                Returns:
+                    PIL.Image.Image: The composited image.
+                """
                 mask = Image.new("L", frame.size, 0)
-                mask.save("Makedimage.png")
                 ImageDraw.Draw(mask).polygon(selected_points, fill=255)
-                mask.save("PostMaskedImage.png")
                 blurred = frame.filter(ImageFilter.GaussianBlur(radius=radius))
-                blurred.save("blurred-image.png")
                 return Image.composite(frame, blurred, mask)
 
             if self.sequence_images:
@@ -3904,6 +4434,14 @@ class LiveRayTraceViewer(ToolView):
         )
 
     def setup_image_workspace(self, image, working_image, target_frame=None):
+        """Overlay a canvas on the preview for choosing a crop region.
+
+        Args:
+            image (tk.PhotoImage): The image shown on the overlay.
+            working_image (PIL.Image.Image): The image to crop.
+            target_frame (tk.Widget | None): The frame to cover. Defaults to the
+                canvas frame.
+        """
         display_frame = target_frame if target_frame is not None else self.canvas_frame
 
         self.live_photo = image
@@ -3935,6 +4473,14 @@ class LiveRayTraceViewer(ToolView):
 
         # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
         def handle_selection(x0, y0, x1, y1):
+            """Crop to the selected box.
+
+            Args:
+                x0 (int): The left edge.
+                y0 (int): The top edge.
+                x1 (int): The right edge.
+                y1 (int): The bottom edge.
+            """
             overlay_canvas.destroy()
             img = working_image.copy()
             if img is None or x0 < 0 or y0 < 0:

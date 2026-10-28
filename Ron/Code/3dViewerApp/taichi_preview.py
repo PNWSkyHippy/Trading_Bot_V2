@@ -23,6 +23,7 @@ GUI has buttons, checkboxes and sliders only). If Taichi's GUI crashes (its own 
 key-state bug), the viewer reopens it with --resume: same camera, tool and menu (_preview_cam.json).
 """
 import json
+import math
 import os
 import sys
 import time
@@ -53,8 +54,66 @@ class Buf:
         self.n = n
 
 
+def clip_tris(v, n, c, pt, nd, flip):
+    """Cut the triangle soup (3T, 3) at the plane through pt with normal nd, keeping the side
+    the normal points away from ((v - pt) . nd <= 0; the other side when flip).  Straddling triangles are split, so the edge is clean."""
+    if not len(v):
+        return v, n, c
+    s = -1.0 if flip else 1.0
+    d = (((v - pt) @ nd) * s).reshape(-1, 3)             # <= 0 is kept
+    ins = d <= 0
+    cnt = ins.sum(1)
+    V, N, C = (a.reshape(-1, 3, 3).astype(np.float64) for a in (v, n, c))
+    out = [[V[cnt == 3], N[cnt == 3], C[cnt == 3]]]
+
+    def cut(sel, k_odd):
+        idx = (k_odd[:, None] + np.arange(3)) % 3        # odd vertex first
+        r = np.arange(len(idx))[:, None]
+        return V[sel][r, idx], N[sel][r, idx], C[sel][r, idx], d[sel][r, idx]
+
+    def mix(A, i, j, dd):
+        t = (dd[:, i] / (dd[:, i] - dd[:, j]))[:, None]
+        return [x[:, i] + (x[:, j] - x[:, i]) * t for x in A]
+
+    for want in (1, 2):
+        sel = cnt == want
+        if not sel.any():
+            continue
+        odd = np.argmax(ins[sel], 1) if want == 1 else np.argmin(ins[sel], 1)
+        v3, n3, c3, d3 = cut(sel, odd)
+        A = (v3, n3, c3)
+        p01, p02 = mix(A, 0, 1, d3), mix(A, 0, 2, d3)
+        if want == 1:                                    # vertex 0 inside: one small triangle
+            out.append([np.stack([a[:, 0], b, e], 1) for a, b, e in zip(A, p01, p02)])
+        else:                                            # vertex 0 outside: a quad -> two triangles
+            out.append([np.stack([b, a[:, 1], a[:, 2]], 1) for a, b in zip(A, p01)])
+            out.append([np.stack([b, a[:, 2], e], 1) for a, b, e in zip(A, p01, p02)])
+    res = [np.concatenate([o[i] for o in out]).reshape(-1, 3).astype(np.float32) for i in range(3)]
+    return res[0], res[1], res[2]
+
+
+def clip_segs(v, c, pt, nd, flip):
+    """Same cut for line segments (2S, 3)."""
+    if not len(v):
+        return v, c
+    s = -1.0 if flip else 1.0
+    d = (((v - pt) @ nd) * s).reshape(-1, 2)
+    V, C = v.reshape(-1, 2, 3).astype(np.float64), c.reshape(-1, 2, 3).astype(np.float64)
+    a_in, b_in = d[:, 0] <= 0, d[:, 1] <= 0
+    keep = a_in | b_in
+    V, C, d, a_in = V[keep], C[keep], d[keep], a_in[keep]
+    mid = (a_in != (d[:, 1] <= 0))
+    t = np.where(mid, d[:, 0] / np.where(mid, d[:, 0] - d[:, 1], 1.0), 0.0)[:, None]
+    pv, pc = V[:, 0] + (V[:, 1] - V[:, 0]) * t, C[:, 0] + (C[:, 1] - C[:, 0]) * t
+    first_out = mid & ~a_in                              # start is outside: it moves to the cut
+    last_out = mid & a_in                                # end is outside
+    V[first_out, 0], C[first_out, 0] = pv[first_out], pc[first_out]
+    V[last_out, 1], C[last_out, 1] = pv[last_out], pc[last_out]
+    return V.reshape(-1, 3).astype(np.float32), C.reshape(-1, 3).astype(np.float32)
+
+
 def load(path):
-    for _ in range(5):                       # the viewer may be mid-write
+    for _ in range(5):                      # the viewer may be mid-write
         try:
             with np.load(path) as d:
                 return {k: d[k] for k in d.files}
@@ -147,6 +206,16 @@ def pick_handle(hpts, o, d, tol):
     return int(np.argmin(np.where(ok, s, np.inf)))
 
 
+def axis_param(c0, e, o, d):
+    """Where along the line c0 + t*e the ray o + s*d passes closest (t), or None if parallel."""
+    w0 = c0 - o
+    b = e @ d
+    den = 1.0 - b * b
+    if abs(den) < 1e-6:
+        return None
+    return float((b * (d @ w0) - (e @ w0)) / den)
+
+
 def plane_hit(o, d, p0, n):
     """Where the ray o + t*d meets the plane through p0 with normal n (None if it can't)."""
     den = d @ n
@@ -233,6 +302,114 @@ def main():
                 resume = json.load(f)
         except (OSError, ValueError):
             resume = None
+    sec = {"on": False, "pt": None, "rot": [0.0, 0.0, 0.0], "R": np.eye(3), "ring": None, "selkey": b"", "staged": [], "open": False, "flip": False, "gz": None, "all": False}   # slice plane
+    giz = Buf()                              # the plane's little gizmo (plane + 3 axis arrows)
+
+    def sec_normal():
+        return sec["R"] @ np.array([0.0, 0.0, 1.0])
+
+    def set_rot(deg):
+        """Slider / preset turn: Euler degrees (about X, then Y, then Z) -> the plane's rotation."""
+        sec["rot"] = [float(a) for a in deg]
+        rx, ry, rz = (math.radians(a) for a in deg)
+        Rx = np.array([[1, 0, 0], [0, math.cos(rx), -math.sin(rx)], [0, math.sin(rx), math.cos(rx)]])
+        Ry = np.array([[math.cos(ry), 0, math.sin(ry)], [0, 1, 0], [-math.sin(ry), 0, math.cos(ry)]])
+        Rz = np.array([[math.cos(rz), -math.sin(rz), 0], [math.sin(rz), math.cos(rz), 0], [0, 0, 1]])
+        sec["R"] = Rz @ Ry @ Rx
+
+    def sync_rot():
+        """After a ring drag: the Euler numbers the sliders should show for sec["R"]."""
+        R = sec["R"]
+        sec["rot"] = [math.degrees(math.atan2(R[2, 1], R[2, 2])),
+                      math.degrees(math.asin(max(-1.0, min(1.0, -R[2, 0])))),
+                      math.degrees(math.atan2(R[1, 0], R[0, 0]))]
+
+    def axis_rot(ax, ang):
+        K = np.array([[0, -ax[2], ax[1]], [ax[2], 0, -ax[0]], [-ax[1], ax[0], 0]])
+        return np.eye(3) + math.sin(ang) * K + (1 - math.cos(ang)) * (K @ K)
+
+    def ring_basis(i):
+        e = np.eye(3)[i]
+        u = np.eye(3)[(i + 1) % 3]
+        return e, u, np.cross(e, u)
+
+    def ring_segs():
+        """Three turn rings around the slice point (X red, Y green, Z blue): (A, B, axis index)."""
+        c, r = sec["pt"], radius * 0.2
+        A, B, who = [], [], []
+        th = np.linspace(0, 2 * math.pi, 33)
+        for i in range(3):
+            _e, u, w = ring_basis(i)
+            pts = [c + r * (math.cos(t) * u + math.sin(t) * w) for t in th]
+            A += pts[:-1]; B += pts[1:]; who += [i] * 32
+        return np.array(A), np.array(B), np.array(who)
+
+    def upload(v, nrm, col, lv, lcol):
+        """Send the scene to the GPU, cut at the slice plane when it's on."""
+        v, nrm, col, lv, lcol = (np.asarray(a, np.float32) for a in (v, nrm, col, lv, lcol))
+        if sec["on"] and sec["pt"] is not None and data is not None and (
+                len(v) != len(data["tri_obj"]) * 3 or len(lv) != len(data["seg_obj"]) * 2):
+            try:                                             # scene and selection out of step: show it all
+                with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "_slice_debug.log"), "a") as f:
+                    f.write(f"{time.strftime('%H:%M:%S')} mismatch v={len(v)} tri_obj={len(data['tri_obj'])} lv={len(lv)} seg_obj={len(data['seg_obj'])}\n")
+            except OSError:
+                pass
+        elif sec["on"] and sec["pt"] is not None:
+            planes = sec["staged"] + [(sec["pt"].copy(), sec_normal(), sec["flip"])]
+            sel = np.append(data.get("obj_sel", np.zeros(0, bool)), False) if data is not None else np.zeros(1, bool)
+            ts = sel[data["tri_obj"]] if len(sel) == len(data["obj_iids"]) + 1 and not sec["all"] else None
+            only = ts is not None and ts.any()               # only the selected objects get cut
+            if only:
+                tv, sv = np.repeat(ts, 3), np.repeat(sel[data["seg_obj"]], 2)
+                rv, rn, rc, rlv, rlc = v[~tv], nrm[~tv], col[~tv], lv[~sv], lcol[~sv]
+                v, nrm, col, lv, lcol = v[tv], nrm[tv], col[tv], lv[sv], lcol[sv]
+            if not only and not sec["all"]:
+                planes = []                                  # nothing selected: leave the scene alone
+            for pt, nd, fl in planes:
+                v, nrm, col = clip_tris(v, nrm, col, pt, nd, fl)
+                lv, lcol = clip_segs(lv, lcol, pt, nd, fl)
+            if only:
+                v, nrm, col = (np.concatenate([a, b]) for a, b in ((rv, v), (rn, nrm), (rc, col)))
+                lv, lcol = np.concatenate([rlv, lv]), np.concatenate([rlc, lcol])
+        tris.load(v, nrm, col)
+        lines.load(lv, lcol)
+
+    def gizmo_pts():
+        """Little plane + X/Y/Z arrows at the slice point: (segments, colors, tips)."""
+        c, nd, L = sec["pt"], sec_normal(), radius * 0.25
+        u = np.cross(nd, [1.0, 0, 0] if abs(nd[0]) < 0.9 else [0, 1.0, 0])
+        u /= np.linalg.norm(u)
+        w = np.cross(nd, u)
+        q = [c + L * 0.7 * (a * u + b * w) for a, b in ((1, 1), (-1, 1), (-1, -1), (1, -1))]
+        vv, cc = [], []
+        yel, wht = (1.0, 0.9, 0.2), (1.0, 1.0, 1.0)
+        for i in range(4):
+            vv += [q[i], q[(i + 1) % 4]]; cc += [yel, yel]
+        vv += [q[0], q[2], q[1], q[3]]; cc += [yel] * 4
+        vv += [c, c + nd * L * 0.45]; cc += [wht, wht]              # points at the half that goes
+        tips = []
+        for i, col in enumerate(((1.0, 0.25, 0.25), (0.3, 1.0, 0.3), (0.35, 0.5, 1.0))):
+            e = np.eye(3)[i]
+            tip = c + e * L
+            tips.append(tip)
+            side = np.eye(3)[(i + 1) % 3] * L * 0.08
+            vv += [c, tip, tip, tip - e * L * 0.18 + side, tip, tip - e * L * 0.18 - side]
+            cc += [col] * 6
+        for pt, nd2, _f in sec["staged"]:                      # planes already added (dim)
+            u2 = np.cross(nd2, [1.0, 0, 0] if abs(nd2[0]) < 0.9 else [0, 1.0, 0])
+            u2 /= np.linalg.norm(u2)
+            w2 = np.cross(nd2, u2)
+            q2 = [pt + L * 0.7 * (a * u2 + b * w2) for a, b in ((1, 1), (-1, 1), (-1, -1), (1, -1))]
+            dim = (0.55, 0.5, 0.15)
+            for i in range(4):
+                vv += [q2[i], q2[(i + 1) % 4]]; cc += [dim, dim]
+            vv += [q2[0], q2[2], q2[1], q2[3], pt, pt + nd2 * L * 0.3]; cc += [dim] * 6
+        ra, rb, rw = ring_segs()
+        rcol = ((1.0, 0.25, 0.25), (0.3, 1.0, 0.3), (0.35, 0.5, 1.0))
+        for a_, b_, w_ in zip(ra, rb, rw):
+            vv += [a_, b_]; cc += [rcol[w_]] * 2
+        return np.array(vv, np.float32), np.array(cc, np.float32), np.array(tips)
+
     saved = [None]                           # what's in cam_file now
     menu = {"show": True, "sections": {"selected", "tools", "edit", "view", "objects"}, "folders": set()}
 
@@ -336,6 +513,12 @@ def main():
     pending = []                           # (object mask, M, pivot, shift, ticket): sent, viewer not done yet
     sent = [None]                            # tickets handed out (starts at the viewer's moves_done)
     shown = [None]                           # transforms now on the GPU (to skip re-uploading)
+    reupload = shown                         # draw_menu has its own local `shown`
+
+    def sec_refresh():
+        reupload[0] = None
+        src = view[0] or data
+        upload(src["verts"], src["normals"], data["colors"], src["lverts"], data["lcolors"])
     view = [None]                            # the scene as drawn (pending moves done) - clicks pick this
     tool = ["move"]                          # M / T / B: move, turn (rotate), bigger/smaller (scale)
     snap = [False]                           # G
@@ -376,8 +559,7 @@ def main():
             if Q is not None:
                 sq = m[data["plane_obj"]]
                 Q[sq] = (Q[sq] - c) @ M.T + c + t
-        tris.load(v.astype(np.float32), nrm.astype(np.float32), data["colors"])
-        lines.load(lv.astype(np.float32), data["lcolors"])
+        upload(v, nrm, data["colors"], lv, data["lcolors"])
         view[0] = dict(data, verts=v, lverts=lv, **({"plane_quads": Q} if Q is not None else {}))
 
     def drawn_pivot(k):
@@ -524,6 +706,7 @@ def main():
                                    ("Colors...", "colors"), ("Material / texture...", "material"),
                                    ("Twin...", "twin"), ("CSG combine / cut...", "csg"),
                                    ("Hollow...", "hollow"), ("Align (first clicked stays)...", "align"),
+                                   ("Settle to Z=0", "settle"), ("Measure (1 = size, 2 = distance)", "measure"),
                                    ("Help on this  (H)", "help")):
                     if g.button(f"{label}##sel_{cmd}"):
                         send(f"CMD {cmd}")
@@ -584,6 +767,68 @@ def main():
                 cur = bool(data.get(cmd, True))
                 if g.checkbox(key, cur) != cur:
                     send(f"CMD {cmd} {0 if cur else 1}")
+            changed = False
+            on = g.checkbox("Slice plane  (section view / cut an object)", sec["on"])
+            if on != sec["on"]:
+                sec["on"], changed = on, True
+                if on and len(data["verts"]):
+                    sec["staged"] = []
+                    box = selected_box()
+                    sec["pt"] = (np.asarray(box[0], float) + np.asarray(box[1], float)) / 2 if box is not None                         else (data["verts"].min(0) + data["verts"].max(0)).astype(float) / 2
+            if sec["on"] and sec["pt"] is not None:
+                g.text("arrows slide the plane; grab a colored ring (the line itself) to turn it")
+                lo, hi = data["verts"].min(0), data["verts"].max(0)
+                for i, nm in enumerate("XYZ"):
+                    p = g.slider_float(f"{nm} position##secp{i}", float(min(max(sec["pt"][i], lo[i]), hi[i])),
+                                       float(lo[i]), float(hi[i]))
+                    if abs(p - sec["pt"][i]) > 1e-9:
+                        sec["pt"][i], changed = p, True
+                for i, nm in enumerate("XYZ"):
+                    a = g.slider_float(f"turn about {nm}##secr{i}", float(sec["rot"][i]), -180.0, 180.0)
+                    if a != sec["rot"][i]:
+                        rr = list(sec["rot"]); rr[i] = a
+                        set_rot(rr)
+                        changed = True
+                for label, rot in (("Plane flat (cuts across Z)", (0, 0, 0)), ("Plane faces X", (0, 90, 0)),
+                                   ("Plane faces Y", (-90, 0, 0))):
+                    if g.button(label + "##secpre"):
+                        set_rot(rot)
+                        changed = True
+                fl = g.checkbox("Cut away the other side", sec["flip"])
+                if fl != sec["flip"]:
+                    sec["flip"], changed = fl, True
+                op = g.checkbox("Leave the cut OPEN (no flat cap)", sec["open"])
+                if op != sec["open"]:
+                    sec["open"] = op
+                al = g.checkbox("Cut everything in the preview", sec["all"])
+                if al != sec["all"]:
+                    sec["all"] = al
+                    sec_refresh()
+                if g.button("Move plane to the selected object##secctr"):
+                    box = selected_box()
+                    if box is not None:
+                        sec["pt"] = (np.asarray(box[0], float) + np.asarray(box[1], float)) / 2
+                        sec_refresh()
+                g.text("white arrow points to the half that goes")
+                if g.button("Add this plane, set up another cut##secadd"):
+                    sec["staged"].append((sec["pt"].copy(), sec_normal(), sec["flip"]))
+                    changed = True
+                if sec["staged"] and g.button(f"Drop the last added plane ({len(sec['staged'])})##secdrop"):
+                    sec["staged"].pop()
+                    changed = True
+                if g.button("CUT the selected object here  (all planes, Ctrl+Z undoes)##seccut"):
+                    planes = sec["staged"] + [(sec["pt"], sec_normal(), sec["flip"])]
+                    send("CMD slice " + " ".join("%.6g %.6g %.6g %.6g %.6g %.6g %d" % (
+                        p[0], p[1], p[2], n[0], n[1], n[2], 1 if f else 0) for p, n, f in planes)
+                         + (" open" if sec["open"] else ""))
+                    sec["staged"] = []
+                    changed = True
+            if g.button("QUICK CUT: selected object = scissors, poof##qcut"):
+                send("CMD quickcut")
+            if g.button("QUICK KEEP: trim to where the selected overlaps##qkeep"):
+                send("CMD quickcut keep")
+            if changed:
+                sec_refresh()
             if n_path() and g.button("Stop camera path  (P)##path" if play[0] is not None
                                      else "Play camera path  (P)##path"):
                 toggle_play()
@@ -802,9 +1047,16 @@ def main():
                 d = load(path)
                 if d is not None:
                     stamp, data = t, d
-                    tris.load(d["verts"], d["normals"], d["colors"])
-                    lines.load(d["lverts"], d["lcolors"])
+                    upload(d["verts"], d["normals"], d["colors"], d["lverts"], d["lcolors"])
                     shown[0] = view[0] = None
+                    skey = np.asarray(d.get("obj_sel", [])).tobytes()
+                    if skey != sec["selkey"]:                       # picked something else: the plane follows
+                        sec["selkey"] = skey
+                        sec["staged"] = []
+                        box = selected_box() if sec["on"] and sec["pt"] is not None else None
+                        if box is not None:
+                            sec["pt"] = (np.asarray(box[0], float) + np.asarray(box[1], float)) / 2
+                            upload(d["verts"], d["normals"], d["colors"], d["lverts"], d["lcolors"])
                     done = int(d.get("moves_done", 0))
                     if sent[0] is None:
                         sent[0] = done
@@ -867,6 +1119,26 @@ def main():
                 if on_ui(cx, cy):                         # the HUD box / the menu's buttons
                     continue
                 o, d, px = ray(cx, cy)
+                if sec["on"] and sec["pt"] is not None and sec["gz"] is None and drag is None:
+                    _gv, _gc, tips = gizmo_pts()
+                    A = np.repeat(sec["pt"][None], 3, 0)
+                    hit = ray_segs(o, d, A, tips, px * 16)       # anywhere along an arrow
+                    ok = np.isfinite(hit)
+                    if ok.any():
+                        j = int(np.argmin(hit))
+                        e_ = np.eye(3)[j]
+                        sec["gz"] = {"ax": j, "c0": sec["pt"].copy(), "t0": axis_param(sec["pt"], e_, o, d)}
+                        continue
+                    ra, rb, rw = ring_segs()
+                    rh = ray_segs(o, d, ra, rb, px * 12)               # then the turn rings
+                    if np.isfinite(rh).any():
+                        i = int(rw[int(np.argmin(rh))])
+                        e_, u_, w_ = ring_basis(i)
+                        p = plane_hit(o, d, sec["pt"], e_)
+                        if p is not None:
+                            q = p - sec["pt"]
+                            sec["ring"] = {"i": i, "R0": sec["R"].copy(), "a0": math.atan2(q @ w_, q @ u_)}
+                            continue
                 hk = pick_handle(data.get("dir_hpts"), o, d, px * 9)   # a director handle first
                 if hk >= 0 and drag is None:
                     hp = data["dir_hpts"][hk].astype(float)
@@ -893,11 +1165,42 @@ def main():
                     play[0] = fly[0] = None
                     start_nav("pan" if win.is_pressed(ti.ui.CTRL) else "orbit", ti.ui.LMB, cx, cy)
 
+        if sec["ring"] is not None:                           # turning the slice plane
+            if not win.is_pressed(ti.ui.LMB):
+                sec["ring"] = None
+            else:
+                cx, cy = win.get_cursor_pos()
+                o, d, _px = ray(cx, cy)
+                rg = sec["ring"]
+                e_, u_, w_ = ring_basis(rg["i"])
+                p = plane_hit(o, d, sec["pt"], e_)
+                if p is not None:
+                    q = p - sec["pt"]
+                    ang = math.atan2(q @ w_, q @ u_) - rg["a0"]
+                    sec["R"] = axis_rot(e_, ang) @ rg["R0"]
+                    sync_rot()
+                    sec_refresh()
+        if sec["gz"] is not None:                             # dragging a slice-plane arrow
+            if not win.is_pressed(ti.ui.LMB):
+                sec["gz"] = None
+            else:
+                cx, cy = win.get_cursor_pos()
+                o, d, _px = ray(cx, cy)
+                gz = sec["gz"]
+                e_ = np.eye(3)[gz["ax"]]
+                t = axis_param(gz["c0"], e_, o, d)
+                if t is not None and gz["t0"] is not None:
+                    new = gz["c0"] + e_ * (t - gz["t0"])
+                    if np.linalg.norm(new - sec["pt"]) > 1e-9:
+                        sec["pt"] = new
+                        sec_refresh()
+
         if hdrag is not None:
             cx, cy = win.get_cursor_pos()
             if not win.is_pressed(ti.ui.LMB):                 # let go: write the handle back to the shot
                 if hdrag["moved"]:
                     p = np.round(hdrag["pos"], 4)
+                    print(f"[dh {frame}] release-write {hdrag['tag']}", file=sys.stderr, flush=True)
                     send("CMD dir_set %s %.6g %.6g %.6g" % (hdrag["tag"], p[0], p[1], p[2]))
                 hdrag = None
             else:
@@ -906,6 +1209,7 @@ def main():
                         abs(cx - hdrag["at"][0]) * w + abs(cy - hdrag["at"][1]) * h > 4:
                     hdrag["moved"] = True
                 ctrl = win.is_pressed(ti.ui.CTRL)
+                print(f"[dh {frame}] move-ray {hdrag['tag']} ctrl={ctrl}", file=sys.stderr, flush=True)
                 o, d, _px = ray(cx, cy)
                 if ctrl:                                      # Ctrl: up / down, on a wall facing you
                     n = np.array([d[0], d[1], 0.0])
@@ -922,6 +1226,7 @@ def main():
                 g = float(data.get("snap", 0)) if data is not None else 0.0
                 raw = hdrag["raw"]
                 hdrag["pos"] = hdrag["p0"] + (np.round(raw / g) * g if snap[0] and g > 0 else raw)
+                print(f"[dh {frame}] move-pos {hdrag['pos']}", file=sys.stderr, flush=True)
 
         hover = None                                          # the handle the cursor is over (when not dragging)
         if hdrag is None and data is not None and len(data.get("dir_hpts", [])):
@@ -946,6 +1251,8 @@ def main():
                         np.array([r, r, r]) / 1.7, np.array([r, -r, r]) / 1.7,
                         np.array([-r, r, r]) / 1.7, np.array([-r, -r, r]) / 1.7):
                 vv += [p - off, p + off]; cc += [col, col]
+            if hdrag is not None:
+                print(f"[dh {frame}] mark-load n={len(vv)}", file=sys.stderr, flush=True)
             hmark.load(np.array(vv, np.float32), np.array(cc, np.float32))
         else:
             hmark.n = 0
@@ -1056,8 +1363,17 @@ def main():
         if hmark.n:
             hv, hc = hmark.fields
             scene.lines(hv, width=4, per_vertex_color=hc, vertex_count=hmark.n)
+        if sec["on"] and sec["pt"] is not None:
+            gv_, gc_, _t = gizmo_pts()
+            giz.load(gv_, gc_)
+            gv, gc = giz.fields
+            scene.lines(gv, width=4, per_vertex_color=gc, vertex_count=giz.n)
         canvas.set_background_color((0.11, 0.12, 0.14))
+        if hdrag is not None:
+            print(f"[dh {frame}] submit begin hmark.n={hmark.n}", file=sys.stderr, flush=True)
         canvas.scene(scene)
+        if hdrag is not None:
+            print(f"[dh {frame}] submit ok", file=sys.stderr, flush=True)
         tip = None                                               # one name tag, pinned on the handle you point at / drag
         if hdrag is not None and hdrag["moved"]:
             tip = (hdrag["tag"], hdrag["pos"])

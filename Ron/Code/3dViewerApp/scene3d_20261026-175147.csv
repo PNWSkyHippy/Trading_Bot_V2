@@ -1,0 +1,46 @@
+# viewer3d scene. Object rows: kind,name,color,fill,numbers...
+#   point3d x,y,z | line3d/vector3d x1,y1,z1,x2,y2,z2 | square3d 4 corners
+#   plane3d px,py,pz,nx,ny,nz,size | cube3d 4 base + 4 top corners | sphere3d cx,cy,cz,r
+#   circle3d cx,cy,cz,ex,ey,ez (center, edge point) | cylinder3d/cone3d same + height
+#     (both may end with an optional normal x,y,z)
+#   curvedcylinder3d bend cx,cy,cz, spine start x,y,z, tube r, angle deg, normal x,y,z
+#   curvedtorus3d cx,cy,cz, ring point x,y,z, tube r, segments, normal x,y,z
+#   lathe3d base x,y,z, axis x,y,z (length = size), zero-angle dir x,y,z, segments,
+#     sweep deg, flags (1 curved, 2 faceted), profile r1,h1,r2,h2,...
+#   prism3d/pyramid3d base center, base corner, top center (apex), sides
+#   truncatedprism3d same + top scale | truncatedcone3d base center, edge point, top center, top scale
+#   ellipsoid3d center, x tip, y tip, z tip | sphericalcap3d center, pole, cap height | hemisphere3d center, pole
+#   octahedron3d/dodecahedron3d/icosahedron3d/rhombicdodecahedron3d center, edge, x dir, y dir
+# Transform rows follow their object (degrees):
+#   xrot|yrot|zrot,deg,pivot   vecrot,deg,ax,ay,az,bx,by,bz,pivot   move,dx,dy,dz   scale,f
+#   pivot = default | center | origin | point,x,y,z
+#   (saved as a snapshot: each object's steps are merged into scale, vecrot, move)
+# pov,<material>,<texture scale> after an object row sets its POV-Ray material
+# group,<name> after an object row tags it into that group (moves/rotates as one);
+#   nested groups are a path, outermost first: group,row/pawn_2
+# twin,<lift %>,<own|Z|X|Y>,<flip first 0|1> adds a 180 deg turned copy below, merged into one
+# csg,<combine|cut|overlap>,<target name or @group>[,group:<name>]: this object (or with
+#   group:<name> that whole group) merges with / cuts / intersects the target
+# hollow,<wall thickness>,<none|top|bottom|both>: cut out an inner copy, walls that thick
+# layer,<name> after an object row puts it on that layer (blank = Default); layers show/hide together
+# mesh,<file> after a mesh3d row names its STL/OBJ sidecar (in the meshes/ folder)
+plane3d,plane1,cyan,cyan,0,0,0,0,0,1,10
+layer,plae
+move,0.17,0.2,0
+truncatedprism3d,truncprism1,white,slateblue,0,0,0.5,0.177045,0,0.5,0,0,0.25,6,0.5
+group,g1
+twin,100,own,0
+scale,0.21442412
+move,1.859,2.144,0.35518191
+truncatedprism3d,truncprism1_2,white,slateblue,1.284,0.934,0.785606,1.321963,0.934,0.785606,1.284,0.934,0.535606,6,0.5
+group,g1
+twin,100,own,0
+move,0.575,1.21,-0.216
+truncatedprism3d,truncprism1_3,white,slateblue,0,0,0.5,0.177045,0,0.5,0,0,0.25,6,0.5
+group,g1
+twin,100,own,0
+scale,0.21442412
+move,1.859,2.144,0.56960603
+cube3d,cube1,lime,green,0,0,0,4,0,0,4,4,0,0,4,0,0,0,4,4,0,4,4,4,4,0,4,4
+scale,0.088923913344
+move,1.20715217331,0.94015217331,0.00215217331

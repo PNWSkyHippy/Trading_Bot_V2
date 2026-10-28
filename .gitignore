@@ -30,6 +30,7 @@ __pycache__/
 *.build/
 *.dist/
 *.ppm
+*.mp4
 *.jpg
 *.tga
 *.gif*

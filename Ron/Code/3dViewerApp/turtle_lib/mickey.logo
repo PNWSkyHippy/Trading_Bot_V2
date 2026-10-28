@@ -1,0 +1,35 @@
+; mickey.logo - build an arm once, mirror it; torso -> head -> ears
+; Parts are built in their own local frame: forward=x, left=y, up=z.
+
+part arm :len                      ; shoulder at +l side of the torso centre
+  color black
+  pu goto 0 8 4
+  down 90                          ; limb hangs downward
+  cylinder 1.5 :len
+  fd :len sphere 2.2               ; glove
+endpart
+
+part ear :r
+  color black
+  sphere :r
+endpart
+
+part head
+  color tan
+  sphere 8
+  push pu fd 8 color black sphere 2 pop             ; nose
+  push pu goto 0 6 7 place ear 4 as ear_l pop
+  push pu goto 0 6 7 place ear 4 as ear_r mirror l pop
+endpart
+
+part torso
+  color red
+  sphere 9
+  place arm 12 as arm_l
+  place arm 12 as arm_r mirror l                    ; same arm, flipped left<->right
+  push pu goto 0 0 13 place head pop
+endpart
+
+group mickey
+  place torso
+endgroup

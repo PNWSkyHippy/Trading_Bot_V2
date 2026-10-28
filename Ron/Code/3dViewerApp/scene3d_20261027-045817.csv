@@ -1,0 +1,69 @@
+# viewer3d scene. Object rows: kind,name,color,fill,numbers...
+#   point3d x,y,z | line3d/vector3d x1,y1,z1,x2,y2,z2 | square3d 4 corners
+#   plane3d px,py,pz,nx,ny,nz,size | cube3d 4 base + 4 top corners | sphere3d cx,cy,cz,r
+#   circle3d cx,cy,cz,ex,ey,ez (center, edge point) | cylinder3d/cone3d same + height
+#     (both may end with an optional normal x,y,z)
+#   curvedcylinder3d bend cx,cy,cz, spine start x,y,z, tube r, angle deg, normal x,y,z
+#   curvedtorus3d cx,cy,cz, ring point x,y,z, tube r, segments, normal x,y,z
+#   lathe3d base x,y,z, axis x,y,z (length = size), zero-angle dir x,y,z, segments,
+#     sweep deg, flags (1 curved, 2 faceted), profile r1,h1,r2,h2,...
+#   prism3d/pyramid3d base center, base corner, top center (apex), sides
+#   truncatedprism3d same + top scale | truncatedcone3d base center, edge point, top center, top scale
+#   ellipsoid3d center, x tip, y tip, z tip | sphericalcap3d center, pole, cap height | hemisphere3d center, pole
+#   octahedron3d/dodecahedron3d/icosahedron3d/rhombicdodecahedron3d center, edge, x dir, y dir
+# Transform rows follow their object (degrees):
+#   xrot|yrot|zrot,deg,pivot   vecrot,deg,ax,ay,az,bx,by,bz,pivot   move,dx,dy,dz   scale,f
+#   pivot = default | center | origin | point,x,y,z
+#   (saved as a snapshot: each object's steps are merged into scale, vecrot, move)
+# pov,<material>,<texture scale> after an object row sets its POV-Ray material
+# group,<name> after an object row tags it into that group (moves/rotates as one);
+#   nested groups are a path, outermost first: group,row/pawn_2
+# twin,<lift %>,<own|Z|X|Y>,<flip first 0|1> adds a 180 deg turned copy below, merged into one
+# csg,<combine|cut|overlap>,<target name or @group>[,group:<name>]: this object (or with
+#   group:<name> that whole group) merges with / cuts / intersects the target
+# hollow,<wall thickness>,<none|top|bottom|both>: cut out an inner copy, walls that thick
+# layer,<name> after an object row puts it on that layer (blank = Default); layers show/hide together
+# mesh,<file> after a mesh3d row names its STL/OBJ sidecar (in the meshes/ folder)
+point3d,centerpt,,,0,0,0
+point3d,edgept,,,0,0,20
+point3d,tube_edgept,,,0,0,25
+point3d,point1,,,1,1,1
+point3d,point2,,,1.335413,6,0.465482
+point3d,point3,,,-1.709346,5.837648,1
+point3d,point_mul,,,6,216,1
+plane3d,plane1,,,0,0,0,0,0,1,10
+layer,Plane
+point3d,point4,,,5.004471,6,1
+point3d,point5,,,6,6,1
+point3d,point6,,,6,1,1
+point3d,point7,,,6,1,1
+point3d,point8,,,1,1,1
+point3d,point21,,,2,12,2
+cylinder3d,cylinder1,blue,yellow,0,0,0,20.346117,-3.287496,0,25.7625,0,0,1
+move,68.819,83.569,-12.245
+point3d,red_pixel,blue,,5,2,1
+mesh3d,sphere1,blue,
+mesh,sphere1_slice_20261027-051029.stl
+move,-44.529999,-42.805,-32.322999
+scale,0.7483,point,0,0,58.37
+move,-59.014,8.255,0
+move,43.455,95.568,0
+move,0,0,-30.356
+move,84.027,-23.366,0
+move,-9.102,-0.747,0
+move,9.453,3.859,-15.13275
+octahedron3d,polyhedron1,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+octahedron3d,polyhedron1_2,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+xrot,45,point,6,5,10
+octahedron3d,polyhedron1_3,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+xrot,90,point,6,5,10
+octahedron3d,polyhedron1_4,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+xrot,135,point,6,5,10
+octahedron3d,polyhedron1_5,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+xrot,180,point,6,5,10
+octahedron3d,polyhedron1_6,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+xrot,225,point,6,5,10
+octahedron3d,polyhedron1_7,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+xrot,270,point,6,5,10
+octahedron3d,polyhedron1_8,white,plum,6,5,10,109.243763,0.999625,0.027242,-0.002834,-0.024937,0.948031,0.317199
+xrot,315,point,6,5,10

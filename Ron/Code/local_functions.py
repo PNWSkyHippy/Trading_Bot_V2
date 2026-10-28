@@ -1,3 +1,5 @@
+"""Provide shared helpers for sorting, timing, date parsing, logging and ANSI color output."""
+
 import argparse
 import inspect
 import logging
@@ -12,8 +14,152 @@ from functools import wraps
 import numpy as np
 from random import randint
 from timeit import repeat
+import tkinter as tk
+from pyautogui import position
+import  pyautogui
+from PIL import Image, ImageTk, ImageGrab
+
+
+""" Inatructions for dding magnifyer to an app
+local_functions imports yjr pyautogui pakage which must be pre installed ie
+python -m pip install pyautogui
+
+from local_functions include tun_magnifyer
+
+add ky stok capture to fire it off sucjh as
+# Ctrl+Shift+M opens the magnifier from anywhere in the app (bind_all = any frame/form);
+#  both cases because Shift gives "M" and Caps Lock flips it to "m"
+self._mag = None
+self.app.root.bind_all("<Control-Shift-M>", self.on_mag)
+self.app.root.bind_all("<Control-Shift-m>", self.on_mag)
+
+add control block to enable it on key sroke
+  def on_mag(self, event=None):
+        # already open? close it (the key toggles) instead of stacking copies
+        if self._mag is not None and self._mag.master.winfo_exists():
+            self._mag.master.destroy()
+            self._mag = None
+            return "break"
+        self._mag = run_magnifyer(self.app.root)
+        return "break"
+
+
+
+"""
+pyratio = 1.6
+pynew_image = None 
+
+class PyMag(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.pack()
+        self.master.title("pymag - a simple screen magnifier")
+        # widget
+        self.state_txt = None
+        self.state_label = tk.Label(self, text=None)
+        self.state_label.pack()
+        self.label_img = tk.Label(self, image=None)
+        self.label_img.pack()
+        # bind event
+        self.width = self.master.winfo_width()
+        self.mouse_x, self.mouse_y = position()
+        self.height = self.master.winfo_height()
+        self.bind('<Configure>', self.on_resize)
+        # bind to this window only (bind_all would hijack the host app's keys/wheel)
+        self.master.bind('<Key>', self.key_pressed)
+        # with Windows OS
+        self.master.bind('<MouseWheel>', self.mouse_wheel)
+        # with Linux OS
+        self.master.bind('<Button-4>', self.mouse_wheel)
+        self.master.bind('<Button-5>', self.mouse_wheel)
+        # main loop 
+        self.forever()
+
+    def update_state(self):
+        global pyratio
+        self.mouse_x, self.mouse_y = position()
+        self.state_txt = 'X{} | x: {}, y: {} |  w: {}, h: {}'.format(pyratio,
+                self.mouse_x, self.mouse_y, self.width, self.height)
+        self.state_label['text'] = self.state_txt
+
+    def on_resize(self, event):
+        # print("w: {}, h: {}".format(self.master.winfo_width(),
+        # self.master.winfo_height())) 
+        self.width = self.master.winfo_width()
+        self.height = self.master.winfo_height()
+        self.update_state()
+
+    def key_pressed(self, event):
+        # print(event.char)
+        if event.keysym == "Escape":
+            self.master.destroy()
+        if event.keysym == "`":
+            self.have_fun()
+
+    def have_fun(self):
+        screenWidth, screenHeight = pyautogui.size() # Returns two integers, the width and height of the screen. (The primary monitor, in multi-monitor setups.)
+        currentMouseX, currentMouseY = pyautogui.position() # Returns two integers, the x and y of the mouse cursor's current position.
+        pyautogui.moveTo(100, 150) # Move the mouse to the x, y coordinates 100, 150.
+        pyautogui.click() # Click the mouse at its current location.
+        pyautogui.click(200, 220) # Click the mouse at the x, y coordinates 200, 220.
+        pyautogui.move(None, 10)  # Move mouse 10 pixels down, that is, move the mouse relative to its current position.
+        pyautogui.doubleClick() # Double click the mouse at the
+        pyautogui.moveTo(500, 500, duration=2, tween=pyautogui.easeInOutQuad) # Use tweening/easing function to move mouse over 2 seconds.
+        pyautogui.write('Hello world!', interval=0.25)  # Type with quarter-second pause in between each key.
+        pyautogui.press('esc') # Simulate pressing the Escape key.
+        pyautogui.keyDown('shift')
+        pyautogui.write(['left', 'left', 'left', 'left', 'left', 'left'])
+        pyautogui.keyUp('shift')
+        pyautogui.hotkey('ctrl', 'c')
+
+    def mouse_wheel(self, event):
+        global pyratio
+        # respond to Linux or Windows wheel event
+        if event.num == 5 or event.delta == -120:
+            pyratio -= 0.1
+        if event.num == 4 or event.delta == 120:
+            pyratio += 0.1
+        pyratio = round(pyratio, 2)
+        if pyratio < 1:
+            pyratio = 1.0
+    def forever(self):
+        global pynew_image, pyratio
+        self.update_state()
+        ss_region = (self.mouse_x, self.mouse_y, self.mouse_x +
+                self.width/pyratio, self.mouse_y + self.height/pyratio) 
+        ss_img = ImageGrab.grab(ss_region)
+        resized_image = ss_img.resize((round(self.width*pyratio),
+            round(self.height*pyratio)), Image.Resampling.LANCZOS)
+        pynew_image = ImageTk.PhotoImage(resized_image, master=self.master)
+        self.label_img['image'] = pynew_image
+        self.master.after(round(pyratio*25), self.forever)
+
+def run_magnifyer(parent=None):
+    """Standalone: makes its own root and runs the loop.
+    From another Tk app: pass that app's root/window as parent and the magnifier
+    opens as a Toplevel on the already-running loop (never a second Tk())."""
+    if parent is None:
+        root = tk.Tk()
+    else:
+        root = tk.Toplevel(parent)
+    root.geometry("400x300") # width x height
+    # create object
+    app = PyMag(root)
+    if parent is None:
+        app.mainloop()
+    return app
 
 def run_sorting_algorithm(algorithm, array):
+    """Time a sorting function on an array and print the fastest run.
+
+    The function is looked up by name in ``__main__``, unless it is the
+    built-in ``sorted``. It is timed with ``timeit.repeat`` (3 repeats of
+    10 calls each).
+
+    Args:
+        algorithm (str): Name of the sorting function to time.
+        array (list): The data passed to the function on each call.
+    """
     # Set up the context and prepare the call to the specified
     # algorithm using the supplied array. Only import the
     # algorithm function if it's not the built-in `sorted()`.
@@ -68,6 +214,19 @@ def describe(thing):
 
 
 def update_tuple(tup, idx, val):
+    """Return a copy of a tuple with one element replaced.
+
+    Args:
+        tup (tuple): The original tuple, which is left unchanged.
+        idx (int): Index of the element to replace.
+        val (object): The new value for that index.
+
+    Returns:
+        tuple: A new tuple with ``val`` at position ``idx``.
+
+    Raises:
+        IndexError: If ``idx`` is out of range for ``tup``.
+    """
     # Convert to list
     temp = list(tup)
     temp[idx] = val
@@ -78,11 +237,35 @@ def update_tuple(tup, idx, val):
 
 
 def hours_mins(days, hours, minutes, seconds=0):
+    """Fold days into hours and return the hours and minutes.
+
+    Args:
+        days (int): Number of days, converted to 24 hours each.
+        hours (int): Number of hours to add to the day total.
+        minutes (int): Number of minutes, returned unchanged.
+        seconds (int): Accepted but ignored.
+
+    Returns:
+        tuple[int, int]: Total hours (including days) and the minutes.
+    """
     hours = (days * 24) + hours
     return hours, minutes
 
 
 def length_time(starting_date: str, ending_date: str):
+    """Return the time elapsed between two ISO 8601 timestamps.
+
+    Args:
+        starting_date (str): The start, in ISO 8601 format.
+        ending_date (str): The end, in ISO 8601 format.
+
+    Returns:
+        tuple[int, int, int, int]: Days, hours, minutes and seconds in the
+        difference.
+
+    Raises:
+        ValueError: If either string is not a valid ISO 8601 timestamp.
+    """
     # Parse the strings into datetime objects
     start = datetime.fromisoformat(starting_date)
     end = datetime.fromisoformat(ending_date)
@@ -128,11 +311,25 @@ class Timed:
     """
 
     def __init__(self, func):
+        """Wrap a callable so its run time is recorded.
+
+        Args:
+            func (Callable): The function or method to time.
+        """
         self.func = func
         self.elapsed = 0.0
         wraps(func)(self)
 
     def __call__(self, *args, **kwargs):
+        """Call the wrapped function and store its elapsed time.
+
+        Args:
+            *args: Positional arguments passed to the wrapped function.
+            **kwargs: Keyword arguments passed to the wrapped function.
+
+        Returns:
+            object: Whatever the wrapped function returns.
+        """
         start = time.perf_counter()
         result = self.func(*args, **kwargs)
         self.elapsed = time.perf_counter() - start
@@ -140,6 +337,17 @@ class Timed:
 
     # This allows it to work seamlessly on class methods too!
     def __get__(self, instance, cls):
+        """Bind the timer to an instance when accessed as a method.
+
+        Args:
+            instance (object | None): The instance the attribute was accessed
+                on, or None for access through the class.
+            cls (type): The class the attribute was accessed on.
+
+        Returns:
+            Timed | types.MethodType: This object for class access, or a
+            bound method for instance access.
+        """
         if instance is None:
             return self
         return types.MethodType(self, instance)
@@ -249,6 +457,14 @@ class SkipErrors(logging.Filter):
     """Keep INFO/WARNING on stdout; errors go to stderr instead."""
 
     def filter(self, record):
+        """Decide whether a log record is allowed through.
+
+        Args:
+            record (logging.LogRecord): The record being filtered.
+
+        Returns:
+            bool: True if the record's level is below ERROR.
+        """
         return record.levelno < logging.ERROR
 
 
@@ -300,6 +516,21 @@ def colorize(
     bold=False,
     blink=False,
 ):
+    """Wrap a value in ANSI escape codes for colored terminal output.
+
+    Args:
+        my_str (object): The value to color. It is converted with ``str``.
+        text_col (str | None): Key into ``colors`` for the text color.
+        bg_col (str | None): Key into ``colors`` for the background color.
+        bold (bool): Whether to make the text bold.
+        blink (bool): Whether to make the text blink.
+
+    Returns:
+        str: The styled string, or the plain string if no style was requested.
+
+    Raises:
+        ValueError: If ``text_col`` or ``bg_col`` is not a key in ``colors``.
+    """
     # Dynamic list to hold active ANSI numeric codes
     codes = []
 
@@ -329,6 +560,18 @@ def colorize(
 
 
 def parse_time(mtime: str) -> tuple[int, int]:
+    """Parse a time string in HH:MM format.
+
+    Args:
+        mtime (str): The time, such as ``"14:30"``.
+
+    Returns:
+        tuple[int, int]: The hour (0-23) and minute (0-59).
+
+    Raises:
+        TypeError: If ``mtime`` is not a string.
+        ValueError: If the string is not a valid HH:MM time.
+    """
     if not isinstance(mtime, str):
         raise TypeError("Time must be a string in HH:MM format")
 
@@ -358,6 +601,19 @@ def parse_time(mtime: str) -> tuple[int, int]:
 
 
 def parse_date(mday: str) -> tuple[int, int]:
+    """Parse a date string in YYYY-MM-DD format.
+
+    Args:
+        mday (str): The date, such as ``"2026-10-23"``.
+
+    Returns:
+        tuple[int, int, int]: The year (1980-4000), month (1-12) and day
+        (1-31).
+
+    Raises:
+        TypeError: If ``mday`` is not a string.
+        ValueError: If the string is not a valid YYYY-MM-DD date.
+    """
     if not isinstance(mday, str):
         raise TypeError("Date must be a string in YYYY-MM-DD format")
 
@@ -391,6 +647,14 @@ def parse_date(mday: str) -> tuple[int, int]:
 
 
 def date_check(mdate):
+    """Check that a string is a valid ``YYYY-MM-DDTHH:MM`` timestamp.
+
+    Args:
+        mdate (str): The timestamp to check.
+
+    Returns:
+        bool: True if the date and time parts both parse, otherwise False.
+    """
     try:
         mdate, mtime = mdate.split("T")
     except ValueError:
@@ -504,7 +768,14 @@ def insertion_sort(arr):
 
 
 def bubble_sort(lst):
+    """Sort a copy of a list with bubble sort.
 
+    Args:
+        lst (list): The items to sort, which is left unchanged.
+
+    Returns:
+        list: A new sorted list.
+    """
     tmp_lst = lst.copy()
     pass_count = 0
     for pass_num in range(1, len(tmp_lst)):
@@ -523,7 +794,8 @@ def bubble_sort(lst):
     return tmp_lst
 
 class OpOverloaded:
- 
+    """Mirror Python's operators as named methods and dunder overloads."""
+
     def lt(a,b):
         """ lt(a, b) is equivalent to a < b, """
         return a < b
@@ -959,7 +1231,16 @@ class OpOverloaded:
     
     
 def main():
+    """Run the command-line interface that colorizes input text."""
     def wide_formatter(prog):
+        """Build a help formatter with wide columns.
+
+        Args:
+            prog (str): The program name.
+
+        Returns:
+            argparse.RawDescriptionHelpFormatter: The configured formatter.
+        """
         return argparse.RawDescriptionHelpFormatter(
             prog,
             width=110,

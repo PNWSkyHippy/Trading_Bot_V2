@@ -33,6 +33,7 @@ Verbs (one per line; '#' starts a comment):
     save <file.csv>
     open <file.csv>
     export <file.stl|.obj> [scale <s>] [only <name>[,<name>...]]
+    turtle <file.logo>      run a 3D LOGO program (see turtle3d.py) -> grouped mesh objects
 
 Shapes are centred on `at` (default origin); cylinders/cones/prisms/pyramids
 stand up the +Z axis.  rotate/scale default to the object's own centre.
@@ -244,6 +245,18 @@ class Session:
         self._rebuild(e)
         return f"scaled '{name}' by {factor}"
 
+    def settle(self, name):
+        e = self._find(name)
+        dz = V.settle_dz([e])
+        if abs(dz) > 1e-9:
+            e.transforms.append(["move", num(0), num(0), num(dz)])
+            self._rebuild(e)
+        return f"settled '{name}' (moved {num(dz)} in Z, lowest point now Z=0)"
+
+    def measure(self, a, b=None):
+        ea = self._find(a)
+        return V.measure_text([ea], [self._find(b)] if b else None)
+
     def color(self, name, c1, c2=""):
         e = self._find(name)
         e.c1, e.c2 = c1 or "", c2 or ""
@@ -299,7 +312,7 @@ class Session:
         for e in entries:
             if e.obj is None:
                 self._rebuild(e)
-        groups, skipped = mesh_io.collect(entries, scale=scale)
+        groups, skipped = V.scene_groups(self.entries, scale, only=entries if only else None)
         if not groups:
             raise CmdError("nothing printable to export (only points/lines/planes, or empty)")
         ext = os.path.splitext(path)[1].lower()
@@ -310,6 +323,15 @@ class Session:
                                   name=os.path.splitext(os.path.basename(path))[0])
         skip = f"; skipped {len(skipped)}" if skipped else ""
         return f"exported {n} facet(s) -> {path}{skip}"
+
+    def turtle(self, path):
+        import turtle3d
+        if not os.path.isfile(path):
+            raise CmdError(f"no such file: {path}")
+        try:
+            return turtle3d.run_file(path, self)
+        except turtle3d.TurtleError as exc:
+            raise CmdError(str(exc))
 
     # -- dispatch
     def _dispatch(self, tok):
@@ -340,6 +362,12 @@ class Session:
                 need(4, "a pivot after 'about'")
                 piv = _pivot(rest[3])
             return self.scale(rest[0], float(rest[1]), piv)
+        if verb == "settle":
+            need(1, "a name")
+            return self.settle(rest[0])
+        if verb == "measure":
+            need(1, "one or two names")
+            return self.measure(rest[0], rest[1] if len(rest) > 1 else None)
         if verb == "color":
             need(2, "a name and a colour")
             return self.color(rest[0], rest[1], rest[2] if len(rest) > 2 else "")
@@ -359,6 +387,9 @@ class Session:
             return self.open(rest[0])
         if verb == "export":
             return self._p_export(rest)
+        if verb == "turtle":
+            need(1, "a .logo file")
+            return self.turtle(rest[0])
         raise CmdError(f"unknown command '{verb}'")
 
     def _p_add(self, rest):
