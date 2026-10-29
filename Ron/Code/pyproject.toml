@@ -19,3 +19,8 @@ skip-magic-trailing-comma = true
 [tool.ruff.lint.isort]
 # Prevents conflicts with the import sorter when trailing commas are removed
 split-on-trailing-comma = false
+
+[tool.uv.workspace]
+members = [
+    "Tutorial/mcp-client",
+]

@@ -21,12 +21,12 @@ from PIL import Image, ImageTk, ImageGrab
 
 
 """ Inatructions for dding magnifyer to an app
-local_functions imports yjr pyautogui pakage which must be pre installed ie
+local_functions imports pyautogui package which must be pre installed ie
 python -m pip install pyautogui
 
-from local_functions include tun_magnifyer
+from local_functions import run_magnifyer
 
-add ky stok capture to fire it off sucjh as
+add key stroke capture to fire it off sucjh as
 # Ctrl+Shift+M opens the magnifier from anywhere in the app (bind_all = any frame/form);
 #  both cases because Shift gives "M" and Caps Lock flips it to "m"
 self._mag = None

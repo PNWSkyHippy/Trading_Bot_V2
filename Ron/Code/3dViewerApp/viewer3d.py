@@ -1501,6 +1501,13 @@ class App:
                     sub = tk.Menu(m, tearoff=0)
                     fill(sub, it[1])
                     m.add_cascade(label=it[0], menu=sub)
+                elif isinstance(it[1], tk.Variable):
+                    # (label, var, cmd) -> check item;  (label, var, cmd, value) -> radio item
+                    label, var, cmd, *val = it
+                    if val:
+                        m.add_radiobutton(label=label, variable=var, value=val[0], command=cmd)
+                    else:
+                        m.add_checkbutton(label=label, variable=var, command=cmd)
                 else:
                     label, cmd, *a = it
                     opts = {"accelerator": a[0]} if a else {}
@@ -1532,8 +1539,38 @@ class App:
              None,
              ("Select all", self.select_all, "Ctrl+A"),
              ("Select none", self.select_none, "Esc"),
-             ("Delete object", self.delete_selected),
+             ("Delete object", self.delete_selected, "Del"),
              ("Undo last transform", self.undo_tf))
+
+        vm = menu("View",
+             ("Fit view", self.fit_view),
+             ("Reset view", lambda: (self.reset_camera(), self.fit_view())),
+             ("Fly to selected", self.fly_to),
+             None,
+             ("Show coordinates", self.v_coords, self.redraw),
+             ("Show grid", self.v_grid, lambda: (self.redraw(), self.preview_refresh())),
+             ("Show scene objects", self.v_show_scene, lambda: (self.redraw(), self.preview_refresh())),
+             ("Show script objects", self.v_show_script, lambda: (self.redraw(), self.preview_refresh())),
+             ("Draw in this window too (Taichi mode)", self.v_tk_draw, self.redraw))
+        layers_m = tk.Menu(vm, tearoff=0)
+
+        def post_layers():
+            layers_m.delete(0, "end")
+            for n, v in self.layer_vars.items():
+                layers_m.add_checkbutton(label=n, variable=v, command=lambda n=n: self._layer_toggle(n))
+        layers_m.configure(postcommand=post_layers)
+        vm.add_cascade(label="Layers shown", menu=layers_m)
+        vm.add_separator()
+        vm.add_command(label="Save current view…  (snapshot of the camera)", command=self.view_save)
+        goto_m, del_m = tk.Menu(vm, tearoff=0), tk.Menu(vm, tearoff=0)
+        goto_m.configure(postcommand=lambda: self._fill_views_menu(goto_m))
+        del_m.configure(postcommand=lambda: self._fill_views_menu(del_m, delete=True))
+        vm.add_cascade(label="Go to saved view", menu=goto_m)
+        vm.add_cascade(label="Delete saved view", menu=del_m)
+        vm.add_separator()
+        vm.add_command(label="Script playback speed…",
+                       command=lambda: self._ask("Script playback", [("Step degrees", self.v_step),
+                                                                     ("Delay ms", self.v_delay)], lambda: None))
 
         menu("Scene",
              ("Add object…", self.add_dialog),
@@ -1574,10 +1611,14 @@ class App:
                  ("Measure", self.measure)]),
              ("Copies", [
                  ("Replicate", self.replicate),
-                 ("Ring copy", self.ring_copy)]))
+                 ("Ring copy", self.ring_copy)]),
+             ("Cut (selected = scissors)", [
+                 ("Quick cut", lambda: self.quickcut_cmd([])),
+                 ("Quick keep (trim to overlap)", lambda: self.quickcut_cmd(["keep"]))]))
 
         menu("Camera",
              ("Fit view", self.fit_view),
+             ("Save current view…", self.view_save),
              None,
              ("View", [
                  ("Fill boxes from view", self.view_fill),
@@ -1598,10 +1639,17 @@ class App:
              ("Lighting / global illumination…", self.open_render_settings, acc("G", "F6")),
              None,
              ("Render (POV-Ray)", self.render_pov_here, acc("R", "F9")),
+             ("Render quality", [
+                 ("Draft", self.v_pov_q, lambda: None, "Draft"),
+                 ("Final", self.v_pov_q, lambda: None, "Final")]),
+             ("Render width", [(f"{w} px", self.v_pov_w, lambda: None, w)
+                               for w in ("320", "640", "1024", "1600", "1920")]),
              ("Taichi GPU preview", self.open_preview, acc("P", "F10")))
 
         menu("Help",
-             ("Help / topics", self.open_help, "F1  /  ?"))
+             ("Help / topics", self.open_help, "F1  /  ?"),
+             ("Saved views (snapshots)", lambda: self.open_help("snapshots")),
+             ("Taichi preview keys & menu", lambda: self.open_help("taichi")))
 
         self.root.config(menu=bar)
         self._menubar = bar
@@ -1664,6 +1712,18 @@ class App:
         holder, panel = ui_scroll.scrollable(top)
         top.add(holder, weight=1)
         self._build_panel(panel)
+        if not self.classic:             # Taichi mode: the output pane is small - give the panel the room
+            def _give_panel_room(tries=[0]):
+                try:
+                    w = top.winfo_width()
+                    if w < 200 and tries[0] < 20:
+                        tries[0] += 1
+                        self.root.after(100, _give_panel_room)
+                        return
+                    top.sashpos(0, max(160, int(w * 0.22)))
+                except tk.TclError:
+                    pass
+            self.root.after(150, _give_panel_room)
 
         outf = ttk.Frame(outer)
         outer.add(outf, weight=1)
@@ -2060,20 +2120,29 @@ class App:
     # ----------------------------------------------------- scene management
     def _remember_active(self):
         """Note the active scene path so the next launch reopens this same file."""
-        try:
-            with open(ACTIVE_PTR, "w") as f:
-                f.write(self.scene_path)
-        except OSError:
-            pass
+        try:                                  # store it relative to this folder: PC and Mac copies share it
+            p = self.scene_path
+            rel = os.path.relpath(p, HERE) if os.path.abspath(p).startswith(os.path.abspath(HERE)) else p
+            tmp = ACTIVE_PTR + ".tmp"         # temp + replace: a Hidden-attribute pointer can't be opened "w"
+            with open(tmp, "w") as f:
+                f.write(rel)
+            os.replace(tmp, ACTIVE_PTR)
+        except OSError as exc:
+            print(f"Could not remember the active scene: {exc}")
 
     @staticmethod
     def _recall_active():
         try:
             with open(ACTIVE_PTR) as f:
                 p = f.read().strip()
-            return p if p and os.path.exists(p) else None
         except OSError:
             return None
+        if not p:
+            return None
+        for c in (p, os.path.join(HERE, p), os.path.join(HERE, os.path.basename(p.replace("\\", "/")))):
+            if os.path.isfile(c):             # absolute, relative, or an old path from the other machine
+                return c
+        return None
 
     def _switch_scene(self, path):
         """Make `path` the active file: autosave, undo and the tree header all follow it now."""
@@ -3529,6 +3598,89 @@ class App:
         self.scale = (h / 2) / math.tan(math.radians(fov) / 2) / dist
         self.redraw()
         print(f"View: eye ({', '.join(fmt(c) for c in eye)}) looking at ({', '.join(fmt(c) for c in look)})")
+
+    def _views_file(self):
+        """<scene>.views.json beside the active scene - its saved camera snapshots."""
+        return os.path.splitext(self.scene_path)[0] + ".views.json" if self.scene_path else None
+
+    def _load_views(self):
+        try:
+            with open(self._views_file(), encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, TypeError, ValueError):
+            return {}
+
+    def _store_views(self, views):
+        path = self._views_file()
+        if path:
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(views, f, indent=1)
+            os.replace(tmp, path)
+
+    def view_save(self, name=None):
+        """Snapshot the current 3D camera under a name; it is kept with the scene."""
+        if name is None:
+            from tkinter import simpledialog
+            name = simpledialog.askstring("Save view", "Name for this view:", parent=self.root)
+        name = (name or "").strip()
+        if not name:
+            return
+        views = self._load_views()
+        views[name] = {"target": [float(c) for c in self.target], "yaw": float(self.yaw),
+                       "pitch": float(self.pitch), "dist": float(self.dist), "scale": float(self.scale)}
+        self._store_views(views)
+        print(f"Saved view '{name}'  (View > Go to saved view)")
+
+    def view_save_from_preview(self):
+        """Taichi menu: snapshot the PREVIEW's camera (its eye/look came just before this command)."""
+        c = getattr(self, "_pov_cam", None)
+        if c is not None:
+            d = np.asarray(c["look"], float) - np.asarray(c["eye"], float)
+            dist = float(np.linalg.norm(d))
+            if dist > 1e-6:
+                self.target, self.dist = tuple(float(v) for v in c["look"]), dist
+                self.yaw = math.atan2(d[0], d[1])
+                self.pitch = max(-1.55, min(1.55, math.asin(max(-1.0, min(1.0, -d[2] / dist)))))
+                h = max(self.canvas.winfo_height(), 50)
+                self.scale = (h / 2) / math.tan(math.radians(float(c["fov"])) / 2) / dist
+        self.view_save()
+
+    def view_recall(self, name):
+        """Fly the 3D camera back to a saved view."""
+        v = self._load_views().get(name)
+        if not v:
+            print(f"No saved view named '{name}'")
+            return
+        self.target = tuple(v["target"])
+        self.yaw, self.pitch, self.dist, self.scale = v["yaw"], v["pitch"], v["dist"], v["scale"]
+        self.redraw()
+        self.preview_refresh()
+        print(f"View '{name}' restored  (in the Taichi preview press R / Viewer's view to go there)")
+
+    def view_delete(self, name):
+        views = self._load_views()
+        if views.pop(name, None) is not None:
+            self._store_views(views)
+            print(f"Deleted view '{name}'")
+
+    def view_recall_ask(self):
+        """Pick a saved view from a list (used by the Taichi menu)."""
+        names = list(self._load_views())
+        if not names:
+            print("No saved views yet - View > Save current view")
+            return
+        v = tk.StringVar(value=names[0])
+        self._ask("Go to saved view", [("View", v, names)], lambda: self.view_recall(v.get()))
+
+    def _fill_views_menu(self, m, delete=False):
+        m.delete(0, "end")
+        names = sorted(self._load_views())
+        if not names:
+            m.add_command(label="(none saved yet)", state="disabled")
+        for n in names:
+            m.add_command(label=n, command=(lambda n=n: self.view_delete(n)) if delete
+                          else (lambda n=n: self.view_recall(n)))
 
     def fly_to(self):
         """Jump the 3D view to the selection, framed, same viewing angle."""
@@ -6019,6 +6171,7 @@ class App:
                   "replay": self.replay, "keep_script": self.keep_script_objs,
                   "save_pov": self.save_pov, "pov_gui": self.open_pov_gui,
                   "open_scene": self.open_scene_file, "save_scene_as": self.save_scene_as,
+                  "save_view": self.view_save_from_preview, "goto_view": self.view_recall_ask,
                   "add_cam_key": lambda: self._cam_key_from_preview(True),
                   "set_cam_key": lambda: self._cam_key_from_preview(False),
                   "help": self.open_help, "help_menu": lambda: self.open_help("overview"),

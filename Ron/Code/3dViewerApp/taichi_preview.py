@@ -16,7 +16,7 @@ Plain colors only - no image textures, CSG cuts or hollows (POV-Ray render has t
                  (letters: Taichi 1.7 doesn't report the number keys)
     G            snap on / off (starts off): moves to 1/10 grid step, rotations to 15 deg, scale to 0.1
     P            play / stop the Camera Director's path (Director: "Play in Taichi" starts it too)
-    Ctrl+Z / Ctrl+Y   undo / redo (the viewer's whole-scene undo)
+    U / Y (or Ctrl+Z / Ctrl+Y)   undo / redo - plain U / Y is safer: Taichi can crash on Ctrl+key
     Delete / Backspace   delete what's selected
 Menu buttons send CMD lines; anything that needs typing opens a box from the viewer (Taichi 1.7's
 GUI has buttons, checkboxes and sliders only). If Taichi's GUI crashes (its own Ctrl/Shift
@@ -34,6 +34,27 @@ import taichi as ti
 ti.init(arch=ti.gpu, offline_cache=True)     # Vulkan/CUDA on the PC, Metal on the Mac
 ARCH = ti.lang.impl.current_cfg().arch.name
 print(f"Taichi preview on {ARCH}")
+
+
+_del_was = [False]
+
+
+def _del_edge():
+    """True once per press of the Delete key while one of THIS process's windows has focus.
+    Taichi's GGUI has no name for Delete (only BackSpace), so ask Windows directly."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        pid = ctypes.c_ulong()
+        u.GetWindowThreadProcessId(u.GetForegroundWindow(), ctypes.byref(pid))
+        down = pid.value == os.getpid() and bool(u.GetAsyncKeyState(0x2E) & 0x8000)
+    except Exception:
+        return False
+    fired = down and not _del_was[0]
+    _del_was[0] = down
+    return fired
 
 
 class Buf:
@@ -720,7 +741,7 @@ def main():
                 if g.button(label):
                     send(f"CMD {cmd}")
         if section("edit", "Edit"):
-            for label, line in (("Undo  (Ctrl+Z)", "KEY undo"), ("Redo  (Ctrl+Y)", "KEY redo"),
+            for label, line in (("Undo  (U or Ctrl+Z)", "KEY undo"), ("Redo  (Y or Ctrl+Y)", "KEY redo"),
                                 ("Delete selected  (Del)", "KEY delete"), ("Select all", "CMD select_all"),
                                 ("Select none", "CMD select_none"), ("Properties...", "CMD props"),
                                 ("Group selected...", "CMD tag"), ("Ungroup", "CMD untag"),
@@ -843,6 +864,11 @@ def main():
             if g.button("Set selected key = this view"):
                 send_cam()
                 send("CMD set_cam_key")
+            if g.button("Save this view as a snapshot..."):
+                send_cam()
+                send("CMD save_view")
+            if g.button("Go to a saved view...  (then press R)"):
+                send("CMD goto_view")
             if g.button("Open Camera Director"):
                 send("CMD director")
         if section("director", "Director  (edit the shot here)"):
@@ -1080,6 +1106,8 @@ def main():
                     play_id = pid
         frame += 1
 
+        if _del_edge() and drag is None:                  # the Delete key (GGUI never reports it)
+            print("KEY delete", flush=True)
         for e in win.get_events(ti.ui.PRESS):
             if e.key == "p" and n_path():                 # (re)play the camera path
                 toggle_play()
@@ -1104,6 +1132,9 @@ def main():
                 labels[0] = not labels[0]
             elif e.key == ti.ui.RETURN and drag is None:
                 send("CMD props")
+            elif e.key in ("u", "y") and not win.is_pressed(ti.ui.CTRL) and drag is None:
+                # plain U / Y: Taichi's own ImGui asserts (and kills this window) on some Ctrl+key presses
+                print(f"KEY {'redo' if e.key == 'y' else 'undo'}", flush=True)
             elif e.key in ("z", "y") and win.is_pressed(ti.ui.CTRL) and drag is None:
                 redo = e.key == "y" or win.is_pressed(ti.ui.SHIFT)
                 print(f"KEY {'redo' if redo else 'undo'}", flush=True)

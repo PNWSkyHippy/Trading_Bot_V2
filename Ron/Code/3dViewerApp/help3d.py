@@ -511,11 +511,15 @@ work on one part.
 _topic("snapshots", "Snapshots", """
 Save the current camera position as a snapshot so you can return to it later.
 
-- Save a snapshot once you have a view you like.
-- Click a saved snapshot to fly the camera back to it.
+- Menu bar: View > Save current view...  names the camera you have now.
+- View > Go to saved view > (name)  flies the camera back to it.
+- View > Delete saved view removes one.
+- In the Taichi preview: Camera section > "Save this view as a snapshot..." and
+  "Go to a saved view..." (after going to one, press R to jump there).
 
-Snapshots are stored with the scene, so your favourite angles come back next
-time you open it.
+Snapshots are stored with the scene (<scene>.views.json), so your favourite
+angles come back next time you open it.  (Not the same as "Render snapshot from
+here (C)", which makes a POV-Ray picture from the current view.)
 """, _d_snapshots)
 
 _topic("director", "Director (camera paths)", """

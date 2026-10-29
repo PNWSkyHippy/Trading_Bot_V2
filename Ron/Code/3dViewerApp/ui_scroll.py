@@ -26,7 +26,9 @@ def scrollable(parent, padding=6):
     bg = ttk.Style().lookup("TFrame", "background") or holder.winfo_toplevel().cget("bg")
     sc = tk.Canvas(holder, highlightthickness=0, bd=0, bg=bg)
     vs = ttk.Scrollbar(holder, orient=tk.VERTICAL, command=sc.yview)
-    sc.configure(yscrollcommand=vs.set)
+    hs = ttk.Scrollbar(holder, orient=tk.HORIZONTAL, command=sc.xview)
+    sc.configure(yscrollcommand=vs.set, xscrollcommand=hs.set)
+    hs.pack(side=tk.BOTTOM, fill=tk.X)          # panel squeezed narrower than its buttons: scroll sideways
     vs.pack(side=tk.RIGHT, fill=tk.Y)
     sc.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     inner = ttk.Frame(sc, padding=padding)
@@ -34,8 +36,6 @@ def scrollable(parent, padding=6):
 
     def inner_changed(_e=None):
         sc.configure(scrollregion=(0, 0, inner.winfo_reqwidth(), inner.winfo_reqheight()))
-        if sc.winfo_width() < inner.winfo_reqwidth():          # never narrower than the widgets need
-            sc.configure(width=inner.winfo_reqwidth())
 
     def canvas_changed(e):
         sc.itemconfigure(win, width=max(e.width, inner.winfo_reqwidth()))
@@ -55,6 +55,9 @@ def scrollable(parent, padding=6):
             return None
         if w.winfo_class() in OWN_WHEEL and w is not sc:
             return None
+        if e.state & 0x0001 and inner.winfo_reqwidth() > sc.winfo_width():      # Shift+wheel = sideways
+            sc.xview_scroll(-3 if e.delta > 0 else 3, "units")
+            return "break"
         if inner.winfo_reqheight() <= sc.winfo_height():
             return None
         sc.yview_scroll(-1 if e.delta > 0 else 1, "units")

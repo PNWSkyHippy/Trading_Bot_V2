@@ -23,7 +23,6 @@ import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-
 from local_functions import (
     STAT_LABEL_VALUE_RE,
     Timed,
@@ -31,6 +30,7 @@ from local_functions import (
     clean_ansi,
     colorize,
     date_check,
+    run_magnifyer,  
 )
 from quick_tk import QuickApp, ToolView
 from quick_tk.core.forms import (
@@ -230,6 +230,9 @@ class TradeAnalyzerTool(ToolView):
         value_frame.grid(row=3, column=0, sticky="nsew")
         value_frame.rowconfigure(0, weight=1)
         value_frame.columnconfigure(0, weight=1)
+        self._mag = None
+        self.app.root.bind_all("<Control-Shift-M>", self.on_mag)
+        self.app.root.bind_all("<Control-Shift-m>", self.on_mag)
         self.available_values = tk.Listbox(
             value_frame,
             selectmode="extended",
@@ -585,6 +588,15 @@ class TradeAnalyzerTool(ToolView):
                 getattr(args, f"list{i + 1}") or ("ALL" if i < len(keys) else "")
             )
             self.sort_vars[i].set(sorts[i].strip() if i < len(sorts) else "")
+            
+    def on_mag(self, event=None):
+        # already open? close it (the key toggles) instead of stacking copies
+        if self._mag is not None and self._mag.master.winfo_exists():
+            self._mag.master.destroy()
+            self._mag = None
+            return "break"
+        self._mag = run_magnifyer(self.app.root)
+        return "break"
 
     def on_reset(self):
         """Reset the next report's options; existing windows keep their results."""
