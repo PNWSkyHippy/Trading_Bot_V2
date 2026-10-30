@@ -303,6 +303,76 @@ class FormPanel(ttk.Frame):
         self._row_count += 1
         self._inner_row = 0
 
+    def restyle(self, **opts) -> "FormPanel":
+        """
+        Pass-through styling, like .configure for options ttk widgets only
+        accept through styles. Applies to the panel and every widget in it,
+        including fields added later (call again after adding more).
+
+        Colour options: bg/background, fg/foreground.
+        Anything else (borderwidth/bd, relief, padding, font, bordercolor,
+        lightcolor, darkcolor, ...) is handed to ttk.Style.configure as-is.
+        bg goes to frames, labels, checks and radios; fg goes to the text widgets.
+        Border/relief options apply to the outer panel only (not every row).
+        """
+        bg = opts.pop("bg", None) or opts.pop("background", None)
+        fg = opts.pop("fg", None) or opts.pop("foreground", None)
+        font = opts.pop("font", None)
+        opts.pop("bg", None); opts.pop("background", None)
+        opts.pop("fg", None); opts.pop("foreground", None)
+        if "bd" in opts:
+            opts["borderwidth"] = opts.pop("bd")
+
+        text_opts = {}
+        if bg:
+            text_opts["background"] = bg
+        if fg:
+            text_opts["foreground"] = fg
+        if font:
+            text_opts["font"] = font
+        border_opts = dict(opts)  # borderwidth/relief etc: outer panel only
+        frame_opts = {"background": bg} if bg else {}
+
+        s = ttk.Style(self)
+        tag = f"fp{id(self)}"
+        base_opts = {"TFrame": frame_opts}
+        for base in ("TLabel", "TCheckbutton", "TRadiobutton"):
+            base_opts[base] = text_opts
+
+        def derived(base_style: str) -> Optional[str]:
+            # "Surface.TLabel" -> kind "TLabel"; derived name "fp123.Surface.TLabel"
+            kind = base_style.rsplit(".", 1)[-1]
+            if kind not in base_opts or not base_opts[kind]:
+                return None
+            root = base_style.split(f"{tag}.", 1)[-1]
+            name = f"{tag}.{root}"
+            s.configure(name, **base_opts[kind])
+            return name
+
+        def walk(w):
+            if isinstance(w, (ttk.Frame, ttk.Label, ttk.Checkbutton, ttk.Radiobutton)):
+                try:
+                    cur = str(w.cget("style")) or w.winfo_class()
+                except tk.TclError:
+                    cur = ""
+                if cur:
+                    new = derived(cur)
+                    if new:
+                        w.configure(style=new)
+            for c in w.winfo_children():
+                walk(c)
+
+        for c in self.winfo_children():
+            walk(c)
+        panel_opts = dict(border_opts)
+        if bg:
+            panel_opts["background"] = bg
+        if panel_opts:
+            name = f"{tag}.Panel.Surface.TFrame"
+            s.configure(name, **panel_opts)
+            self.configure(style=name)
+        return self
+
     def _add_field_container(
         self, label_text: str, parent: Optional[tk.Widget] = None
     ) -> ttk.Frame:

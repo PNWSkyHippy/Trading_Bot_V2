@@ -56,6 +56,7 @@ class MyFileUtilityTool(ToolView):
 #        self.itself  = itself
         
     def build_ui(self):
+        self.DEBUG = False
         self.p = self.app.caller
         self.onoffs_window = False
         self.choices_window = False 
@@ -64,7 +65,7 @@ class MyFileUtilityTool(ToolView):
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)
         self.rowconfigure(0, weight=1)
-        self.FILE_TYPES = ["file", "dir", "symlink", "executable", "empty", "socket", "pipe", "char", "block"]
+        self.FILE_TYPES = ["any", "file", "dir", "symlink", "executable", "empty", "socket", "pipe", "char", "block"]
         self.p.output_file_name = "MyFileToolReport"
         self.p.output_file_path = "./"
         self.p.format = "txt"
@@ -125,16 +126,21 @@ class MyFileUtilityTool(ToolView):
             shortcut="Ctrl+P",
         )
        
-        config_menu.add_item(
-            "Operations with choices",
-            self.open_floating_window_choices,
-            shortcut="Ctrl+Shift+P",
-        )
+ #       config_menu.add_item(
+ #           "Operations with choices",
+ #           self.open_floating_window_choices,
+ #           shortcut="Ctrl+Shift+P",
+ #       )
 
         config_menu.add_item(
             "Help",
             self.show_help,
             shortcut="Ctrl+Shift+H",
+        )
+        config_menu.add_item(
+            "Find Duplicate Files",
+            self.open_duplicates_window,
+            shortcut="Ctrl+D",
         )
         config_menu.add_separator()
         config_menu.add_item("Exit", self.app.root.quit, shortcut="Alt+F4")
@@ -143,6 +149,229 @@ class MyFileUtilityTool(ToolView):
     # OPTION 1: MODAL POPUP DIALOG (self.prompt_form)
     # Recommended for straightforward configuration steps
     # =========================================================================
+
+    # =========================================================================
+    # DUPLICATE FINDER: same contents (names ignored), choose what to delete
+    # =========================================================================
+
+    def open_duplicates_window(self):
+        if getattr(self, "dup_window", None) is not None and self.dup_window.winfo_exists():
+            self.dup_window.lift()
+            return
+        win = self.dup_window = tk.Toplevel(self)
+        win.title("Duplicate Files")
+        win.geometry("980x560")
+        win.configure(bg=self.theme.get("bg", "#181825"))
+        win.columnconfigure(0, weight=1)
+        win.rowconfigure(1, weight=1)
+
+        self._dup_marked = set()      # tree item ids ticked for deletion
+        self._dup_queue = queue.Queue()
+        self._dup_scanning = False
+
+        top = ttk.Frame(win, padding=6)
+        top.grid(row=0, column=0, columnspan=2, sticky="ew")
+        self._dup_status = ttk.Label(top, text="Press Scan to search the Search Location (uses the current filters).")
+        self._dup_status.pack(side="left")
+        ttk.Button(top, text="Scan", command=self.dup_scan).pack(side="right")
+        ttk.Button(top, text="Stop", command=self.dup_stop).pack(side="right", padx=4)
+        folder = ttk.Frame(win, padding=(6, 0, 6, 6))
+        folder.grid(row=3, column=0, columnspan=2, sticky="ew")
+        ttk.Label(folder, text="Folder or drive to scan:").pack(side="left")
+        start = str(self.form.get_value("directory") or self.p.directory or ".")
+        self._dup_dir = tk.StringVar(value=start)
+        ttk.Entry(folder, textvariable=self._dup_dir).pack(side="left", fill="x", expand=True, padx=6)
+
+        def _browse():
+            from tkinter import filedialog
+            chosen = filedialog.askdirectory(parent=win, initialdir=self._dup_dir.get() or None,
+                                             title="Folder or drive to scan", mustexist=True)
+            if chosen:
+                self._dup_dir.set(os.path.normpath(chosen))
+        ttk.Button(folder, text="Browse...", command=_browse).pack(side="left")
+
+        cols = ("del", "size", "modified", "path")
+        tree = self._dup_tree = ttk.Treeview(win, columns=cols, show="tree headings", selectmode="browse")
+        tree.heading("#0", text="Set")
+        tree.heading("del", text="Delete?")
+        tree.heading("size", text="Size")
+        tree.heading("modified", text="Modified")
+        tree.heading("path", text="Path")
+        tree.column("#0", width=110, stretch=False)
+        tree.column("del", width=60, anchor="center", stretch=False)
+        tree.column("size", width=90, anchor="e", stretch=False)
+        tree.column("modified", width=140, stretch=False)
+        tree.column("path", width=560)
+        tree.grid(row=1, column=0, sticky="nsew", padx=6)
+        sb = ttk.Scrollbar(win, orient="vertical", command=tree.yview)
+        sb.grid(row=1, column=1, sticky="ns")
+        tree.configure(yscrollcommand=sb.set)
+        tree.bind("<Button-1>", self.dup_click)
+
+        bar = ttk.Frame(win, padding=6)
+        bar.grid(row=2, column=0, columnspan=2, sticky="ew")
+        for label, how in (("Keep newest", "newest"), ("Keep oldest", "oldest"),
+                           ("Keep shortest path", "shortest"), ("Keep first listed", "first")):
+            ttk.Button(bar, text=label, command=lambda h=how: self.dup_mark_all(h)).pack(side="left", padx=2)
+        ttk.Button(bar, text="Keep all", command=self.dup_clear_marks).pack(side="left", padx=2)
+        ttk.Button(bar, text="Delete marked (Recycle Bin)", command=self.dup_delete).pack(side="right", padx=2)
+
+        def _close():
+            win.destroy()
+            self.dup_window = None
+        win.protocol("WM_DELETE_WINDOW", _close)
+
+    def dup_scan(self):
+        if self._dup_scanning:
+            return
+        target = self._dup_dir.get().strip()
+        if not os.path.isdir(target):
+            self._dup_status.configure(text=f"Not a folder or drive: {target}")
+            return
+        self._dup_scanning = True
+        self._dup_stop = threading.Event()
+        stop = self._dup_stop
+        self._dup_status.configure(text="Scanning...")
+        self._dup_tree.delete(*self._dup_tree.get_children())
+        self._dup_marked.clear()
+
+        def worker():
+            try:
+                sets = self.p.find_duplicates(target,
+                                              progress=lambda m: self._dup_queue.put(("progress", m)),
+                                              stop=stop)
+                self._dup_queue.put(("done", (sets, stop.is_set())))
+            except (Exception, SystemExit) as e:
+                self._dup_queue.put(("error", str(e)))
+        threading.Thread(target=worker, daemon=True).start()
+        self.after(100, self.dup_poll)
+
+    def dup_stop(self):
+        if self._dup_scanning:
+            self._dup_stop.set()
+            self._dup_status.configure(text="Stopping...")
+
+    def dup_poll(self):
+        if getattr(self, "dup_window", None) is None or not self.dup_window.winfo_exists():
+            self._dup_scanning = False
+            return
+        try:
+            while True:
+                kind, data = self._dup_queue.get_nowait()
+                if kind == "progress":
+                    self._dup_status.configure(text=data[-90:])
+                elif kind == "error":
+                    self._dup_status.configure(text=f"Error: {data}")
+                    self._dup_scanning = False
+                    return
+                else:
+                    sets, stopped = data
+                    self.dup_fill(sets)
+                    if stopped:
+                        self._dup_status.configure(
+                            text="Stopped early. " + self._dup_status.cget("text"))
+                    self._dup_scanning = False
+                    return
+        except queue.Empty:
+            pass
+        self.after(100, self.dup_poll)
+
+    def dup_fill(self, sets):
+        tree = self._dup_tree
+        wasted = 0
+        for n, group in enumerate(sets, 1):
+            size = group[0][1]
+            wasted += size * (len(group) - 1)
+            parent = tree.insert("", "end", text=f"Set {n}", open=True,
+                                 values=("", bytes_to_str(size), "", f"{len(group)} identical files"))
+            for path, sz, mod in group:
+                tree.insert(parent, "end", values=("[ ]", bytes_to_str(sz),
+                            mod.strftime("%Y-%m-%d %H:%M"), path))
+        self._dup_status.configure(
+            text=f"{len(sets)} duplicate set(s); {bytes_to_str(wasted)} could be reclaimed."
+            if sets else "No duplicate files found.")
+
+    def dup_files(self):
+        """Yield (set row, [file rows]) for every set."""
+        for parent in self._dup_tree.get_children():
+            yield parent, list(self._dup_tree.get_children(parent))
+
+    def dup_set_mark(self, item, on):
+        if on:
+            self._dup_marked.add(item)
+        else:
+            self._dup_marked.discard(item)
+        self._dup_tree.set(item, "del", "[X]" if on else "[ ]")
+
+    def dup_click(self, event):
+        tree = self._dup_tree
+        if tree.identify_region(event.x, event.y) != "cell" or tree.identify_column(event.x) != "#1":
+            return
+        item = tree.identify_row(event.y)
+        if item and tree.parent(item):          # only file rows have a checkbox
+            self.dup_set_mark(item, item not in self._dup_marked)
+            return "break"
+
+    def dup_clear_marks(self):
+        for item in list(self._dup_marked):
+            self.dup_set_mark(item, False)
+
+    def dup_mark_all(self, keep):
+        """Mark everything for deletion except the one file kept in each set."""
+        tree = self._dup_tree
+        for _, rows in self.dup_files():
+            def path(r): return tree.set(r, "path")
+            def mod(r): return tree.set(r, "modified")
+            if keep == "newest":
+                survivor = max(rows, key=lambda r: (mod(r), -len(path(r))))
+            elif keep == "oldest":
+                survivor = min(rows, key=lambda r: (mod(r), len(path(r))))
+            elif keep == "shortest":
+                survivor = min(rows, key=lambda r: (len(path(r)), path(r)))
+            else:
+                survivor = rows[0]
+            for r in rows:
+                self.dup_set_mark(r, r != survivor)
+
+    def dup_delete(self):
+        from tkinter import messagebox
+        tree = self._dup_tree
+        todo = []
+        for _, rows in self.dup_files():
+            marked = [r for r in rows if r in self._dup_marked]
+            if len(marked) == len(rows):
+                messagebox.showwarning("Duplicate Files",
+                    "Every copy in one set is ticked. Untick at least one copy to keep, "
+                    "then try again. Nothing was deleted.", parent=self.dup_window)
+                return
+            todo.extend(marked)
+        if not todo:
+            messagebox.showinfo("Duplicate Files", "Nothing is ticked.", parent=self.dup_window)
+            return
+        if not messagebox.askyesno("Delete duplicates",
+                f"Move {len(todo)} file(s) to the Recycle Bin?", parent=self.dup_window):
+            return
+        try:
+            from send2trash import send2trash
+        except ImportError:
+            messagebox.showerror("Duplicate Files", "The send2trash package is needed (pip install send2trash).",
+                                 parent=self.dup_window)
+            return
+        done = failed = 0
+        for item in todo:
+            try:
+                send2trash(os.path.normpath(tree.set(item, "path")))
+                self._dup_marked.discard(item)
+                tree.delete(item)
+                done += 1
+            except Exception:
+                failed += 1
+        # drop sets that no longer have duplicates
+        for parent, rows in list(self.dup_files()):
+            if len(rows) < 2:
+                tree.delete(parent)
+        self._dup_status.configure(text=f"Moved {done} file(s) to the Recycle Bin"
+                                        + (f"; {failed} failed." if failed else "."))
 
     def on_mag(self, event=None):
         # already open? close it (the key toggles) instead of stacking copies
@@ -250,8 +479,9 @@ class MyFileUtilityTool(ToolView):
         self.onoffs_window = True
         popup = tk.Toplevel(self)
         popup.title("On/Off Options")
-        popup.geometry("480x480")
+        popup.geometry("990x650")
         popup.configure(bg=self.theme.get("bg", "#181825"))
+        popup.configure(bg="navajo white", borderwidth=10, relief="groove")
 
         container = ttk.Frame(popup, style="Surface.TFrame", padding=14)
         container.grid(row=0, column=0, sticky="ew")
@@ -261,11 +491,95 @@ class MyFileUtilityTool(ToolView):
         container.columnconfigure(0, weight=0)
         container.columnconfigure(1, weight=1)
         container.columnconfigure(2, weight=1)
+        container.columnconfigure(3, weight=1)
+    
+
+        leftside2 = self.add_form("File Operations", parent=container )
+        leftside2.restyle( borderwidth=10, relief="groove")
+        leftside2.grid(
+            row=0,
+            column=0,
+            rowspan=2,
+            sticky="nws",
+            padx=0,
+            pady=10,
+        )       
+    
+    
+        # Dropdown boxes
+        leftside2.add_checkbox(
+                "hidden", "Show Hidden Filese", default=self.p.hidden, on_change=self.do_hidden
+ 
+        )
+        leftside2.add_checkbox(
+                "igcase", "Ignore Case", default=self.p.ignorecase, on_change=self.do_igcase
+            )
+        leftside2.add_checkbox(
+                "partial", "Partial Matches", default=self.p.partial, on_change=self.do_partial
+            )
+
+        leftside2.add_dropdown("type", "Filter by File Type", self.FILE_TYPES,
+                 on_change=self.do_type
+            )   
+        # Dropdown boxes RON HERE
+ 
+
+        rightside2 = self.rightside2 = self.add_form("", parent=container)
+        rightside2.restyle( borderwidth=8, relief="groove")
+        rightside2.grid(
+            row=0,
+            column=1,
+            rowspan=2,
+            sticky="nws",
+            padx=0,
+            pady=10,
+        )               
+
+        rightside2.add_text("extension", "Comma list of extensions", 
+            default=f"", on_change=self.do_extention)
+        rightside2.add_text("exclude", "Exclude patterns (comma list, -e)",
+            default=f"", on_change=self.do_exclude)
+        self.SIZE_UNIT_CHOICES = ["B", "KB", "MB", "GB", "TB", "PB", "KiB", "MiB", "GiB", "TiB", "PiB"]
+        for key, label in (("size_min", "At least (min size)"), ("size_max", "At most (max size)")):
+            row = rightside2.add_row_container(2)
+            row.columnconfigure(0, weight=3)
+            row.columnconfigure(1, weight=1)
+            num = rightside2.add_text(key, label, default="", parent=row,
+                                      on_change=self.do_size)
+            num.master.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+            unit = rightside2.add_dropdown(key + "_unit", "Unit", self.SIZE_UNIT_CHOICES,
+                                           default="MB", parent=row, on_change=self.do_size)
+            unit.master.grid(row=0, column=1, sticky="ew")
+        rightside2.add_text("execute","Run command on EACH file (-x) use {} for the file",
+            default=f"", on_change=self.do_execute)
+        rightside2.add_text("exec_batch","Run command ONCE on ALL files (-X)",
+            default=f"", on_change=self.do_exec_batch)
+        rightside2.add_number(
+            "maxdepth",
+            "Max depth",
+            default=self.p.maxdepth,
+            min_val=0,
+            max_val=500,
+           step=1,
+            on_change=self.do_maxdepth,
+        )    
+ 
+        botside2 = self.add_form("", parent=container)
+ #       botside2.restyle( borderwidth=10, relief="groove")
+        botside2.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="nws",
+            padx=0,
+            pady=10,
+        )         
 
         leftside = self.add_form("On/Off Toggles", parent=container)
+        leftside.restyle( borderwidth=10, relief="groove")
         leftside.grid(
              row=0,
-             column=0,
+             column=2,
              rowspan=2,
              sticky="nws",
              padx=0,
@@ -286,11 +600,16 @@ class MyFileUtilityTool(ToolView):
         leftside.add_checkbox(
             "verbose", "Verbose mode", default=self.p.verbose, on_change=self.do_verbose
         )
-        
-        rightside = self.add_form("On/Off Toggles", parent=container)
+
+        leftside.add_checkbox(
+            "catfiles", "Run cat <file>", default=self.p.verbose, on_change=self.do_runcat
+        )
+
+        rightside = self.add_form("On/Off Choices", parent=container)
+        rightside.restyle( borderwidth=10, relief="groove")
         rightside.grid(
                row=0,
-               column=1,
+               column=3,
                rowspan=2,
                sticky="nws",
                padx=0,
@@ -299,14 +618,12 @@ class MyFileUtilityTool(ToolView):
 
 
 
-        rightside.add_checkbox(
-            "catfiles", "Run cat <file>", default=self.p.verbose, on_change=self.do_runcat
-        )
+ 
 
         # Option checkbox
-        rightside.add_checkbox(
-            "auto_clean", "Auto-clean null rows on ingest", default=True
-        )
+ #       rightside.add_checkbox(
+ #           "auto_clean", "Auto-clean null rows on ingest", default=True
+ #       )
         topics = ["Dont Sort", "Sort Alphabetically","Sort by Filesize", "Sort by File Modification"]
         rightside.add_radio(
             "sorts",
@@ -318,9 +635,10 @@ class MyFileUtilityTool(ToolView):
         )
 
         botside = self.add_form("File Operationss", parent=container)
+ #       botside.restyle( borderwidth=10, relief="groove")
         botside.grid(
                row=2,
-               column=0,
+               column=2,
                columnspan=2,
                sticky="nws",
                padx=0,
@@ -386,71 +704,6 @@ class MyFileUtilityTool(ToolView):
         container2.columnconfigure(1, weight=1)
         container2.columnconfigure(2, weight=1)
  
-        leftside2 = self.add_form("File Operations", parent=container2)
-        leftside2.grid(
-            row=0,
-            column=0,
-            rowspan=2,
-            sticky="nws",
-            padx=0,
-            pady=10,
-        )       
-    
-    
-        # Dropdown boxes
-        leftside2.add_checkbox(
-                "hidden", "Show Hidden Filese", default=self.p.hidden, on_change=self.do_hidden
- 
-        )
-        leftside2.add_checkbox(
-                "igcase", "Ignore Case", default=self.p.ignorecase, on_change=self.do_igcase
-            )
-        leftside2.add_checkbox(
-                "partial", "Partial Matches", default=self.p.partial, on_change=self.do_partial
-            )
-
-        leftside2.add_dropdown("type", "Filter by File Type", self.FILE_TYPES,
-                 on_change=self.do_type
-            )   
-        # Dropdown boxes RON HERE
- 
-
-        rightside2 = self.add_form("File Operations", parent=container2)
-        rightside2.grid(
-            row=0,
-            column=1,
-            rowspan=2,
-            sticky="nws",
-            padx=0,
-            pady=10,
-        )               
-
-        rightside2.add_text("extension", "Comma list of extensions", 
-            default=f"", on_change=self.do_extention)
-        rightside2.add_text("execute","Run command on EACH file (-x) use {} for the file",
-            default=f"", on_change=self.do_execute)
-        rightside2.add_text("exec_batch","Run command ONCE on ALL files (-X)",
-            default=f"", on_change=self.do_exec_batch)
-        rightside2.add_number(
-            "maxdepth",
-            "Max depth",
-            default=self.p.maxdepth,
-            min_val=0,
-            max_val=500,
-           step=1,
-            on_change=self.do_maxdepth,
-        )    
- 
-        botside2 = self.add_form("File Operationss", parent=container2)
-        botside2.grid(
-            row=2,
-            column=0,
-            columnspan=2,
-            sticky="nws",
-            padx=0,
-            pady=10,
-        )         
-
           # Action Buttons inside the popup
         def _on_submit():
             vals = botside2.get_values()
@@ -463,7 +716,10 @@ class MyFileUtilityTool(ToolView):
         popup2.protocol("WM_DELETE_WINDOW", _on_submit)
 
     def do_type(self, inputs):
-        self.p.type = inputs
+        # same translation the command line does: name -> canonical type, and
+        # tell the search to look at directories too (they only show up in os.walk's dirs)
+        self.p.type = self.p.TYPE_ALIASES.get(str(inputs).strip().lower())    # "any" -> None
+        self.p.type_wants_dirs = self.p.type in ("dir", "symlink", "empty")
 
 
     def do_runcat(self, inputs):
@@ -543,19 +799,20 @@ class MyFileUtilityTool(ToolView):
             self.p.outout_file_name = stripped[0]
         self.p.output_file = self.p.output_file_path  + "/" + self.p.output_file_name
         self.form.set_value("outfile_name", self.p.output_file_name)
-
-        sys.stderr.write(f'Format Update - output_file = {self.p.output_file}\n')
-        sys.stderr.flush()
+        if self.DEBUG:
+            sys.stderr.write(f'Format Update - output_file = {self.p.output_file}\n')
+            sys.stderr.flush()
 
     def do_outfile_path(self, inputs):
         self.p.output_file_path = inputs
         if self.p.output_file_name:
             self.p.output_file = inputs + "/" + self.p.output_file_name
-            sys.stderr.write(f'output_file_path updated to:({inputs}) {self.p.output_file_path}\n')
+            if self.DEBUG:
+                sys.stderr.write(f'output_file_path updated to:({inputs}) {self.p.output_file_path}\n')
+                sys.stderr.flush()
+        if self.DEBUG:     
+            sys.stderr.write(f'Path update - output_file = {self.p.output_file}\n')
             sys.stderr.flush()
-            
-        sys.stderr.write(f'Path update - output_file = {self.p.output_file}\n')
-        sys.stderr.flush()
 
     def do_outfile_name(self, inputs):
  #       breakpoint()
@@ -567,14 +824,15 @@ class MyFileUtilityTool(ToolView):
                     inputs = stripped[0]
                 inputs = inputs + "." + self.p.format
             self.p.output_file = self.p.output_file_path + "/" + inputs 
-
-            sys.stderr.write(f'output_file_name updated to:({inputs}) {self.p.output_file_name}\n')
-            sys.stderr.flush()
+            if self.DEBUG:
+                sys.stderr.write(f'output_file_name updated to:({inputs}) {self.p.output_file_name}\n')
+                sys.stderr.flush()
 
         else:
             self.p.output_file = inputs
-        sys.stderr.write(f'Filename Update - output_file = {self.p.output_file}\n')
-        sys.stderr.flush()
+        if self.DEBUG:
+            sys.stderr.write(f'Filename Update - output_file = {self.p.output_file}\n')
+            sys.stderr.flush()
 
     def do_filename(self, inputs):
         self.p.filename = inputs
@@ -585,32 +843,32 @@ class MyFileUtilityTool(ToolView):
     def do_sort_dir(self, inputs):
         self.p.sortdir = inputs
 
-    def size_limits(self, inputs):
-        p = p
+    def do_size(self, inputs=None):
+        """Size filter from the GUI: a number box plus a unit dropdown for min and for max."""
+        form = self.rightside2
         self.p.size_lower = None      # file must be >= this
         self.p.size_upper = None      # file must be <= this
         self.p.size_exact = None      # file must be == this
-#        for siz in (args.size or []):
-        sign = inputs[0] if inputs[0] in ("+", "-") else ""
-        nbytes = str_to_bytes(inputs[1:] if sign else inputs)
-#        if nbytes is None:
-#            parser.error(f"invalid size '{inputs}' for -S (e.g. +15KB, -600MB, 2MiB, 100BS)")
-#        if self.p.size_exact is not None or (not sign and (self.p.size_lower is not None or self.p.size_upper is not None)):
-#            parser.error(f"-S {inputs}: an exact size can't be combined with another -S")
-        if sign == "+":
-#            if self.p.size_lower is not None:
-#                parser.error(f"-S {inputs}: -S +<size> already used. Duplicates are ambiguous.")
-            self.p.size_lower = nbytes
-        elif sign == "-":
-#            if self.p.size_upper is not None:
-#                parser.error(f"-S {inputs}: -S -<size> already used. Duplicates are ambiguous.")
-            self.p.size_upper = nbytes
-        else:
-            self.p.size_exact = nbytes
-        if self.p.size_lower is not None and self.size_upper is not None and self.p.size_lower > self.p.size_upper:
-#            parser.error("-S lower limit (+) is bigger than upper limit (-), nothing can match")
-            self.p.size = bool(self.p.size)  # True when any size filter is active (shows the Size column)
-    
+        for key, attr in (("size_min", "size_lower"), ("size_max", "size_upper")):
+            number = str(form.get_value(key) or "").strip()
+            unit = str(form.get_value(key + "_unit") or "B").strip()
+            if not number:
+                continue
+            nbytes = str_to_bytes(number + unit)
+            if nbytes is None:
+                continue              # half-typed value, wait for the next keystroke
+            setattr(self.p, attr, nbytes)
+        if (self.p.size_lower is not None and self.p.size_upper is not None
+                and self.p.size_lower > self.p.size_upper):
+            self.p.size_lower = self.p.size_upper = None    # impossible range, ignore it
+        # True when any size filter is active (shows the Size column)
+        self.p.size = any(v is not None for v in
+                          (self.p.size_lower, self.p.size_upper, self.p.size_exact))
+
+    def do_exclude(self, inputs):
+        """Comma list of .gitignore-style patterns to leave out, e.g. "node_modules/, *.log"."""
+        self.p.exclude_rules = [(pat.strip(), False) for pat in inputs.split(",") if pat.strip()]
+        self.p.exclude = [r[0] for r in self.p.exclude_rules] or None
 
     def do_extention(self, inputs):
         self.p.extension_rules = []
@@ -886,6 +1144,8 @@ class Manipulate_files:
             exec_batch_on_files(self.exec_batch, found_files, output_file=out_to)
 
     def run_search(self, is_gui):
+        if not self.dodir and not self.filename and self.type:
+            self.filename = "*"      # a type filter alone (e.g. dirs only) needs no name
         if not self.dodir and not self.filename:
             if is_gui:
                 return "Error: Please specify a search pattern (e.g. -n <name> or positional pattern)."
@@ -960,9 +1220,9 @@ class Manipulate_files:
                     for found in found_files:
                         path, fname, bsize, size, mod_time,file_hid, lines, words, chars = found
                         if (self.verbose or self.do_long) and not file_hid:
-                            output_rows.append(f'{date:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
+                            output_rows.append(f'{mod_time:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
                         elif (self.verbose or self.do_long) and file_hid:
-                            output_rows.append(f'{date:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "red")}')                                
+                            output_rows.append(f'{mod_time:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "red")}')                                
                         elif self.sortmod:
                             output_rows.append(f'{mod_time.strftime("%Y-%m-%d %H:%M:%S"):<21}{colorize(found[0], "blue")}')
                         elif self.size and file_hid:
@@ -1526,7 +1786,10 @@ class Manipulate_files:
         Returns:
             bool: True if the path ends up ignored by the rules.
         """
-        relative = os.path.relpath(path, base).replace(os.sep, "/")
+        try:
+            relative = os.path.relpath(path, base).replace(os.sep, "/")
+        except ValueError:      # path and base are on different drives, so the rules can't apply
+            return False
         ignored = False
         for pattern, negated in rules:
             pattern = pattern.replace("\\", "/")
@@ -1731,7 +1994,7 @@ class Manipulate_files:
 
                 if not self.matches_type(path, file_mode):
                     continue
-                if self.filterby_ext:
+                if self.filterby_ext and not stat.S_ISDIR(file_mode):    # extensions never apply to folders
                     matched = False
 #                    breakpoint()
                     if self.extension_rules is not None:                   
@@ -1765,6 +2028,114 @@ class Manipulate_files:
                 sys.stderr.write(f"\rSearching in: {root} ...\n")
                 sys.stderr.flush()
         return found_files 
+
+    def find_duplicates(self, directory, progress=None, stop=None):
+        """Find files with identical contents (names are ignored).
+
+        Honours the same hidden, depth, gitignore, exclude and size filters as
+        find_files. Three passes keep it fast: group by exact size, then by a
+        hash of the first 64 KB, then by a full SHA-256 of what is left.
+
+        Args:
+            directory (str): Folder to scan.
+            progress (callable | None): Called with a status string now and then.
+            stop (threading.Event | None): Set it to end the scan early; sets found so far are returned.
+
+        Returns:
+            list[list[tuple]]: One list per duplicate set, biggest wasted space
+                first; each entry is (path, size in bytes, modification time).
+        """
+        import hashlib
+        saved_directory = self.directory
+        self.directory = directory      # relative -e patterns are measured from the scanned folder
+        try:
+            return self._find_duplicates(directory, progress, hashlib, stop)
+        finally:
+            self.directory = saved_directory
+
+    def _find_duplicates(self, directory, progress, hashlib, stop):
+        if not self.ignoregit:
+            self._load_gitignore(directory)
+        by_size = {}
+        seen = 0
+        for root, dirs, files in os.walk(directory):
+            if stop is not None and stop.is_set():
+                break
+            if not self.hidden:
+                dirs[:] = [d for d in dirs if not self._is_hidden_entry(os.path.join(root, d), d)]
+            if self.maxdepth > 0:
+                rel = os.path.relpath(root, directory)
+                level = 1 if rel == "." else rel.count(os.sep) + 2
+                if level >= self.maxdepth:
+                    dirs.clear()
+            if not self.ignoregit:
+                dirs[:] = [d for d in dirs if not self._gitignored(os.path.join(root, d), is_dir=True)]
+            if self.exclude_rules:
+                dirs[:] = [d for d in dirs if not self._excluded(os.path.join(root, d))]
+            if progress:
+                progress(f"Scanning ({seen:,} files so far): {root}")
+            for f in files:
+                path = os.path.join(root, f)
+                try:
+                    st = os.lstat(path)
+                except OSError:
+                    continue
+                seen += 1
+                if not stat.S_ISREG(st.st_mode) or st.st_size == 0:    # skip links, devices, empty files
+                    continue
+                if not self.hidden and self._is_hidden_entry(path, f, st):
+                    continue
+                if not self.ignoregit and self._gitignored(path, is_dir=False):
+                    continue
+                if self._excluded(path):
+                    continue
+                if self.size_lower is not None and st.st_size < self.size_lower:
+                    continue
+                if self.size_upper is not None and st.st_size > self.size_upper:
+                    continue
+                if self.size_exact is not None and st.st_size != self.size_exact:
+                    continue
+                if self.filterby_ext and self.extension_rules and                         self.get_extension(f).lower() not in [e.lower() for e in self.extension_rules]:
+                    continue
+                by_size.setdefault(st.st_size, []).append((path, st.st_size, datetime.fromtimestamp(st.st_mtime)))
+
+        def digest(path, limit=None):
+            h = hashlib.sha256()
+            try:
+                with open(path, "rb") as fh:
+                    if limit:
+                        h.update(fh.read(limit))
+                    else:
+                        for block in iter(lambda: fh.read(1 << 20), b""):
+                            h.update(block)
+            except OSError:
+                return None
+            return h.hexdigest()
+
+        sets = []
+        todo = [g for g in by_size.items() if len(g[1]) > 1]
+        for n, (size, group) in enumerate(todo, 1):
+            if stop is not None and stop.is_set():
+                break
+            if progress:
+                progress(f"Comparing group {n:,} of {len(todo):,}: {len(group)} files of {bytes_to_str(size)}")
+            by_head = {}
+            for entry in group:
+                d = digest(entry[0], 65536)
+                if d:
+                    by_head.setdefault(d, []).append(entry)
+            for head_group in by_head.values():
+                if len(head_group) < 2:
+                    continue
+                by_full = {}
+                for entry in head_group:
+                    # a file of 64 KB or less was already fully hashed in the first pass
+                    key = digest(entry[0]) if size > 65536 else "small"
+                    if key:
+                        by_full.setdefault(key, []).append(entry)
+                sets.extend(g for g in by_full.values() if len(g) > 1)
+        sets.sort(key=lambda g: g[0][1] * (len(g) - 1), reverse=True)
+        return sets
 
     def list_dir(self):
         """List the non-hidden contents of ``self.directory``.
