@@ -89,3 +89,5 @@ exports/
 # Never commit encryption utility with real keys
 encrypt_key.py
 
+
+node_modules/
