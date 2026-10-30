@@ -1,1 +1,0 @@
-{"description":"FE101 starter: a complete, runnable TypeScript project for Ron's first week","devDependencies":{"typescript":"^5.9.0"},"name":"fe101-starter","private":true,"scripts":{"build":"tsc","start":"node dist/index.js","typecheck":"tsc --noEmit"},"version":"1.0.0"}
