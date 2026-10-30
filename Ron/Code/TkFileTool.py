@@ -56,31 +56,37 @@ class MyFileUtilityTool(ToolView):
 #        self.itself  = itself
         
     def build_ui(self):
+        self.p = self.app.caller
+        self.onoffs_window = False
+        self.choices_window = False 
         # Configure layout (Left Form / Right Console)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)
         self.rowconfigure(0, weight=1)
-        self.app.caller.output_file_name = "MyFileToolReport"
-        self.app.caller.output_file_path = "./"
+        self.FILE_TYPES = ["file", "dir", "symlink", "executable", "empty", "socket", "pipe", "char", "block"]
+        self.p.output_file_name = "MyFileToolReport"
+        self.p.output_file_path = "./"
+        self.p.format = "txt"
+        self.p.output_file = "./MyFileToolReport"
         # 1. Declare your inputs
         self.form = self.add_form("Settings", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         self.form.add_text("filename", "Search Pattern", 
-        default=f"{self.app.caller.filename}", on_change=self.do_filename)
+        default=f"{self.p.filename}", on_change=self.do_filename)
         self.form.add_file_picker(
                 name="directory", label="Seach Location", mode="directory",
-                default=f"{self.app.caller.directory}", on_change=self.do_directory)
+                default=f"{self.p.directory}", on_change=self.do_directory)
         self.form.add_button(
             "Show Dir of destination", callback=self.do_showdir, variant="default")
               
  
  #       self.form.add_text("maxdepth", "Max Depth of folders to search", 
- #       default=f"{self.app.caller.maxdepth}", on_change=self.do_maxdepth)
+ #       default=f"{self.p.maxdepth}", on_change=self.do_maxdepth)
         self.form.add_dropdown("sort_dir", "Sort Direction", ["forward", "reverse"],
                 on_change=self.do_sort_dir)
-        self.form.add_dropdown("outfile_fomat", "Output File Format", 
-        ["txt", "csv", "json", "jsonl", "yaml", "yml"], on_change=self.do_out_format)
+        self.form.add_dropdown("outfile_fomat", "Output File Format",  
+        ["None","txt", "csv", "json", "jsonl", "yaml", "yml"],default = "None", on_change=self.do_out_format)
 
         self.form.add_file_picker(
             name="outfile_path", label="output file location", mode="directory",
@@ -114,9 +120,9 @@ class MyFileUtilityTool(ToolView):
 #            shortcut="Ctrl+P",
 #        )
         config_menu.add_item(
-            "OOn or Off Toggles",
+            "On or Off Toggles",
             self.open_floating_window_onoffs,
-            shortcut="Ctrl+Shift+P",
+            shortcut="Ctrl+P",
         )
        
         config_menu.add_item(
@@ -149,32 +155,32 @@ class MyFileUtilityTool(ToolView):
 
     def show_help(self):
         epilog ="""\
-                                                                    Usage: mfind.py [OPTIONS] [pattern] [path]
+                                                                    Usage: TkFileTool.py [OPTIONS] [pattern] [path]
         
      Arguments:
         [pattern]  the search pattern (a regular expression, unless '--glob' is used; optional)
         [path]...  the root directories for the filesystem search (optional)
         
     Options:epil
-        mfind.py [opt. switches] <file name> [path] current directory used if not given
-        mfind.py -n <file to search for>
-        mfind.py "view*.py" (wildcards * ? [abc] for partial names - quote them on Mac/Linux)
-        mfind.py -o <output file name> (stdout default)
-        mfind.py -c (cat file contents if found)
-        mfind.py -E <extension> (filter results by file extension)
-        mfind.py -f <output file format>  (txt, csv, json, jsonl, yaml, yml)
-        mfind.py -d (return a dir of specified directory)
-        mfind.py -v (verbose output <file name , size, date>)
-        mfind.py -i (ignore case on matches)
-        mfind.py -sm (sort results by file modification time) **use -s forward/reverse for direction**
-        mfind.py -sz (sort results by file size) **use -s forward/reverse for direction**
-        mfind.py -p (find partial matches (like *filename*))
-        mfind.py -l (print file statistics <line count, word count, char count>)
-        mfind.py -H Search hidden files and directories
-        mfind.py -s <forward/reverse> List of files sorted forward or reverse
-        mfind.py -m Set maximum search depth (default: none) -m 0 for no recursion pat starting location
-        mfind.py -e Exclude entries that match the given glob pattern
-        mfind.py -S Limit results based on the size of files using the format <+-><NUM><UNIT>. 
+        TkFileTool.py [opt. switches] <file name> [path] current directory used if not given
+        TkFileTool.py -n <file to search for>
+        TkFileTool.py "view*.py" (wildcards * ? [abc] for partial names - quote them on Mac/Linux)
+        TkFileTool.py -o <output file name> (stdout default)
+        TkFileTool.py -c (cat file contents if found)
+        TkFileTool.py -E <extension> (filter results by file extension)
+        TkFileTool.py -f <output file format>  (txt, csv, json, jsonl, yaml, yml)
+        TkFileTool.py -d (return a dir of specified directory)
+        TkFileTool.py -v (verbose output <file name , size, date>)
+        TkFileTool.py -i (ignore case on matches)
+        TkFileTool.py -sm (sort results by file modification time) **use -s forward/reverse for direction**
+        TkFileTool.py -sz (sort results by file size) **use -s forward/reverse for direction**
+        TkFileTool.py -p (find partial matches (like *filename*))
+        TkFileTool.py -l (print file statistics <line count, word count, char count>)
+        TkFileTool.py -H Search hidden files and directories
+        TkFileTool.py -s <forward/reverse> List of files sorted forward or reverse
+        TkFileTool.py -m Set maximum search depth (default: none) -m 0 for no recursion pat starting location
+        TkFileTool.py -e Exclude entries that match the given glob pattern
+        TkFileTool.py -S Limit results based on the size of files using the format <+-><NUM><UNIT>. 
                   '+': file size must be greater than or equal to this
                   '-': file size must be less than or equal to this
         
@@ -197,13 +203,13 @@ class MyFileUtilityTool(ToolView):
                 ** 2 -S arguments, one specifying a +<val> and the other a -<val> are allowed
                 ** However specifying 2, -S + or 2 -S - raise an ambiguous error  
                 ** specifying both is saying - if size > this AND < that, show it
-        mfind.py -x Execute a command for each search result
-        mfind.py -X Execute a command with all search results at once
-        mfind.py -T Display search results in a visual tree hierarchy
-        mfind.py -t Filter by type: file (f), directory (d/dir), symlink (l),
+        TkFileTool.py -x Execute a command for each search result
+        TkFileTool.py -X Execute a command with all search results at once
+        TkFileTool.py -T Display search results in a visual tree hierarchy
+        TkFileTool.py -t Filter by type: file (f), directory (d/dir), symlink (l),
                                executable (x), empty (e), socket (s), pipe (p), char-device
                                (c), block-device (b`
-    mfind.py -h (display this help message)
+    TkFileTool.py -h (display this help message)
  """
         self.console.write_line(epilog)
 
@@ -239,6 +245,9 @@ class MyFileUtilityTool(ToolView):
  
 
     def open_floating_window_onoffs(self):
+        if self.onoffs_window:
+            return
+        self.onoffs_window = True
         popup = tk.Toplevel(self)
         popup.title("On/Off Options")
         popup.geometry("480x480")
@@ -262,32 +271,20 @@ class MyFileUtilityTool(ToolView):
              padx=0,
              pady=10,
          )       
-    
-    
-     
-        # Dropdown boxes
-        leftside.add_checkbox(
-                "hidden", "Show Hidden Filese", default=self.app.caller.hidden, on_change=self.do_hidden
-            )
-        leftside.add_checkbox(
-                "igcase", "Ignore Case", default=self.app.caller.ignorecase, on_change=self.do_igcase
-            )
-        leftside.add_checkbox(
-                "partial", "Partial Matches", default=self.app.caller.partial, on_change=self.do_partial
-            )
 
+ 
         leftside.add_checkbox(
-            "treeview", "Show Tree View of the results", default=self.app.caller.tree, on_change=self.do_treeview
+            "treeview", "Show Tree View of the results", default=self.p.tree, on_change=self.do_treeview
         )
         leftside.add_checkbox(
-            "ascii", "Plain ASCII tree (|-- instead of ├──)", default=self.app.caller.use_ascii, on_change=self.do_ascii
+            "ascii", "Plain ASCII tree (|-- instead of ├──)", default=self.p.use_ascii, on_change=self.do_ascii
         )
         leftside.add_checkbox(
-             "do_long", "Long output", default=self.app.caller.do_long, on_change=self.do_do_long
+             "do_long", "Long output", default=self.p.do_long, on_change=self.do_do_long
          )
 
         leftside.add_checkbox(
-            "verbose", "Verbose mode", default=self.app.caller.verbose, on_change=self.do_verbose
+            "verbose", "Verbose mode", default=self.p.verbose, on_change=self.do_verbose
         )
         
         rightside = self.add_form("On/Off Toggles", parent=container)
@@ -303,14 +300,14 @@ class MyFileUtilityTool(ToolView):
 
 
         rightside.add_checkbox(
-            "catfiles", "Run cat <file>", default=self.app.caller.verbose, on_change=self.do_runcat
+            "catfiles", "Run cat <file>", default=self.p.verbose, on_change=self.do_runcat
         )
 
         # Option checkbox
         rightside.add_checkbox(
             "auto_clean", "Auto-clean null rows on ingest", default=True
         )
-        topics = ["Sort Alphabetically","Sort by Filesize", "Sort by File Modification", "Dont Sort"]
+        topics = ["Dont Sort", "Sort Alphabetically","Sort by Filesize", "Sort by File Modification"]
         rightside.add_radio(
             "sorts",
             "Select Sort Method",
@@ -332,36 +329,39 @@ class MyFileUtilityTool(ToolView):
 
            # Action Buttons inside the popup
         def _on_submit():
-            vals = botside.get_values()
-            self.on_apply_inputs(vals)
             popup.destroy()
-
-        botside.add_button(
-            "Execute with Selected Files", callback=_on_submit, variant="primary"
-        )
+            self.onoffs_window = False
  
+        botside.add_button(
+            "Close Window", callback=_on_submit, variant="primary"
+        )
+        # Intercept the close button event
+        popup.protocol("WM_DELETE_WINDOW", _on_submit)
 
-    def do_sorttype(self, inputs):
-        pass
 
     def on_topic_selected(self, topic_name: str):
+   
         if topic_name == "Sort by Filesize":
-            self.app.caller.sortsize = True
-            self.app.caller.sortmod = False
-            self.app.caller.sortalpha == False
+            self.p.sortsize = True
+            self.p.sortmod = False
+            self.p.sortalpha = False
+            self.p.sorted = "size"
         elif topic_name == "Sort by File Modification":
-            self.app.caller.sortmod = True
-            self.app.caller.sortsize = False
-            self.app.caller.sortalpha = False
+            self.p.sortmod = True
+            self.p.sortsize = False
+            self.p.sortalpha = False
+            self.p.sorteed = "mod"
         elif topic_name == "Sort Alphabetically":
-            self.app.caller.sortalpha = True
-            self.app.caller.sortsize = False
-            self.app.caller.sortmod = False
+            self.p.sortalpha = True
+            self.p.sortsize = False
+            self.p.sortmod = False
+            self.p.sorted = "alpha"
         else:
-            self.app.caller.sortalpha = False
-            self.app.caller.sortsize = False
-            self.app.caller.sortmod = False
-
+            self.p.sortalpha = False
+            self.p.sortsize = False
+            self.p.sortmod = False
+            self.p.sorted = "None"
+  
    
 
 
@@ -369,6 +369,9 @@ class MyFileUtilityTool(ToolView):
 
  
     def open_floating_window_choices(self):
+        if self.choices_window:
+            return
+        self.choices_window = True
         popup2 = tk.Toplevel(self)
         popup2.title("Options W. Choices")
         popup2.geometry("480x440")
@@ -392,7 +395,26 @@ class MyFileUtilityTool(ToolView):
             padx=0,
             pady=10,
         )       
-     
+    
+    
+        # Dropdown boxes
+        leftside2.add_checkbox(
+                "hidden", "Show Hidden Filese", default=self.p.hidden, on_change=self.do_hidden
+ 
+        )
+        leftside2.add_checkbox(
+                "igcase", "Ignore Case", default=self.p.ignorecase, on_change=self.do_igcase
+            )
+        leftside2.add_checkbox(
+                "partial", "Partial Matches", default=self.p.partial, on_change=self.do_partial
+            )
+
+        leftside2.add_dropdown("type", "Filter by File Type", self.FILE_TYPES,
+                 on_change=self.do_type
+            )   
+        # Dropdown boxes RON HERE
+ 
+
         rightside2 = self.add_form("File Operations", parent=container2)
         rightside2.grid(
             row=0,
@@ -412,7 +434,7 @@ class MyFileUtilityTool(ToolView):
         rightside2.add_number(
             "maxdepth",
             "Max depth",
-            default=self.app.caller.maxdepth,
+            default=self.p.maxdepth,
             min_val=0,
             max_val=500,
            step=1,
@@ -428,13 +450,27 @@ class MyFileUtilityTool(ToolView):
             padx=0,
             pady=10,
         )         
- 
-    
+
+          # Action Buttons inside the popup
+        def _on_submit():
+            vals = botside2.get_values()
+            self.on_apply_inputs(vals)
+            popup2.destroy()
+            self.choices_window = False
+        botside2.add_button(
+            "Close Window", callback=_on_submit, variant="primary"
+        )
+        popup2.protocol("WM_DELETE_WINDOW", _on_submit)
+
+    def do_type(self, inputs):
+        self.p.type = inputs
+
+
     def do_runcat(self, inputs):
-        self.app.caller.docat = inputs
+        self.p.docat = inputs
 
     def do_hidden(self, inputs):
-        self.app.caller.hidden = inputs
+        self.p.hidden = inputs
    
     def on_apply_inputs(self, values: dict):
 #        self.console.write_heading("RECEIVED CONFIGURATION FROM POPUP WINDOW")
@@ -454,125 +490,143 @@ class MyFileUtilityTool(ToolView):
         # chkstr_isnum returns the types int/float, never the strings "int"/"float",
         # so the old test never matched and the box never changed anything
         try:
-            self.app.caller.maxdepth = int(float(inputs))
+            self.p.maxdepth = int(float(inputs))
         except (TypeError, ValueError):
             pass            # box is empty or mid-typing: keep the last good depth
 
     def do_showdir(self, inputs=None):
         if isinstance(inputs, dict) and "directory" in inputs:
-            self.app.caller.directory = inputs["directory"]
-        self.app.caller.dodir = True
+            self.p.directory = inputs["directory"]
+        self.p.dodir = True
         try:
-            result = self.app.caller.run_search(is_gui=True)
+            result = self.p.run_search(is_gui=True)
             if result is not None:
                 for c in result.split("\n"):
                     self.console.write_line(c)
         finally:
-            self.app.caller.dodir = None
+            self.p.dodir = None
 
     def do_do_long(self,inputs):
-        self.app.caller.do_long = inputs
+        self.p.do_long = inputs
 
     def do_treeview(self, inputs):
-        self.app.caller.tree = inputs
+        self.p.tree = inputs
 
     def do_ascii(self, inputs):
-        self.app.caller.use_ascii = inputs
+        self.p.use_ascii = inputs
 
     def do_execute(self, inputs):
         # empty box = off
-        self.app.caller.execute = inputs.strip() or None
-        self.app.caller.doexec = bool(self.app.caller.execute)
+        self.p.execute = inputs.strip() or None
+        self.p.doexec = bool(self.p.execute)
 
     def do_exec_batch(self, inputs):
-        self.app.caller.exec_batch = inputs.strip() or None
-        self.app.caller.doexec_batch = bool(self.app.caller.exec_batch)
+        self.p.exec_batch = inputs.strip() or None
+        self.p.doexec_batch = bool(self.p.exec_batch)
 
     def do_partial(self, inputs):
-        self.app.caller.partial = inputs
+        self.p.partial = inputs
 
     def do_verbose(self, inputs):
-        self.app.caller.verbose = inputs
+        self.p.verbose = inputs
 
     def do_igcase(self, inputs):
-         self.app.caller.ignorecase = inputs
+         self.p.ignorecase = inputs
 
     def do_out_format(self, inputs):
-        self.app.caller.format = inputs
+ #       breakpoint()
+        self.p.format = inputs
+        stripped = self.p.output_file_name.split(".")
+        if len(stripped) >= 1 and inputs != "None":
+            self.p.output_file_name = stripped[0] + "." + self.p.format
+        else:
+            self.p.outout_file_name = stripped[0]
+        self.p.output_file = self.p.output_file_path  + "/" + self.p.output_file_name
+        self.form.set_value("outfile_name", self.p.output_file_name)
+
+        sys.stderr.write(f'Format Update - output_file = {self.p.output_file}\n')
+        sys.stderr.flush()
 
     def do_outfile_path(self, inputs):
-        self.app.caller.output_file_path = inputs
-        if self.app.caller.output_file_name:
-            self.app.caller.output_file = inputs + "/" + self.app.caller.output_file_name
-            sys.stderr.write(f'output_file_path updated to:({inputs}) {self.app.caller.output_file_path}\n')
+        self.p.output_file_path = inputs
+        if self.p.output_file_name:
+            self.p.output_file = inputs + "/" + self.p.output_file_name
+            sys.stderr.write(f'output_file_path updated to:({inputs}) {self.p.output_file_path}\n')
             sys.stderr.flush()
             
-        sys.stderr.write(f'output_file = {self.app.caller.output_file}\n')
+        sys.stderr.write(f'Path update - output_file = {self.p.output_file}\n')
         sys.stderr.flush()
 
     def do_outfile_name(self, inputs):
-        self.app.caller.outfile_file_name = inputs
-        if self.app.caller.output_file_path:
-            self.app.caller.output_file = self.app.caller.output_file_path + "/" + inputs
-            sys.stderr.write(f'output_file_name updated to:({inputs}) {self.app.caller.output_file_name}\n')
+ #       breakpoint()
+        self.p.outfile_file_name = inputs
+        if self.p.output_file_path:
+            if self.p.format != None:
+                stripped = inputs.split(".")
+                if len(stripped) >= 1:
+                    inputs = stripped[0]
+                inputs = inputs + "." + self.p.format
+            self.p.output_file = self.p.output_file_path + "/" + inputs 
+
+            sys.stderr.write(f'output_file_name updated to:({inputs}) {self.p.output_file_name}\n')
             sys.stderr.flush()
 
         else:
-            self.app.caller.output_file = inputs
-        sys.stderr.write(f'output_file = {self.app.caller.output_file}\n')
+            self.p.output_file = inputs
+        sys.stderr.write(f'Filename Update - output_file = {self.p.output_file}\n')
         sys.stderr.flush()
 
     def do_filename(self, inputs):
-        self.app.caller.filename = inputs
+        self.p.filename = inputs
 
     def do_directory(self, inputs):
-        self.app.caller.directory = inputs
+        self.p.directory = inputs
 
     def do_sort_dir(self, inputs):
-        self.app.caller.sorted = inputs
+        self.p.sortdir = inputs
 
     def size_limits(self, inputs):
-        p = self.app.caller
-        p.size_lower = None      # file must be >= this
-        p.size_upper = None      # file must be <= this
-        p.size_exact = None      # file must be == this
+        p = p
+        self.p.size_lower = None      # file must be >= this
+        self.p.size_upper = None      # file must be <= this
+        self.p.size_exact = None      # file must be == this
 #        for siz in (args.size or []):
         sign = inputs[0] if inputs[0] in ("+", "-") else ""
         nbytes = str_to_bytes(inputs[1:] if sign else inputs)
 #        if nbytes is None:
 #            parser.error(f"invalid size '{inputs}' for -S (e.g. +15KB, -600MB, 2MiB, 100BS)")
-#        if p.size_exact is not None or (not sign and (p.size_lower is not None or p.size_upper is not None)):
+#        if self.p.size_exact is not None or (not sign and (self.p.size_lower is not None or self.p.size_upper is not None)):
 #            parser.error(f"-S {inputs}: an exact size can't be combined with another -S")
         if sign == "+":
-#            if p.size_lower is not None:
+#            if self.p.size_lower is not None:
 #                parser.error(f"-S {inputs}: -S +<size> already used. Duplicates are ambiguous.")
-            p.size_lower = nbytes
+            self.p.size_lower = nbytes
         elif sign == "-":
-#            if p.size_upper is not None:
+#            if self.p.size_upper is not None:
 #                parser.error(f"-S {inputs}: -S -<size> already used. Duplicates are ambiguous.")
-            p.size_upper = nbytes
+            self.p.size_upper = nbytes
         else:
-            p.size_exact = nbytes
-        if p.size_lower is not None and self.size_upper is not None and p.size_lower > p.size_upper:
+            self.p.size_exact = nbytes
+        if self.p.size_lower is not None and self.size_upper is not None and self.p.size_lower > self.p.size_upper:
 #            parser.error("-S lower limit (+) is bigger than upper limit (-), nothing can match")
-            p.size = bool(p.size)  # True when any size filter is active (shows the Size column)
+            self.p.size = bool(self.p.size)  # True when any size filter is active (shows the Size column)
     
 
     def do_extention(self, inputs):
-        self.app.caller.extension_rules = []
+        self.p.extension_rules = []
         if inputs.strip().lstrip("."):
             for e in inputs.split(","):
-                self.app.caller.extension_rules.append(e)
+                self.p.extension_rules.append(e)
         """     
-        self.app.caller.extension_rules = [e.strip().lstrip(".").lower()
+        self.p.extension_rules = [e.strip().lstrip(".").lower()
                                 for arg in (inputs or []) for e in inputs.split(",")
                                 if e.strip().lstrip(".")]
         """
-        if self.app.caller.extension_rules != []:
-            self.app.caller.filterby_ext = True
+        if self.p.extension_rules != []:
+            self.p.filterby_ext = True
         else:
-            self.app.caller.extension_rules = None
-            self.app.caller.filterby_ext = False
+            self.p.extension_rules = None
+            self.p.filterby_ext = False
 
 
     def on_run(self, inputs: dict):
@@ -591,7 +645,7 @@ class MyFileUtilityTool(ToolView):
     def search_worker(self):
         # background thread: never touch widgets here, just hand the text back
         try:
-            result = self.app.caller.run_search(is_gui=True)
+            result = self.p.run_search(is_gui=True)
         except (Exception, SystemExit) as e:
             result = f"Error: {e}"
         self._results.put(result)
@@ -617,12 +671,12 @@ class MyFileUtilityTool(ToolView):
             self.print_chunk()
         """
         self.console.write_heading("Argument List")
-        for name, value in self.app.cdict.items():
+        for name, value in self.apself.p.cdict.items():
             self.console.write_line(f"Var {name}: {value}")
-        self.app.cdict["_run_gui"] = False
-        self.console.write_line(f"_run_gui: {self.app.cdict['\"_run_gui\"']}")
-        self.app.cdict["_run_gui"] = True
-        self.console.write_line(f"_run_gui: {self.app.cdict['\"_run_gui\"']}")
+        self.apself.p.cdict["_run_gui"] = False
+        self.console.write_line(f"_run_gui: {self.apself.p.cdict['\"_run_gui\"']}")
+        self.apself.p.cdict["_run_gui"] = True
+        self.console.write_line(f"_run_gui: {self.apself.p.cdict['\"_run_gui\"']}")
    """
 
 
@@ -677,7 +731,7 @@ def run_for_file(args):
             errors="replace",
             stdin=subprocess.DEVNULL
         )
-        return name, p.returncode, p.stdout or "", p.stderr or "", is_bin
+        return name, self.p.returncode, self.p.stdout or "", self.p.stderr or "", is_bin
     except Exception as e:
         return name, -1, "", str(e), is_bin
 
@@ -713,9 +767,9 @@ def exec_on_files(template, files, workers=8, output_file="stdout"):
             safe_print_stderr(f"Error writing to {output_file}: {e}\n")
 
     if had_binary and had_error:
-        safe_print_stderr("[mfind] Note: one or more matching files appeared to be binary. Tip: use '-E <ext>' or '-t f' to narrow search to text files.\n")
+        safe_print_stderr("[TkFileTool] Note: one or more matching files appeared to be binary. Tip: use '-E <ext>' or '-t f' to narrow search to text files.\n")
     elif had_error:
-        safe_print_stderr("[mfind] Note: command returned non-zero exit code for some files. Tip: verify command syntax or file types.\n")
+        safe_print_stderr("[TkFileTool] Note: command returned non-zero exit code for some files. Tip: verify command syntax or file types.\n")
 
 def exec_batch_on_files(template, files, output_file="stdout"):
     """Run a command once passing all matching files as arguments and via stdin."""
@@ -741,22 +795,22 @@ def exec_batch_on_files(template, files, output_file="stdout"):
             input="\n".join(file_paths) + "\n",
         )
         if output_file == "stdout":
-            if p.stdout:
-                safe_print_stdout(p.stdout)
+            if self.p.stdout:
+                safe_print_stdout(self.p.stdout)
         else:
             with open(output_file, "w", encoding="utf-8", errors="replace") as f:
-                if p.stdout:
-                    f.write(p.stdout)
+                if self.p.stdout:
+                    f.write(self.p.stdout)
 
-        if p.stderr:
-            safe_print_stderr(p.stderr)
+        if self.p.stderr:
+            safe_print_stderr(self.p.stderr)
 
-        if p.returncode != 0:
-            safe_print_stderr(f"[mfind] Note: batch command exited with code {p.returncode}. (Tip: verify command syntax or file types)\n")
+        if self.p.returncode != 0:
+            safe_print_stderr(f"[TkFileTool] Note: batch command exited with code {self.p.returncode}. (Tip: verify command syntax or file types)\n")
             if had_binary:
-                safe_print_stderr("[mfind] Note: batch list included binary files. Tip: use '-E <ext>' or '-t f' to search only text files.\n")
+                safe_print_stderr("[TkFileTool] Note: batch list included binary files. Tip: use '-E <ext>' or '-t f' to search only text files.\n")
     except Exception as e:
-        safe_print_stderr(f"[mfind] Error executing batch command: {e}\n")
+        safe_print_stderr(f"TkFileTool] Error executing batch command: {e}\n")
 
 class Manipulate_files:
     """Provide the main engine behind an all-around file finding tool.
@@ -781,6 +835,7 @@ class Manipulate_files:
         "c": "char", "char": "char", "char-device": "char",
         "b": "block", "block": "block", "block-device": "block",
     }
+
 
     @Timed
     def __init__(self):
@@ -813,7 +868,7 @@ class Manipulate_files:
         self.tree = False
         self.use_ascii = False
         self.found_files = []
-
+        self.sortdir = "None"
         # Majoy bypas decision if -gui given hand off to GUI
         self.parse_arguments()
         if  self.run_gui:
@@ -859,23 +914,28 @@ class Manipulate_files:
             found_files = self.find_files(self.directory, self.filename)
             self.found_files = found_files
             if found_files:
-                if self.sortmod and (self.sorted == "reverse"):
+                if self.sortmod and (self.sortdir == "reverse"):
                     found_files.sort(key=lambda x: (x[4]))
                 elif self.sortmod:
                     found_files.sort(key=lambda x: (x[4] ), reverse = True)
-                elif self.sortsize and (self.sorted == "reverse"):
+                elif self.sortsize and (self.sortdir == "reverse"):
                     found_files.sort(key=lambda x: (x[2]), reverse=True)
                 elif self.sortsize:
                     found_files.sort(key=lambda x: (x[2] ))
-                elif self.sortalpha and (self.sorted == "reverse"):
+                elif self.sortalpha and (self.sortdir == "reverse"):
                      found_files.sort(key=lambda x: (x[1]), reverse=True)
                 elif self.sortalpha:
                      found_files.sort(key=lambda x: (x[1] ))
-                elif self.sorted == "forward":
-                    found_files.sort(key=lambda x: os.path.basename(x[0]).casefold())
-                elif self.sorted == "reverse":
-                    found_files.sort(key=lambda x: os.path.basename(x[0]).casefold(), reverse=True)
-
+                if self.ignorecase:
+                    if self.sortdir == "forward":
+                        found_files.sort(key=lambda x: os.path.basename(x[0]).casefold().lower())
+                    elif self.sortdir == "reverse":
+                        found_files.sort(key=lambda x: os.path.basename(x[0]).casefold().lower(), reverse=True)
+                else:
+                    if self.sortdir == "forward":
+                        found_files.sort(key=lambda x: os.path.basename(x[0]).casefold())
+                    elif self.sortdir == "reverse":
+                        found_files.sort(key=lambda x: os.path.basename(x[0]).casefold(), reverse=True)
                 if self.doexec or self.doexec_batch:
                     if is_gui:
                         # catch what the command prints and hand it back as text for the console
@@ -891,18 +951,18 @@ class Manipulate_files:
                 else:
                     output_rows = []
                     if self.verbose or self.do_long:
-                        output_rows.append(f'{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
+                        output_rows.append(f'{"Date":<12}"{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
                     elif self.sortmod:
                         output_rows.append(f'{"Date":<12}{"File Path"}')
-                    elif self.size:
+                    else:
                         output_rows.append(f'{"Size":<12}{"File Path"}')
 
                     for found in found_files:
                         path, fname, bsize, size, mod_time,file_hid, lines, words, chars = found
                         if (self.verbose or self.do_long) and not file_hid:
-                            output_rows.append(f'{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
+                            output_rows.append(f'{date:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
                         elif (self.verbose or self.do_long) and file_hid:
-                            output_rows.append(f'{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "red")}')                                
+                            output_rows.append(f'{date:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "red")}')                                
                         elif self.sortmod:
                             output_rows.append(f'{mod_time.strftime("%Y-%m-%d %H:%M:%S"):<21}{colorize(found[0], "blue")}')
                         elif self.size and file_hid:
@@ -953,7 +1013,7 @@ class Manipulate_files:
         parser = argparse.ArgumentParser(
             description="Search for files on various criteria",
             epilog="""\
-    Usage: mfind.py [OPTIONS] [pattern] [path]
+    Usage: TkFileTool.py [OPTIONS] [pattern] [path]
 
     Arguments:
         [pattern]  the search pattern (a regular expression, unless '--glob' is 
@@ -961,30 +1021,30 @@ class Manipulate_files:
         [path]...  the root directories for the filesystem search (optional)
 
     Options:epil
-        mfind.py [opt. switches] <file name> [path] current directory used if not 
+        TkFileTool.py [opt. switches] <file name> [path] current directory used if not 
             given
-        mfind.py -n <file to search for>
-        mfind.py "view*.py" (wildcards * ? [abc] for partial names - quote them on 
+        TkFileTool.py -n <file to search for>
+        TkFileTool.py "view*.py" (wildcards * ? [abc] for partial names - quote them on 
             Mac/Linux)
-        mfind.py -o <output file name> (stdout default)
-        mfind.py -c (cat file contents if found)
-        mfind.py -E <extension> (filter results by file extension)
-        mfind.py -f <output file format>  (txt, csv, json, jsonl, yaml, yml)
-        mfind.py -d (return a dir of specified directory)
-        mfind.py -v (verbose output <file name , size, date>)
-        mfind.py -i (ignore case on matches)
-        mfind.py -sm (sort results by file modification time) **use -s forward/reverse 
+        TkFileTool.py -o <output file name> (stdout default)
+        TkFileTool.py -c (cat file contents if found)
+        TkFileTool.py -E <extension> (filter results by file extension)
+        TkFileTool.py -f <output file format>  (txt, csv, json, jsonl, yaml, yml)
+        TkFileTool.py -d (return a dir of specified directory)
+        TkFileTool.py -v (verbose output <file name , size, date>)
+        TkFileTool.py -i (ignore case on matches)
+        TkFileTool.py -sm (sort results by file modification time) **use -s forward/reverse 
             for direction**
-        mfind.py -sa (Sort results alphabetcially)
-        mfind.py -sz (sort results by file size) **use -s forward/reverse for direction**
-        mfind.py -p (find partial matches (like *filename*))
-        mfind.py -l (print file statistics <line count, word count, char count>)
-        mfind.py -H Search hidden files and directories
-        mfind.py -s <forward/reverse> List of files sorted forward or reverse
-        mfind.py -m Set maximum search depth (default: none) -m 0 for no recursion 
+        TkFileTool.py -sa (Sort results alphabetcially)
+        TkFileTool.py -sz (sort results by file size) **use -s forward/reverse for direction**
+        TkFileTool.py -p (find partial matches (like *filename*))
+        TkFileTool.py -l (print file statistics <line count, word count, char count>)
+        TkFileTool.py -H Search hidden files and directories
+        TkFileTool.py -s <forward/reverse> List of files sorted forward or reverse
+        TkFileTool.py -m Set maximum search depth (default: none) -m 0 for no recursion 
             pat starting location
-        mfind.py -e Exclude entries that match the given glob pattern
-        mfind.py -S Limit results based on the size of files using the format 
+        TkFileTool.py -e Exclude entries that match the given glob pattern
+        TkFileTool.py -S Limit results based on the size of files using the format 
                 <+-><NUM><UNIT>. 
                   '+': file size must be greater than or equal to this
                   '-': file size must be less than or equal to this
@@ -1011,13 +1071,13 @@ class Manipulate_files:
                   ** However specifying 2, -S + or 2 -S - raise an ambiguous error  
                   ** specifying both is saying - if size > this AND < that, 
                         show it
-        mfind.py -x Execute a command for each search result
-        mfind.py -X Execute a command with all search results at once
-        mfind.py -T Display search results in a visual tree hierarchy
-        mfind.py -t Filter by type: file (f), directory (d/dir), symlink (l),
+        TkFileTool.py -x Execute a command for each search result
+        TkFileTool.py -X Execute a command with all search results at once
+        TkFileTool.py -T Display search results in a visual tree hierarchy
+        TkFileTool.py -t Filter by type: file (f), directory (d/dir), symlink (l),
                         executable (x), empty (e), socket (s), pipe (p), char-device
                         (c), block-device (b)
-         mfind.py -h (display this help message)
+         TkFileTool.py -h (display this help message)
     """,
            formatter_class=self.wide_formatter,
         )
@@ -1139,7 +1199,7 @@ class Manipulate_files:
 
         parser.add_argument(
             "-s",
-            "--sorted",
+            "--sortdir",
             metavar="",
             help="\t <forward/reverse>    output list of files will be sorted given direction)",
         )
@@ -1223,7 +1283,7 @@ class Manipulate_files:
                 argv[i:i + 2] = [f"--size={argv[i + 1]}"]
             i += 1
         args = parser.parse_args(argv)
-        # With -E or -t the name pattern is optional: "mfind.py -E txt,json [folder]" or "mfind.py -t d [folder]" lists every match
+        # With -E or -t the name pattern is optional: "TkFileTool.py -E txt,json [folder]" or "TkFileTool.py -t d [folder]" lists every match
         if (args.extension or args.type) and not args.name:
             if args.fname is not None and args.path is None and os.path.isdir(args.fname):
                 args.path, args.fname = args.fname, None    # lone bare word is the folder
@@ -1234,6 +1294,7 @@ class Manipulate_files:
         self.run_gui = args.gui if args.gui else False
         self.sortmod = args.sortmod if args.sortmod else False
         self.sortalpha = args.sortalpha if args.sortalpha else False
+        self.sorted = "None"
         if self.sortalpha:
             self.sorted = "alpha"
         if self.sortmod:
@@ -1241,16 +1302,15 @@ class Manipulate_files:
         self.sortsize = args.sortsize if args.sortsize else False
         if self.sortsize:
             self.sorted = "size"
-        if args.sorted:
-            direction = args.sorted.strip().lower()[:1]
+        if args.sortdir:
+            direction = args.sortdir.strip().lower()[:1]
             if direction == "f":
-                self.sorted = "forward"
+                self.sortdir = "forward"
             elif direction == "r":
-                self.sorted = "reverse"
+                self.sortdir = "reverse"
             else:
-                parser.error(f"invalid value '{args.sorted}' for -s (use forward or reverse)")
-        elif not self.sortsize:
-            self.sorted = False        
+                parser.error(f"invalid value '{args.sortdir}' for -s (use forward or reverse)")
+                self.sortdir = "None"       
         self.hidden = args.hidden if args.hidden else False
         self.maxdepth = int(args.maxdepth) if args.maxdepth else 0
         self.exclude = args.exclude if args.exclude else None
@@ -1350,7 +1410,7 @@ class Manipulate_files:
 
             # Check the script and working-directory ancestry. This handles
             # invoking the script from above the repository, such as
-            # `python Ron\Code\mfind.py ...` from the user's home directory.
+            # `python Ron\Code\TkFileTool.py ...` from the user's home directory.
             discovery_starts = [
                 os.path.abspath(os.path.dirname(__file__)),
                 os.path.abspath(os.getcwd()),
@@ -1747,7 +1807,7 @@ class Manipulate_files:
             payload = inp_str
 
         # Structured export formats
-        if self.format is not None:
+        if self.format != "None":
             import re
             ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
             clean_payload = ansi_escape.sub('', payload)
@@ -1766,12 +1826,12 @@ class Manipulate_files:
                     writer.writerow([l])
                 formatted = buf.getvalue()
             else:  # txt
-                formatted = payload
 
-            if self.run_gui:
-             
-                return (inp_str)
-            elif self.output_file == "stdout":
+                formatted = payload # Was payload
+
+ #           if self.run_gui:
+ #               return (inp_str)
+            if self.output_file == "stdout" and not self.run_gui:
                 safe_print_stdout(formatted + "\n")
                 return
             else:
@@ -1782,12 +1842,12 @@ class Manipulate_files:
                         f.write(formatted)
                 except OSError as e:
                     safe_print_stderr(f"Error writing to {target_file}: {e}\n")
-                return
+                return inp_str
 
         # Plain output
-        if self.run_gui:
-            return payload #       if payload and not payload.endswith("\n"
-        elif (self.output_file == "stdout"):
+#        if self.run_gui:
+#            return payload #       if payload and not payload.endswith("\n"
+        if (self.output_file == "stdout") and not self.run_gui:
             safe_print_stdout(payload + "\n" if payload and not payload.endswith("\n") else payload)
         else:
             try:
@@ -1795,6 +1855,7 @@ class Manipulate_files:
                     f.write(payload + "\n" if payload and not payload.endswith("\n") else payload)
             except OSError as e:
                 safe_print_stderr(f"Error writing to {self.output_file}: {e}\n")
+        return payload
 
     def write_tree_out(self, found_files):
         """Render search results as a visual directory tree hierarchy."""
@@ -1840,11 +1901,11 @@ class Manipulate_files:
             return newest, total
 
         def _render_node(node_dict, prefix=""):
-            if self.sortmod or self.sortsize:
+            if self.sortmod or self.sortsize or self.sortalpha:
                 # same directions as the flat listing: mod = newest first (reverse = oldest first),
                 # size = smallest first (reverse = largest first); folders rank by what's inside them
                 stats = {k: _subtree_stats(v) for k, v in node_dict.items()}
-                rev = (self.sorted == "reverse")
+                rev = (self.sortdir == "reverse")
                 if self.sortmod:
                     sorted_keys = sorted(node_dict, key=lambda k: (stats[k][0] is None, stats[k][0]),
                                          reverse=not rev)
@@ -1938,13 +1999,13 @@ class Manipulate_files:
             if self.size_exact is not None: size_conds.append(f"=={bytes_to_str(self.size_exact)}")
             criteria.append(f"size: {', '.join(size_conds)}")
         if self.sortmod:
-            criteria.append("sorted by mod time" + (" (reverse)" if self.sorted == "reverse" else ""))
+            criteria.append("sorted by mod time" + (" (reverse)" if self.sortdir == "reverse" else ""))
         elif self.sortsize:
-            criteria.append("sorted by file size" + (" (reverse)" if self.sorted == "reverse" else ""))
+            criteria.append("sorted by file size" + (" (reverse)" if self.sortdir == "reverse" else ""))
         elif self.sortalpha:
-            criteria.append("sorted by alphabet" + (" (reverse)" if self.sorted == "alpha" else ""))
-        elif self.sorted:
-            criteria.append(f"sorted {self.sorted}")
+            criteria.append("sorted by alphabet" + (" (reverse)" if self.sortdir == "alpha" else ""))
+        elif self.sortdir:
+            criteria.append(f"sorted {self.sortdir}")
         if self.hidden:
             criteria.append("including hidden")
         if self.ignoregit:

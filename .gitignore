@@ -21,6 +21,7 @@ claud-skills/
 .cache/
 .vscode/
 AppData/
+javascript/
 Zcode*
 OneDrive/
 *.exe
