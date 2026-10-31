@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from quick_tk import FormPanel, QuickApp, ToolView
+from quick_tk import QuickApp, ToolView
 
 import stat
 FILE_ATTRIBUTE_HIDDEN = getattr(stat, "FILE_ATTRIBUTE_HIDDEN", 0x2)
@@ -8,12 +8,11 @@ import argparse
 import os, sys
 import fnmatch
 from datetime import datetime
-import yaml
 import subprocess
 import io, queue, threading
 from contextlib import redirect_stdout, redirect_stderr
 from concurrent.futures import ThreadPoolExecutor
-from local_functions import run_magnifyer, colorize, Timed, bytes_to_str, str_to_bytes, clean_ansi, chkstr_isnum
+from local_functions import run_magnifyer, colorize, Timed, bytes_to_str, str_to_bytes, clean_ansi
 
 
 """
@@ -65,6 +64,7 @@ class MyFileUtilityTool(ToolView):
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=1)
         self.rowconfigure(0, weight=1)
+#        self.configure(bg="navajo white", borderwidth=10, relief="groove")
         self.FILE_TYPES = ["any", "file", "dir", "symlink", "executable", "empty", "socket", "pipe", "char", "block"]
         self.p.output_file_name = "MyFileToolReport"
         self.p.output_file_path = "./"
@@ -72,6 +72,7 @@ class MyFileUtilityTool(ToolView):
         self.p.output_file = "./MyFileToolReport"
         # 1. Declare your inputs
         self.form = self.add_form("Settings", parent=self)
+        self.form.configure( borderwidth=10, relief="groove")
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         self.form.add_text("filename", "Search Pattern", 
         default=f"{self.p.filename}", on_change=self.do_filename)
@@ -107,6 +108,7 @@ class MyFileUtilityTool(ToolView):
 
         # 2. Declare your outputs
         self.console = self.add_console("File Search Results", parent=self)
+        self.console.configure( borderwidth=10, relief="groove")
         self.console.grid(row=0, column=1, sticky="nsew")
 
         # 3. Setup Top Menu Bar
@@ -161,7 +163,8 @@ class MyFileUtilityTool(ToolView):
         win = self.dup_window = tk.Toplevel(self)
         win.title("Duplicate Files")
         win.geometry("980x560")
-        win.configure(bg=self.theme.get("bg", "#181825"))
+#        win.configure(bg=self.theme.get("bg", "#181825"))
+        win.configure(bg="navajo white", borderwidth=10, relief="groove")
         win.columnconfigure(0, weight=1)
         win.rowconfigure(1, weight=1)
 
@@ -170,12 +173,14 @@ class MyFileUtilityTool(ToolView):
         self._dup_scanning = False
 
         top = ttk.Frame(win, padding=6)
+        top.configure( borderwidth=10, relief="groove")
         top.grid(row=0, column=0, columnspan=2, sticky="ew")
         self._dup_status = ttk.Label(top, text="Press Scan to search the Search Location (uses the current filters).")
         self._dup_status.pack(side="left")
         ttk.Button(top, text="Scan", command=self.dup_scan).pack(side="right")
         ttk.Button(top, text="Stop", command=self.dup_stop).pack(side="right", padx=4)
         folder = ttk.Frame(win, padding=(6, 0, 6, 6))
+        folder.configure( borderwidth=10, relief="groove")
         folder.grid(row=3, column=0, columnspan=2, sticky="ew")
         ttk.Label(folder, text="Folder or drive to scan:").pack(side="left")
         start = str(self.form.get_value("directory") or self.p.directory or ".")
@@ -209,6 +214,7 @@ class MyFileUtilityTool(ToolView):
         tree.bind("<Button-1>", self.dup_click)
 
         bar = ttk.Frame(win, padding=6)
+        bar.configure( borderwidth=10, relief="groove")
         bar.grid(row=2, column=0, columnspan=2, sticky="ew")
         for label, how in (("Keep newest", "newest"), ("Keep oldest", "oldest"),
                            ("Keep shortest path", "shortest"), ("Keep first listed", "first")):
@@ -407,7 +413,7 @@ class MyFileUtilityTool(ToolView):
         TkFileTool.py -l (print file statistics <line count, word count, char count>)
         TkFileTool.py -H Search hidden files and directories
         TkFileTool.py -s <forward/reverse> List of files sorted forward or reverse
-        TkFileTool.py -m Set maximum search depth (default: none) -m 0 for no recursion pat starting location
+        TkFileTool.py -m <depth> Set maximum search depth (0 or not given = unlimited, 1 = starting folder only)
         TkFileTool.py -e Exclude entries that match the given glob pattern
         TkFileTool.py -S Limit results based on the size of files using the format <+-><NUM><UNIT>. 
                   '+': file size must be greater than or equal to this
@@ -442,36 +448,6 @@ class MyFileUtilityTool(ToolView):
  """
         self.console.write_line(epilog)
 
-    def open_onoff_options(self):
-        def build_inputs(form: FormPanel):
-            form.add_dropdown(
-                name="strategy",
-                label="Execution Strategy",
-                options=["Momentum Breakout", "Mean Reversion", "VWAP Scalper"],
-                default="Momentum Breakout",
-            )
-            form.add_file_picker(
-                name="model_weights",
-                label="Model Weights File",
-                mode="open",
-                filetypes=[("Model Files", "*.pth;*.onnx;*.bin"), ("All Files", "*.*")],
-            )
-            form.add_file_picker(
-                name="log_dir", label="Diagnostics Log Directory", mode="directory"
-            )
-       # Opens popup dialog centered over the main window
-        results = self.prompt_form(
-            title="Configure On/Off Options",
-            form_builder_fn=build_inputs,
-            size=(480, 420),
-            ok_text="Apply",
-            cancel_text="Cancel",
-        )
-
-        if results:
-            self.on_apply_inputs(results)
-
- 
 
     def open_floating_window_onoffs(self):
         if self.onoffs_window:
@@ -479,7 +455,7 @@ class MyFileUtilityTool(ToolView):
         self.onoffs_window = True
         popup = tk.Toplevel(self)
         popup.title("On/Off Options")
-        popup.geometry("990x650")
+        popup.geometry("1010x730")
         popup.configure(bg=self.theme.get("bg", "#181825"))
         popup.configure(bg="navajo white", borderwidth=10, relief="groove")
 
@@ -494,21 +470,27 @@ class MyFileUtilityTool(ToolView):
         container.columnconfigure(3, weight=1)
     
 
-        leftside2 = self.add_form("File Operations", parent=container )
-        leftside2.restyle( borderwidth=10, relief="groove")
-        leftside2.grid(
+        # One bordered "File Operations" frame spanning columns 0-1; the two
+        # partitions inside it (leftside2 / rightside2) are untitled and borderless.
+        fileops = self.add_form("File Operations", parent=container)
+        fileops.restyle(borderwidth=10, relief="groove")
+        fileops.grid(
             row=0,
             column=0,
+            columnspan=2,
             rowspan=2,
             sticky="nws",
             padx=0,
             pady=10,
-        )       
-    
-    
+        )
+        halves = fileops.add_row_container(2)
+
+        leftside2 = self.add_form("", parent=halves)
+        leftside2.grid(row=0, column=0, sticky="nw")
+
         # Dropdown boxes
         leftside2.add_checkbox(
-                "hidden", "Show Hidden Filese", default=self.p.hidden, on_change=self.do_hidden
+                "hidden", "Show Hidden Files", default=self.p.hidden, on_change=self.do_hidden
  
         )
         leftside2.add_checkbox(
@@ -524,16 +506,8 @@ class MyFileUtilityTool(ToolView):
         # Dropdown boxes RON HERE
  
 
-        rightside2 = self.rightside2 = self.add_form("", parent=container)
-        rightside2.restyle( borderwidth=8, relief="groove")
-        rightside2.grid(
-            row=0,
-            column=1,
-            rowspan=2,
-            sticky="nws",
-            padx=0,
-            pady=10,
-        )               
+        rightside2 = self.rightside2 = self.add_form("", parent=halves)
+        rightside2.grid(row=0, column=1, sticky="nw")
 
         rightside2.add_text("extension", "Comma list of extensions", 
             default=f"", on_change=self.do_extention)
@@ -602,7 +576,7 @@ class MyFileUtilityTool(ToolView):
         )
 
         leftside.add_checkbox(
-            "catfiles", "Run cat <file>", default=self.p.verbose, on_change=self.do_runcat
+            "catfiles", "Run cat <file>", default=self.p.docat, on_change=self.do_runcat
         )
 
         rightside = self.add_form("On/Off Choices", parent=container)
@@ -634,7 +608,7 @@ class MyFileUtilityTool(ToolView):
             on_change=self.on_topic_selected,
         )
 
-        botside = self.add_form("File Operationss", parent=container)
+        botside = self.add_form("File Operations", parent=container)
  #       botside.restyle( borderwidth=10, relief="groove")
         botside.grid(
                row=2,
@@ -668,7 +642,7 @@ class MyFileUtilityTool(ToolView):
             self.p.sortmod = True
             self.p.sortsize = False
             self.p.sortalpha = False
-            self.p.sorteed = "mod"
+            self.p.sorted = "mod"
         elif topic_name == "Sort Alphabetically":
             self.p.sortalpha = True
             self.p.sortsize = False
@@ -705,6 +679,8 @@ class MyFileUtilityTool(ToolView):
         container2.columnconfigure(2, weight=1)
  
           # Action Buttons inside the popup
+        botside2 = self.add_form("", parent=container2)
+
         def _on_submit():
             vals = botside2.get_values()
             self.on_apply_inputs(vals)
@@ -791,12 +767,12 @@ class MyFileUtilityTool(ToolView):
 
     def do_out_format(self, inputs):
  #       breakpoint()
-        self.p.format = inputs
+        self.p.format = None if inputs in (None, "", "None") else inputs
         stripped = self.p.output_file_name.split(".")
-        if len(stripped) >= 1 and inputs != "None":
+        if self.p.format:
             self.p.output_file_name = stripped[0] + "." + self.p.format
         else:
-            self.p.outout_file_name = stripped[0]
+            self.p.output_file_name = stripped[0]
         self.p.output_file = self.p.output_file_path  + "/" + self.p.output_file_name
         self.form.set_value("outfile_name", self.p.output_file_name)
         if self.DEBUG:
@@ -816,9 +792,9 @@ class MyFileUtilityTool(ToolView):
 
     def do_outfile_name(self, inputs):
  #       breakpoint()
-        self.p.outfile_file_name = inputs
+        self.p.output_file_name = inputs
         if self.p.output_file_path:
-            if self.p.format != None:
+            if self.p.format:
                 stripped = inputs.split(".")
                 if len(stripped) >= 1:
                     inputs = stripped[0]
@@ -874,7 +850,9 @@ class MyFileUtilityTool(ToolView):
         self.p.extension_rules = []
         if inputs.strip().lstrip("."):
             for e in inputs.split(","):
-                self.p.extension_rules.append(e)
+                cleaned = e.strip().lstrip(".").lower()
+                if cleaned:
+                    self.p.extension_rules.append(cleaned)
         """     
         self.p.extension_rules = [e.strip().lstrip(".").lower()
                                 for arg in (inputs or []) for e in inputs.split(",")
@@ -989,7 +967,7 @@ def run_for_file(args):
             errors="replace",
             stdin=subprocess.DEVNULL
         )
-        return name, self.p.returncode, self.p.stdout or "", self.p.stderr or "", is_bin
+        return name, p.returncode, p.stdout or "", p.stderr or "", is_bin
     except Exception as e:
         return name, -1, "", str(e), is_bin
 
@@ -1053,22 +1031,22 @@ def exec_batch_on_files(template, files, output_file="stdout"):
             input="\n".join(file_paths) + "\n",
         )
         if output_file == "stdout":
-            if self.p.stdout:
-                safe_print_stdout(self.p.stdout)
+            if p.stdout:
+                safe_print_stdout(p.stdout)
         else:
             with open(output_file, "w", encoding="utf-8", errors="replace") as f:
-                if self.p.stdout:
-                    f.write(self.p.stdout)
+                if p.stdout:
+                    f.write(p.stdout)
 
-        if self.p.stderr:
-            safe_print_stderr(self.p.stderr)
+        if p.stderr:
+            safe_print_stderr(p.stderr)
 
-        if self.p.returncode != 0:
-            safe_print_stderr(f"[TkFileTool] Note: batch command exited with code {self.p.returncode}. (Tip: verify command syntax or file types)\n")
+        if p.returncode != 0:
+            safe_print_stderr(f"[TkFileTool] Note: batch command exited with code {p.returncode}. (Tip: verify command syntax or file types)\n")
             if had_binary:
                 safe_print_stderr("[TkFileTool] Note: batch list included binary files. Tip: use '-E <ext>' or '-t f' to search only text files.\n")
     except Exception as e:
-        safe_print_stderr(f"TkFileTool] Error executing batch command: {e}\n")
+        safe_print_stderr(f"[TkFileTool] Error executing batch command: {e}\n")
 
 class Manipulate_files:
     """Provide the main engine behind an all-around file finding tool.
@@ -1175,23 +1153,19 @@ class Manipulate_files:
             self.found_files = found_files
             if found_files:
                 if self.sortmod and (self.sortdir == "reverse"):
-                    found_files.sort(key=lambda x: (x[4]))
+                    found_files.sort(key=lambda x: (x[4]), reverse=True)
                 elif self.sortmod:
-                    found_files.sort(key=lambda x: (x[4] ), reverse = True)
+                    found_files.sort(key=lambda x: (x[4]))
                 elif self.sortsize and (self.sortdir == "reverse"):
                     found_files.sort(key=lambda x: (x[2]), reverse=True)
                 elif self.sortsize:
                     found_files.sort(key=lambda x: (x[2] ))
                 elif self.sortalpha and (self.sortdir == "reverse"):
-                     found_files.sort(key=lambda x: (x[1]), reverse=True)
+                     found_files.sort(key=lambda x: (x[1].casefold()), reverse=True)
                 elif self.sortalpha:
-                     found_files.sort(key=lambda x: (x[1] ))
-                if self.ignorecase:
-                    if self.sortdir == "forward":
-                        found_files.sort(key=lambda x: os.path.basename(x[0]).casefold().lower())
-                    elif self.sortdir == "reverse":
-                        found_files.sort(key=lambda x: os.path.basename(x[0]).casefold().lower(), reverse=True)
-                else:
+                     found_files.sort(key=lambda x: (x[1].casefold()))
+                # Sort direction only applies when no specific sort type was chosen
+                if not (self.sortmod or self.sortsize or self.sortalpha):
                     if self.sortdir == "forward":
                         found_files.sort(key=lambda x: os.path.basename(x[0]).casefold())
                     elif self.sortdir == "reverse":
@@ -1211,23 +1185,25 @@ class Manipulate_files:
                 else:
                     output_rows = []
                     if self.verbose or self.do_long:
-                        output_rows.append(f'{"Date":<12}"{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
+                        output_rows.append(f'{"Date":<21}{"Size":<12}{"Lines":<8}{"Words":<8}{"Chars":<8}{"File Path"}')
                     elif self.sortmod:
-                        output_rows.append(f'{"Date":<12}{"File Path"}')
-                    else:
+                        output_rows.append(f'{"Date":<21}{"File Path"}')
+                    elif self.sortsize or self.size:
                         output_rows.append(f'{"Size":<12}{"File Path"}')
+                    else:
+                        output_rows.append("File Path")
 
                     for found in found_files:
                         path, fname, bsize, size, mod_time,file_hid, lines, words, chars = found
                         if (self.verbose or self.do_long) and not file_hid:
-                            output_rows.append(f'{mod_time:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
+                            output_rows.append(f'{mod_time.strftime("%Y-%m-%d %H:%M:%S"):<21}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "blue")}')
                         elif (self.verbose or self.do_long) and file_hid:
-                            output_rows.append(f'{mod_time:<12}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "red")}')                                
+                            output_rows.append(f'{mod_time.strftime("%Y-%m-%d %H:%M:%S"):<21}{size:<12}{lines:<8}{words:<8}{chars:<8}{colorize(found[0], "red")}')                                
                         elif self.sortmod:
                             output_rows.append(f'{mod_time.strftime("%Y-%m-%d %H:%M:%S"):<21}{colorize(found[0], "blue")}')
-                        elif self.size and file_hid:
+                        elif (self.size or self.sortsize) and file_hid:
                             output_rows.append(f'{size:<12}{colorize(found[0], "red")}')
-                        elif self.size and not file_hid:
+                        elif (self.size or self.sortsize) and not file_hid:
                              output_rows.append(f'{size:<12}{colorize(found[0], "blue")}')                            
                         elif not file_hid:
                             output_rows.append(colorize(found[0], "blue"))
@@ -1301,8 +1277,8 @@ class Manipulate_files:
         TkFileTool.py -l (print file statistics <line count, word count, char count>)
         TkFileTool.py -H Search hidden files and directories
         TkFileTool.py -s <forward/reverse> List of files sorted forward or reverse
-        TkFileTool.py -m Set maximum search depth (default: none) -m 0 for no recursion 
-            pat starting location
+        TkFileTool.py -m <depth> Set maximum search depth (0 or not given = unlimited,
+            1 = starting folder only)
         TkFileTool.py -e Exclude entries that match the given glob pattern
         TkFileTool.py -S Limit results based on the size of files using the format 
                 <+-><NUM><UNIT>. 
@@ -1469,7 +1445,7 @@ class Manipulate_files:
             "-m",
             "--maxdepth",
             metavar="",
-            help="\t <depth>            Set maximum search depth (default: none)) 1 means only do current directory",
+            help="\t <depth>            Set maximum search depth (0 or not given = unlimited, 1 = starting folder only)",
         )
 
         parser.add_argument(
@@ -1572,7 +1548,10 @@ class Manipulate_files:
                 parser.error(f"invalid value '{args.sortdir}' for -s (use forward or reverse)")
                 self.sortdir = "None"       
         self.hidden = args.hidden if args.hidden else False
-        self.maxdepth = int(args.maxdepth) if args.maxdepth else 0
+        try:
+            self.maxdepth = int(args.maxdepth) if args.maxdepth else 0
+        except ValueError:
+            parser.error(f"invalid depth '{args.maxdepth}' for -m (use a whole number)")
         self.exclude = args.exclude if args.exclude else None
         # -e patterns reuse the .gitignore matcher, so "build/", "*.log" and "docs/*.md" all work
         self.exclude_rules = [(pat.strip(), False) for pat in (args.exclude or []) if pat.strip()]
@@ -1656,6 +1635,12 @@ class Manipulate_files:
             directory (str): The search root, used to discover a .gitignore
                 when none was given explicitly.
         """
+        # each scan starts clean: rules from an earlier search must not leak into this one
+        if not hasattr(self, "_gitignore_arg"):
+            self._gitignore_arg = self.gitignore_file      # what the user asked for (True or a path)
+        self.gitignore_file = self._gitignore_arg
+        self.gitignore_rules = []
+        self.gitignore_base = None
         ignore_file = self.gitignore_file
         if isinstance(ignore_file, str):
             ignore_file = os.path.abspath(ignore_file)
@@ -1982,7 +1967,7 @@ class Manipulate_files:
                         except OSError:
                             continue
                     else:
-                        sys.stderr.write("Error reading file stats")
+                        sys.stderr.write(f"Error reading file stats for {path}: skipping\n")
                         sys.stderr.flush()
                         continue
                 file_sz = statinfo.st_size
@@ -2018,10 +2003,10 @@ class Manipulate_files:
                     continue
                 have = f.lower() if self.ignorecase else f
                 if fnmatch.fnmatchcase(have, want) if wild else have == want:
-                        if stat.S_ISREG(file_mode):
+                        if stat.S_ISREG(file_mode) and (self.do_long or self.verbose):
                             lines, words, chars = self.count_file_contents(path)
                         else:
-                            # never open dirs, pipes, or devices (a pipe read can block)
+                            # skip counting when not needed, or for dirs/pipes/devices
                             lines = words = chars = 0
                         found_files.append((path,f, file_sz,file_sz_str,  mod_time, self.file_hid, lines, words, chars))    # f = name as it is on disk
             if self.verbose:
@@ -2056,6 +2041,7 @@ class Manipulate_files:
     def _find_duplicates(self, directory, progress, hashlib, stop):
         if not self.ignoregit:
             self._load_gitignore(directory)
+        ext_set = {e.lower() for e in (self.extension_rules or [])} if self.filterby_ext else set()
         by_size = {}
         seen = 0
         for root, dirs, files in os.walk(directory):
@@ -2095,7 +2081,7 @@ class Manipulate_files:
                     continue
                 if self.size_exact is not None and st.st_size != self.size_exact:
                     continue
-                if self.filterby_ext and self.extension_rules and                         self.get_extension(f).lower() not in [e.lower() for e in self.extension_rules]:
+                if self.filterby_ext and self.get_extension(f).lower() not in ext_set:
                     continue
                 by_size.setdefault(st.st_size, []).append((path, st.st_size, datetime.fromtimestamp(st.st_mtime)))
 
@@ -2148,8 +2134,16 @@ class Manipulate_files:
         ret_str = ""
         for f in os.listdir(self.directory):
             if not f.startswith('.'):
-                modified = datetime.fromtimestamp(os.path.getmtime(os.path.join(self.directory, f))).strftime("%m/%d/%Y %I:%M %p")
-                ret_str += f"{modified}\t{os.path.getsize(os.path.join(self.directory, f)):>15}\t {f}\n"
+                full = os.path.join(self.directory, f)
+                try:
+                    st = os.stat(full)
+                except OSError:
+                    try:
+                        st = os.lstat(full)     # broken link: still list it
+                    except OSError:
+                        continue
+                modified = datetime.fromtimestamp(st.st_mtime).strftime("%m/%d/%Y %I:%M %p")
+                ret_str += f"{modified}\t{st.st_size:>15}\t {f}\n"
 
         return ret_str
       
@@ -2178,7 +2172,7 @@ class Manipulate_files:
             payload = inp_str
 
         # Structured export formats
-        if self.format != "None":
+        if self.format and self.format != "None":
             import re
             ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
             clean_payload = ansi_escape.sub('', payload)
@@ -2202,9 +2196,10 @@ class Manipulate_files:
 
  #           if self.run_gui:
  #               return (inp_str)
-            if self.output_file == "stdout" and not self.run_gui:
-                safe_print_stdout(formatted + "\n")
-                return
+            if self.output_file == "stdout":
+                if not self.run_gui:
+                    safe_print_stdout(formatted + "\n")
+                return inp_str
             else:
                 base_out = os.path.splitext(self.output_file)[0]
                 target_file = f"{base_out}.{self.format}"
@@ -2218,8 +2213,9 @@ class Manipulate_files:
         # Plain output
 #        if self.run_gui:
 #            return payload #       if payload and not payload.endswith("\n"
-        if (self.output_file == "stdout") and not self.run_gui:
-            safe_print_stdout(payload + "\n" if payload and not payload.endswith("\n") else payload)
+        if self.output_file == "stdout":
+            if not self.run_gui:
+                safe_print_stdout(payload + "\n" if payload and not payload.endswith("\n") else payload)
         else:
             try:
                 with open(self.output_file, "w", encoding="utf-8", errors="replace") as f:
@@ -2263,7 +2259,7 @@ class Manipulate_files:
             newest, total = None, 0
             meta = node["__meta__"]
             if meta is not None:
-                newest, total = meta[3], meta[1]
+                newest, total = meta[4], meta[2]   # meta[4]=mod_time, meta[2]=bsize
             for child in node["__children__"].values():
                 c_new, c_tot = _subtree_stats(child)
                 total += c_tot
@@ -2280,6 +2276,8 @@ class Manipulate_files:
                 if self.sortmod:
                     sorted_keys = sorted(node_dict, key=lambda k: (stats[k][0] is None, stats[k][0]),
                                          reverse=not rev)
+                elif self.sortalpha:
+                    sorted_keys = sorted(node_dict, key=lambda k: k.casefold(), reverse=rev)
                 else:
                     sorted_keys = sorted(node_dict, key=lambda k: stats[k][1], reverse=rev)
             else:
@@ -2299,14 +2297,18 @@ class Manipulate_files:
                 meta = node_dict[name]["__meta__"]
                 meta_str = ""
                 if (self.verbose or self.do_long) and meta is not None:
-                    _, _, size_str, _, _, lines_cnt, words_cnt, _ = meta
+                    # meta = (path, fname, bsize, size_str, mod_time, file_hid, lines, words, chars)
+                    _, _, _, size_str, _, _, lines_cnt, words_cnt, _ = meta
                     if os.path.isfile(meta[0]):
                         meta_str = f" [{size_str.strip()}, {lines_cnt} lines, {words_cnt} words]"
                     else:
                         meta_str = f" [{size_str.strip()}]"
-                elif self.size and meta is not None:
-                    _, _, size_str, _, _, _, _, _ = meta
+                    meta_str += f" [{meta[4].strftime('%Y-%m-%d %H:%M:%S')}]"
+                elif (self.size or self.sortsize) and meta is not None:
+                    _, _, _, size_str, _, _, _, _, _ = meta
                     meta_str = f" [{size_str.strip()}]"
+                elif self.sortmod and meta is not None:
+                    meta_str = f" [{meta[4].strftime('%Y-%m-%d %H:%M:%S')}]"
 
                 is_dir_entry = bool(node_dict[name]["__children__"]) or (meta and os.path.isdir(meta[0]))
                 display_name = colorize(name, "blue") if is_dir_entry and self.output_file == "stdout" else name
@@ -2374,7 +2376,7 @@ class Manipulate_files:
         elif self.sortsize:
             criteria.append("sorted by file size" + (" (reverse)" if self.sortdir == "reverse" else ""))
         elif self.sortalpha:
-            criteria.append("sorted by alphabet" + (" (reverse)" if self.sortdir == "alpha" else ""))
+            criteria.append("sorted by alphabet" + (" (reverse)" if self.sortdir == "reverse" else ""))
         elif self.sortdir:
             criteria.append(f"sorted {self.sortdir}")
         if self.hidden:

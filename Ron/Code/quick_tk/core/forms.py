@@ -297,7 +297,9 @@ class FormPanel(ttk.Frame):
             column=0,
             sticky="nsew",
             padx=padding,
-            pady=(0, padding),
+            # with a title the header supplies the top gap; without one the fields
+            # would sit on the panel's top edge and paint over a restyle() border
+            pady=(0 if title else padding, padding),
         )
         self.inner_frame.columnconfigure(0, weight=1)
         self._row_count += 1
