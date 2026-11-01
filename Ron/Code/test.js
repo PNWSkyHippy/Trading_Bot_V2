@@ -1,2 +1,8 @@
-const [a, , b] = [10, 20, 30];
-console.log(a + ", " + b);
+async function loadPostWithAuthor(postId) {
+  const post = await fetchPost(postId);
+  const author = await fetchAuthor(post.authorId);
+  return { post, author };
+}
+loadPostWithAuthor(1).then(result => {
+  console.log(result);
+} );

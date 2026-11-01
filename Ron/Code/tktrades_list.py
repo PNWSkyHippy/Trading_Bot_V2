@@ -2287,14 +2287,14 @@ Usage examples:
                         if float(trade_dict[key]) >= 0:
                             stii = float(trade_dict[key])
                             stii2 = colorize(
-                                f"{stii:<20.6f}",
+                                f"{stii:<20.2f}",
                                 "green",
                             )
                             tail_str += f"{stii2}"
                         else:
                             stii = float(trade_dict[key])
                             stii2 = colorize(
-                                f"{stii:<20.6f}",
+                                f"{stii:<20.2f}",
                                 "red",
                             )
                             tail_str += f"{stii2}"

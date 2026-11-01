@@ -1,102 +1,102 @@
-.\testfile.PY
-.\use_toolbox.py
-.\test_import.py
-.\tst.py
-.\list_sort_practice.py
-.\timer.py
-.\test_import_bubble.py
-.\py102proj1.py
-.\os_walk.py
-.\stdin.py
-.\grreeters.py
-.\PrintingListsandFunctionResults.py
-.\toolbox.py
-.\test.py
-.\square.py
-.\grep_like.py
-.\Untitled-1.py
-.\pyrefly.toml
-.\grep_like2.py
-.\teast.py
-.\sqlite_pandas_csv_to_db.py
-.\EstToPst.py
-.\sqlite_pansas_totrial.py
-.\pyproject.toml
-.\Calculate_grade.py
-.\item_count..py
-.\cummincations.py
-.\sqliter_error_andling.py
-.\julisa_set.py
-.\budget_tracker.py
-.\insertion_sort.py
-.\sqlite_csv_to_db_pure_python.py
-.\TKRowColGridDemo.py
-.\testcode.py
-.\sorts.py - Shortcut.lnk
-.\quick_tk_shell.py
-.\get_hightradebalance.py
-.\TKQuickTKBasic.py
-.\sqlite_tutorial.py
-.\ad_gravity.py
-.\position_sizer.py
-.\CartRegister.py
-.\objects_info.py
-.\sphere.oy.py
-.\sphere.py
-".\def save_log_to_file(filename, content_l.py"
-.\test2fa.py
-.\TKinfo.py
-.\StringsLissAndDicts_Insstructions.py
-.\pyhelper.py
-.\odop_solar.py
-.\comet.py
-.\rat_tracer.py
-.\fee_check.py
-.\persist_filter.py
-.\schoolproj.py
-.\quick_tk_shell2.py
-.\water_wave.py
-.\calc_pnl_cost.py
-.\def2lambda.py
-.\pymag.py
-.\TKFulldemo.py
-.\bubble_sort.py
-.\Tkdemo.py
-.\aabb.py
-.\analyzee_mfe_mae_log.py
-.\comprehenstions_examples.py
-.\setup_filter.py
-.\ray_tracer2.py
-.\ClassTest.Copy.py
-.\DictionaryListsReference.py
-.\image_convert.py
-.\calc_inc.py
-.\ray_tracer3.py
-.\ray_tracer4.py
-.\ray_tracer6.py
-.\sorts.py
-.\modular_calc_demo.py
-.\calc_pnl_cost2.py
-.\ray_tracer5.py
-.\sort_inc.py
-.\TKTicTacToe.py
-.\ray_tracer7.py
-.\ray_tracer8.py
-.\ClassTest.py
-.\remove_trade.py
-.\astral_wormhole.py
-.\test_p103finalproject.py
-.\test_tktrades_gui.py
-.\ray_tracer9_spatial.py
-.\trades_list.py
-.\p103finalproject.py
-.\local_functions.Copy.py
-.\data_structures_reference.py
-.\OpOverLoaded.py
-.\opoverloaded.old.py
-.\local_functions.py
-.\TkCalc.py
-.\mfind.py
-.\TkFileTool-2026-10-27.py
-.\TkFileTool.py
-.\TkTrades_list.py
+Size        File Path
+0.0BS       .\testfile.PY
+65.0BS      .\use_toolbox.py
+102.0BS     .\test_import.py
+120.0BS     .\tst.py
+144.0BS     .\list_sort_practice.py
+154.0BS     .\timer.py
+171.0BS     .\test_import_bubble.py
+179.0BS     .\py102proj1.py
+188.0BS     .\os_walk.py
+198.0BS     .\stdin.py
+199.0BS     .\grreeters.py
+200.0BS     .\PrintingListsandFunctionResults.py
+243.0BS     .\toolbox.py
+265.0BS     .\test.py
+301.0BS     .\square.py
+334.0BS     .\grep_like.py
+336.0BS     .\Untitled-1.py
+383.0BS     .\pyrefly.toml
+407.0BS     .\grep_like2.py
+521.0BS     .\teast.py
+554.0BS     .\sqlite_pandas_csv_to_db.py
+571.0BS     .\EstToPst.py
+641.0BS     .\sqlite_pansas_totrial.py
+690.0BS     .\pyproject.toml
+701.0BS     .\Calculate_grade.py
+750.0BS     .\item_count..py
+768.0BS     .\cummincations.py
+774.0BS     .\sqliter_error_andling.py
+853.0BS     .\julisa_set.py
+874.0BS     .\budget_tracker.py
+932.0BS     .\insertion_sort.py
+943.0BS     .\sqlite_csv_to_db_pure_python.py
+1.0KB       .\TKRowColGridDemo.py
+1.0KB       .\testcode.py
+1.0KB       .\sorts.py - Shortcut.lnk
+1.0KB       .\quick_tk_shell.py
+1.0KB       .\get_hightradebalance.py
+1.0KB       .\TKQuickTKBasic.py
+1.0KB       .\sqlite_tutorial.py
+1.0KB       .\ad_gravity.py
+1.0KB       .\position_sizer.py
+1.0KB       .\CartRegister.py
+1.0KB       .\objects_info.py
+1.0KB       .\sphere.py
+"1.0KB       .\def save_log_to_file(filename, content_l.py"
+1.0KB       .\test2fa.py
+1.0KB       .\TKinfo.py
+2.0KB       .\StringsLissAndDicts_Insstructions.py
+2.0KB       .\pyhelper.py
+2.0KB       .\odop_solar.py
+2.0KB       .\comet.py
+2.0KB       .\rat_tracer.py
+2.0KB       .\fee_check.py
+2.0KB       .\persist_filter.py
+2.0KB       .\schoolproj.py
+2.0KB       .\quick_tk_shell2.py
+3.0KB       .\water_wave.py
+3.0KB       .\calc_pnl_cost.py
+3.0KB       .\def2lambda.py
+3.0KB       .\pymag.py
+3.0KB       .\TKFulldemo.py
+3.0KB       .\bubble_sort.py
+3.0KB       .\Tkdemo.py
+3.0KB       .\aabb.py
+3.0KB       .\analyzee_mfe_mae_log.py
+3.0KB       .\comprehenstions_examples.py
+4.0KB       .\setup_filter.py
+5.0KB       .\ray_tracer2.py
+5.0KB       .\ClassTest.Copy.py
+5.0KB       .\DictionaryListsReference.py
+6.0KB       .\image_convert.py
+7.0KB       .\calc_inc.py
+7.0KB       .\ray_tracer3.py
+7.0KB       .\ray_tracer4.py
+7.0KB       .\ray_tracer6.py
+8.0KB       .\sorts.py
+8.0KB       .\modular_calc_demo.py
+8.0KB       .\calc_pnl_cost2.py
+8.0KB       .\ray_tracer5.py
+9.0KB       .\sort_inc.py
+9.0KB       .\TKTicTacToe.py
+11.0KB      .\ray_tracer7.py
+12.0KB      .\ray_tracer8.py
+14.0KB      .\ClassTest.py
+15.0KB      .\remove_trade.py
+15.0KB      .\astral_wormhole.py
+19.0KB      .\test_p103finalproject.py
+26.0KB      .\test_tktrades_gui.py
+26.0KB      .\ray_tracer9_spatial.py
+30.0KB      .\trades_list.py
+31.0KB      .\p103finalproject.py
+34.0KB      .\local_functions.Copy.py
+36.0KB      .\data_structures_reference.py
+36.0KB      .\OpOverLoaded.py
+37.0KB      .\opoverloaded.old.py
+44.0KB      .\local_functions.py
+52.0KB      .\TkCalc.py
+53.0KB      .\mfind.py
+71.0KB      .\TkFileTool-2026-10-27.py
+100.0KB     .\TkTrades_list.py
+101.0KB     .\TkFileTool.py

@@ -1,15 +1,254 @@
-Size        File Path
-0.0BS       [34m//192.168.0.17/ronh\Applications[0m
-0.0BS       [34m//192.168.0.17/ronh\Desktop[0m
-0.0BS       [34m//192.168.0.17/ronh\Documents[0m
-0.0BS       [34m//192.168.0.17/ronh\Downloads[0m
-0.0BS       [34m//192.168.0.17/ronh\mcp3d_venv[0m
-0.0BS       [34m//192.168.0.17/ronh\Movies[0m
-0.0BS       [34m//192.168.0.17/ronh\Music[0m
-0.0BS       [34m//192.168.0.17/ronh\Pictures[0m
-0.0BS       [34m//192.168.0.17/ronh\Public[0m
-0.0BS       [34m//192.168.0.17/ronh\Ron[0m
-0.0BS       [34m//192.168.0.17/ronh\SubPulse[0m
-0.0BS       [34m//192.168.0.17/ronh\Trading_Bot_V2[0m
-0.0BS       [34m//192.168.0.17/ronh\venv[0m
-0.0BS       [34m//192.168.0.17/ronh\venv312[0m
+.
+├── 3dViewerApp
+│   ├── mcp_work
+│   │   └── out
+│   ├── pov
+│   │   ├── director
+│   │   │   ├── Camera_sweep2
+│   │   │   ├── RonTestScene1
+│   │   │   └── Viewer_shot
+│   │   ├── pov_frames
+│   │   │   ├── __active_frame_strip_2026-10-15_014108
+│   │   │   ├── __active_frame_strip_2026-10-15_014811
+│   │   │   ├── scene3d_strip_2026-10-15_014928
+│   │   │   └── scene3d_strip_2026-10-15_015541
+│   │   └── images
+│   ├── backups
+│   ├── meshes
+│   └── turtle_lib
+├── DecentClone
+│   └── audio
+│       └── Audio
+├── PovRay
+│   ├── doc
+│   │   └── html
+│   │       └── images
+│   ├── platform
+│   │   ├── x86
+│   │   │   ├── avx
+│   │   │   ├── avx2fma3
+│   │   │   └── avxfma4
+│   │   └── unix
+│   ├── scenes
+│   │   ├── advanced
+│   │   │   ├── balcony
+│   │   │   ├── benchmark
+│   │   │   ├── blocks
+│   │   │   ├── cliche
+│   │   │   ├── crater
+│   │   │   ├── desk
+│   │   │   ├── drums2
+│   │   │   ├── glasschess
+│   │   │   ├── grenadine
+│   │   │   ├── ntreal
+│   │   │   ├── pov_frames
+│   │   │   └── teapot
+│   │   ├── animations
+│   │   │   ├── ambient
+│   │   │   ├── camera2
+│   │   │   ├── clockd
+│   │   │   ├── diffuse
+│   │   │   ├── float1
+│   │   │   ├── float2
+│   │   │   ├── float3
+│   │   │   ├── float4
+│   │   │   ├── fractalzoom
+│   │   │   ├── l_o
+│   │   │   ├── quilted
+│   │   │   ├── raddem
+│   │   │   ├── reflection
+│   │   │   ├── speclr
+│   │   │   ├── splinefollow
+│   │   │   ├── vect1
+│   │   │   └── vect2
+│   │   ├── camera
+│   │   │   └── mesh_camera
+│   │   ├── incdemo
+│   │   │   ├── glasses
+│   │   │   ├── metals
+│   │   │   ├── stones
+│   │   │   └── woods
+│   │   ├── interior
+│   │   │   └── media
+│   │   ├── language
+│   │   │   ├── arrays
+│   │   │   ├── fileio
+│   │   │   └── macros
+│   │   ├── objects
+│   │   │   ├── csg
+│   │   │   └── quartic
+│   │   ├── previews
+│   │   │   ├── advanced
+│   │   │   ├── animations
+│   │   │   ├── bsp
+│   │   │   ├── camera
+│   │   │   ├── incdemo
+│   │   │   ├── interior
+│   │   │   ├── language
+│   │   │   ├── lights
+│   │   │   ├── mesh_camera
+│   │   │   ├── objectmods
+│   │   │   ├── objects
+│   │   │   ├── output
+│   │   │   ├── qtvr
+│   │   │   ├── rad_sub
+│   │   │   └── textures
+│   │   ├── templates
+│   │   │   ├── Animation
+│   │   │   ├── Basic_Scenes
+│   │   │   ├── Basic_Shapes_angular
+│   │   │   ├── Basic_Shapes_round
+│   │   │   ├── blob_fractal
+│   │   │   ├── Colors_in_textures
+│   │   │   ├── General_statements
+│   │   │   ├── height_field_and_HF_macros
+│   │   │   ├── Include
+│   │   │   ├── Isosurfaces_by_basic_functions
+│   │   │   ├── Isosurfaces_by_function_inc
+│   │   │   ├── Isosurfaces_by_pattern_functions
+│   │   │   ├── Lights_skies_fogs_rainbow
+│   │   │   ├── Math_functions
+│   │   │   ├── Meshes_by_meshmaker_inc
+│   │   │   ├── Non_CSG_shapes
+│   │   │   ├── Parametric_Surfaces
+│   │   │   ├── Polynomial_Quartic
+│   │   │   ├── Radiosity_Photons
+│   │   │   ├── Random
+│   │   │   ├── Shapes2_inc
+│   │   │   ├── Shapes3_inc
+│   │   │   ├── Shearing_and_transform
+│   │   │   ├── Sphere_sweep_Spline_curves
+│   │   │   ├── Text_Shapes_3D
+│   │   │   ├── Textures_Materials
+│   │   │   └── While_Loops_For_Loops
+│   │   ├── textures
+│   │   │   ├── finishes
+│   │   │   ├── normals
+│   │   │   ├── patterns
+│   │   │   └── pigments
+│   │   ├── bsp
+│   │   ├── lights
+│   │   ├── objectmods
+│   │   ├── output
+│   │   ├── portfolio
+│   │   ├── qtvr
+│   │   ├── radiosity
+│   │   └── subsurface
+│   ├── source
+│   │   ├── backend
+│   │   │   ├── bounding
+│   │   │   ├── control
+│   │   │   ├── lighting
+│   │   │   ├── render
+│   │   │   ├── scene
+│   │   │   └── support
+│   │   ├── base
+│   │   │   ├── animation
+│   │   │   ├── data
+│   │   │   ├── font
+│   │   │   └── image
+│   │   ├── core
+│   │   │   ├── bounding
+│   │   │   ├── colour
+│   │   │   ├── lighting
+│   │   │   ├── material
+│   │   │   ├── math
+│   │   │   ├── render
+│   │   │   ├── scene
+│   │   │   ├── shape
+│   │   │   └── support
+│   │   ├── frontend
+│   │   ├── parser
+│   │   ├── povms
+│   │   └── vm
+│   ├── unix
+│   │   ├── icons
+│   │   │   └── source
+│   │   ├── config
+│   │   └── povconfig
+│   ├── vfe
+│   │   └── unix
+│   ├── icons
+│   ├── include
+│   ├── ini
+│   └── scripts
+├── quick_tk
+│   ├── core
+│   └── examples
+├── RayTrace
+│   └── src
+│       ├── external
+│       │   └── python
+│       ├── images
+│       │   └── cover
+│       ├── scene_data
+│       │   ├── book2_scene1_2026-10-04_032211
+│       │   ├── book2_scene1_2026-10-04_032257
+│       │   ├── book2_scene1_2026-10-13_202924
+│       │   ├── book2_scene1_2026-10-13_203750
+│       │   ├── book2_scene1_2026-10-13_221021
+│       │   ├── book2_scene1_2026-10-14_112836
+│       │   └── director
+│       ├── TheNextWeek
+│       │   ├── external
+│       │   └── python
+│       ├── TheRestOfYourLife
+│       │   ├── external
+│       │   └── python
+│       ├── editedpovray-osurce
+│       ├── gif_preview
+│       ├── pov_frames
+│       ├── SavedGifs
+│       └── TunellScene
+├── TkFileTool.onefile-build
+│   ├── blobs
+│   └── static_src
+├── Tutorial
+│   ├── MCP
+│   │   └── source-code-final
+│   │       ├── mcp_client
+│   │       ├── mcp_client.egg-info
+│   │       └── mcp_server
+│   ├── mcp-client
+│   │   ├── mcp-client
+│   │   └── mcp-server
+│   ├── Selenium
+│   │   ├── build
+│   │   │   ├── bdist.win-amd64
+│   │   │   └── lib
+│   │   ├── src
+│   │   │   ├── bandcamp
+│   │   │   └── pycamp.egg-info
+│   │   └── training
+│   ├── Serialize-Data
+│   │   ├── executable-code
+│   │   │   ├── code-objects
+│   │   │   ├── digital-signature
+│   │   │   └── pickle-importable
+│   │   ├── hierarchical-data
+│   │   │   └── data
+│   │   ├── http-payload
+│   │   │   ├── django-rest-api
+│   │   │   ├── fastapi-rest-api
+│   │   │   ├── flask-rest-api
+│   │   │   └── pydantic-demo
+│   │   ├── python-objects
+│   │   │   ├── customize-pickle
+│   │   │   ├── foreign-formats
+│   │   │   ├── json-encode
+│   │   │   └── standard-python
+│   │   ├── schema-based
+│   │   │   ├── avro-demo
+│   │   │   └── protocol-buffers-demo
+│   │   └── tabular-data
+│   │       ├── csv-demo
+│   │       └── parquet-demo
+│   └── Classes
+├── backups
+├── data
+├── decorators
+├── pillow-scripts
+├── schedule
+├── skills-demo
+├── testdir
+└── TkinterDemos
