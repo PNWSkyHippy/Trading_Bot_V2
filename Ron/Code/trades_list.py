@@ -213,11 +213,11 @@ def proc_dict(
                     elif chkstr_isnum(trade_dict[key]) == "float":
                         if float(trade_dict[key]) >= 0:
                             stii = float(trade_dict[key])
-                            stii2 = colorize(f"{stii:<20.6f}", "green")
+                            stii2 = colorize(f"{stii:<20.2f}", "green")
                             tail_str += f"{stii2}"
                         else:
                             stii = float(trade_dict[key])
-                            stii2 = colorize(f"{stii:<20.6f}", "red")
+                            stii2 = colorize(f"{stii:<20.2f}", "red")
                             tail_str += f"{stii2}"
                     #                             tail_str += f'{colorize({float(trade_dict[key]):<20.6f}}, "red")'
                     else:
