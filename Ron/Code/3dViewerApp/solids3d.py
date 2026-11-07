@@ -46,10 +46,12 @@ ONE_COLOR = tuple(c for c in (Ellipsoid3d, SphericalCap3d) if c)   # library kee
 
 
 def xyz(p):
+    """Return a point's coordinates as a float numpy array."""
     return np.array([float(c) for c in p.get_xyz()])
 
 
 def kind_of(obj):
+    """Return the kind name (e.g. 'prism3d') of a solid, or None if it is not one."""
     for k, cls in _ORDER:
         if isinstance(obj, cls):
             return k
@@ -57,6 +59,7 @@ def kind_of(obj):
 
 
 def is_solid(obj):
+    """Return True if obj is one of the solid types in this module."""
     return bool(TYPES) and isinstance(obj, TYPES)
 
 
@@ -69,6 +72,7 @@ def colors(obj):
 
 
 def _unit(v, what="vector"):
+    """Return v scaled to length 1; raise ValueError (naming `what`) if v is the zero vector."""
     v = np.array(v, float)
     if np.linalg.norm(v) < 1e-12:
         raise ValueError(f"{what} cannot be zero")
@@ -76,6 +80,7 @@ def _unit(v, what="vector"):
 
 
 def _perp_dir(old, n):
+    """Return a unit vector perpendicular to n, as close to `old` as possible."""
     d = np.array(old, float) - np.dot(old, n) * n
     if np.linalg.norm(d) < 1e-9:
         d = np.cross(n, (1.0, 0, 0) if abs(n[0]) < 0.9 else (0, 1.0, 0))
@@ -87,11 +92,13 @@ def _perp_dir(old, n):
 # current corners onto a fresh unturned copy (Kabsch)
 # ----------------------------------------------------------------------------
 def _canon(cls, edge):
+    """Return the corner points of a fresh, untransformed solid of the same class and edge length."""
     fresh = cls(Point3d(0, 0, 0), edge)
     return np.array([xyz(v) for v in fresh._verts])
 
 
 def _poly_frame(obj):
+    """Return the rotation, center and size that map a polyhedron's canonical shape onto the placed one."""
     c = xyz(obj.get_center())
     W = np.array([xyz(v) for v in obj._verts]) - c
     V = _canon(type(obj), obj.get_length())
@@ -105,6 +112,7 @@ def _poly_frame(obj):
 # CSV <-> object
 # ----------------------------------------------------------------------------
 def build(kind, n, c1, c2, name):
+    """Build a solid of the given kind from its numbers `n`, the colors c1/c2 and the name."""
     n = [float(v) for v in n]
     P = lambda i: Point3d(*n[i:i + 3])                     # noqa: E731
     d = lambda i, j: np.subtract(n[j:j + 3], n[i:i + 3])   # noqa: E731
@@ -148,6 +156,7 @@ def build(kind, n, c1, c2, name):
 
 
 def to_nums(obj):
+    """Return the list of numbers that rebuilds this solid (the inverse of build)."""
     k = kind_of(obj)
     if k in ("prism3d", "truncatedprism3d", "pyramid3d"):
         nums = (list(xyz(obj._center_point)) + list(xyz(obj._edge)) + list(xyz(obj._top))
@@ -182,6 +191,7 @@ def _grid(rings, seg):
 
 
 def mesh(obj, seg=36):
+    """Return the solid as vertices and triangle faces, using `seg` steps around curved parts."""
     k = kind_of(obj)
     if k in ("prism3d", "truncatedprism3d", "pyramid3d") or k in POLY:
         pts = np.array([xyz(p) for p in obj.get_points()])
@@ -378,6 +388,7 @@ def add_nums(label, v):
 # Properties editor
 # ----------------------------------------------------------------------------
 def prop_spec(o, k):
+    """Return the Properties-editor field list (label, key, kind, value) for solid o of kind k."""
     if k in ("prism3d", "truncatedprism3d", "pyramid3d"):
         out = [("Base center", "p", "xyz", tuple(xyz(o._center_point))), ("Radius (center to corner)", "r", "num", o.get_radius()),
                ("Height", "h", "num", o.get_height()), ("Sides (3..20)", "s", "int", o.get_num_faces()),
@@ -403,6 +414,7 @@ def prop_spec(o, k):
 
 
 def prop_nums(o, k, v):
+    """Turn edited Properties values v back into build numbers for kind k; raise ValueError on bad input."""
     if k in ("prism3d", "truncatedprism3d", "pyramid3d", "truncatedcone3d"):
         if v["r"] <= 0 or v["h"] <= 0:
             raise ValueError("Radius and height must be > 0")
@@ -447,6 +459,7 @@ def prop_nums(o, k, v):
 # frame = local x, y, z, origin in world; local y is the object's axis
 # ----------------------------------------------------------------------------
 def pov_shape(kind, v, vec, _n):
+    """Return the POV-Ray shape text for a solid of the given kind."""
     P = lambda i: np.array(v[i:i + 3], float)   # noqa: E731
     if kind == "truncatedcone3d":
         c, e, top = P(0), P(3), P(6)

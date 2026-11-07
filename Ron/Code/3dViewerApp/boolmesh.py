@@ -20,10 +20,12 @@ except ImportError:                      # pragma: no cover - optional dependenc
 
 
 class BoolError(Exception):
+    """Raised when a boolean (CSG) operation cannot be done."""
     pass
 
 
 def available():
+    """Return True if the manifold3d library loaded, so booleans can run."""
     return _m is not None
 
 
@@ -75,6 +77,7 @@ def to_facets(man):
 
 
 def _union(ms):
+    """Return the union of a list of manifolds (the one item itself if only one)."""
     return ms[0] if len(ms) == 1 else _m.Manifold.batch_boolean(ms, _m.OpType.Add)
 
 

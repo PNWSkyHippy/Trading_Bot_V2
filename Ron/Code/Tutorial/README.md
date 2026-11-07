@@ -1,3 +1,3 @@
-# Python Classes: The Power of Object-Oriented Programming
+# Build a Python MCP Client to Test Servers From Your Terminal
 
-This folder provides the code examples for the Real Python tutorial [Python Classes: The Power of Object-Oriented Programming](https://realpython.com/python-classes/).
+This folder provides the code examples for the Real Python article [Build a Python MCP Client to Test Servers From Your Terminal](https://realpython.com/python-mcp-client/).

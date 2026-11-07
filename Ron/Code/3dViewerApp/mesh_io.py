@@ -33,6 +33,7 @@ NON_SOLID = {"point3d", "line3d", "vector3d", "plane3d", "square3d", "circle3d"}
 # small geometry helpers
 # ----------------------------------------------------------------------------
 def _unit(x):
+    """Return x scaled to length 1 (unchanged if it is zero)."""
     x = np.asarray(x, float)
     n = np.linalg.norm(x)
     return x / n if n > 1e-12 else x
@@ -123,6 +124,7 @@ def _bend_tris(bend, seg):
     verts, tris = [], []
     base = {}
     def vid(i, j):
+        """Return the shared vertex number for grid point (i, j), adding it on first use."""
         key = (i, j)
         if key not in base:
             base[key] = len(verts); verts.append(grid[i][j])
@@ -218,6 +220,7 @@ def object_triangles(kind, nums, obj, seg=SEG):
 
 
 def _facet_normal(a, b, c):
+    """Return the unit normal of triangle a, b, c (+Z if the triangle is degenerate)."""
     nrm = np.cross(np.asarray(b) - np.asarray(a), np.asarray(c) - np.asarray(a))
     ln = np.linalg.norm(nrm)
     return nrm / ln if ln > 1e-12 else np.array([0.0, 0, 1])
@@ -337,6 +340,7 @@ def _weld(raw_tris, places=5):
     duplicate vertices merged so the mesh shares corners (smaller, nicer to draw)."""
     verts, tris, seen = [], [], {}
     def vid(p):
+        """Return the vertex number for point p, merging points that round to the same place."""
         key = (round(p[0], places), round(p[1], places), round(p[2], places))
         i = seen.get(key)
         if i is None:
@@ -445,18 +449,23 @@ class _Pt:
     __slots__ = ("_x", "_y", "_z")
 
     def __init__(self, x, y, z):
+        """Store the point's x, y, z as floats."""
         self._x, self._y, self._z = float(x), float(y), float(z)
 
     def get_xyz(self):
+        """Return (x, y, z)."""
         return (self._x, self._y, self._z)
 
     def get_x(self):
+        """Return x."""
         return self._x
 
     def get_y(self):
+        """Return y."""
         return self._y
 
     def get_z(self):
+        """Return z."""
         return self._z
 
 
@@ -469,6 +478,7 @@ class Mesh3d:
     """
 
     def __init__(self, verts, tris, name="mesh", bc=None, fc=None, src=""):
+        """Store the vertices, triangles, name, colors and source file name."""
         self.verts = np.asarray(verts, float).reshape(-1, 3).copy()
         self.tris = list(tris)
         self.name = name
@@ -478,21 +488,26 @@ class Mesh3d:
 
     # -- geometry queries -------------------------------------------------
     def _bbox(self):
+        """Return the (min, max) corners of the bounding box."""
         if not len(self.verts):
             return np.zeros(3), np.zeros(3)
         return self.verts.min(axis=0), self.verts.max(axis=0)
 
     def _center_xyz(self):
+        """Return the bounding-box center as an array."""
         lo, hi = self._bbox()
         return (lo + hi) / 2.0
 
     def get_center(self):
+        """Return the bounding-box center as a point."""
         return _Pt(*self._center_xyz())
 
     def get_bc(self):
+        """Return the border color."""
         return self.bc
 
     def get_fc(self):
+        """Return the fill color."""
         return self.fc
 
     def corners(self):
@@ -507,6 +522,7 @@ class Mesh3d:
 
     # -- pivot resolution (mirrors class3d._rotation_pivot for our accepted forms) --
     def _pivot(self, pivot, default):
+        """Return the pivot as an array: `default` if None, the center for 'center', else the given point."""
         if pivot is None:
             return np.asarray(default, float)
         if isinstance(pivot, str):
@@ -519,14 +535,17 @@ class Mesh3d:
 
     # -- transforms (in place; return self) -------------------------------
     def move(self, dx, dy, dz):
+        """Shift every vertex by (dx, dy, dz) and return self."""
         self.verts += np.array([dx, dy, dz], float)
         return self
 
     def scale(self, factor):                 # about the world origin, like class3d
+        """Scale about the world origin by `factor` and return self."""
         self.verts *= float(factor)
         return self
 
     def xrot(self, angle_rad, pivot=None):
+        """Rotate about the X axis by angle_rad around `pivot` (default origin)."""
         px, py, pz = self._pivot(pivot, (0, 0, 0))
         y, z = self.verts[:, 1] - py, self.verts[:, 2] - pz
         c, s = math.cos(angle_rad), math.sin(angle_rad)
@@ -535,6 +554,7 @@ class Mesh3d:
         return self
 
     def yrot(self, angle_rad, pivot=None):
+        """Rotate about the Y axis by angle_rad around `pivot` (default origin)."""
         px, py, pz = self._pivot(pivot, (0, 0, 0))
         x, z = self.verts[:, 0] - px, self.verts[:, 2] - pz
         c, s = math.cos(angle_rad), math.sin(angle_rad)
@@ -543,6 +563,7 @@ class Mesh3d:
         return self
 
     def zrot(self, angle_rad, pivot=None):
+        """Rotate about the Z axis by angle_rad around `pivot` (default origin)."""
         px, py, pz = self._pivot(pivot, (0, 0, 0))
         x, y = self.verts[:, 0] - px, self.verts[:, 1] - py
         c, s = math.cos(angle_rad), math.sin(angle_rad)
@@ -551,6 +572,7 @@ class Mesh3d:
         return self
 
     def vecrot(self, vecaxis, angle_rad, pivot=None):
+        """Rotate by angle_rad about the line given by a vector object, around `pivot`."""
         start = np.asarray(vecaxis.get_start().get_xyz(), float)
         axis = np.asarray(vecaxis.get_end().get_xyz(), float) - start
         norm = np.linalg.norm(axis)

@@ -1,0 +1,9 @@
+SELECT * FROM trades LIMIT 5;
+SELECT symbol, pnl FROM trades WHERE status = 'closed';
+SELECT symbol, pnl FROM trades WHERE status = 'closed' AND pnl < 0 ORDER BY pnl;
+SELECT COUNT(*), SUM(pnl) FROM trades WHERE status = 'closed';
+SELECT symbol, COUNT(*), SUM(pnl) FROM trades WHERE status = 'closed' GROUP BY symbol;
+SELECT symbol, COUNT(*), SUM(pnl) FROM trades WHERE status = 'closed' GROUP BY symbol ORDER by SUM(pnl);
+SELECT symbol, COUNT(*), SUM(pnl) FROM trades WHERE status = 'closed' GROUP BY symbol ORDER by SUM(pnl) DESC;
+SELECT symbol, COUNT(*), SUM(pnl) FROM trades WHERE status = 'closed' and entry_time >= '2026-10-01T00:00' GROUP BY symbol ORDER by SUM(pnl);
+SELECT symbol, COUNT(*), SUM(pnl) FROM trades WHERE status = 'closed' and entry_time >= '2026-10-01T00:00' and exit_time <= '2026-10-30T23:59' GROUP BY symbol ORDER by SUM(pnl) DESC;

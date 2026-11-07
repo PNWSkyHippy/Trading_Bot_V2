@@ -1,254 +1,141 @@
-.
-├── 3dViewerApp
-│   ├── mcp_work
-│   │   └── out
-│   ├── pov
-│   │   ├── director
-│   │   │   ├── Camera_sweep2
-│   │   │   ├── RonTestScene1
-│   │   │   └── Viewer_shot
-│   │   ├── pov_frames
-│   │   │   ├── __active_frame_strip_2026-10-15_014108
-│   │   │   ├── __active_frame_strip_2026-10-15_014811
-│   │   │   ├── scene3d_strip_2026-10-15_014928
-│   │   │   └── scene3d_strip_2026-10-15_015541
-│   │   └── images
-│   ├── backups
-│   ├── meshes
-│   └── turtle_lib
-├── DecentClone
-│   └── audio
-│       └── Audio
-├── PovRay
-│   ├── doc
-│   │   └── html
-│   │       └── images
-│   ├── platform
-│   │   ├── x86
-│   │   │   ├── avx
-│   │   │   ├── avx2fma3
-│   │   │   └── avxfma4
-│   │   └── unix
-│   ├── scenes
-│   │   ├── advanced
-│   │   │   ├── balcony
-│   │   │   ├── benchmark
-│   │   │   ├── blocks
-│   │   │   ├── cliche
-│   │   │   ├── crater
-│   │   │   ├── desk
-│   │   │   ├── drums2
-│   │   │   ├── glasschess
-│   │   │   ├── grenadine
-│   │   │   ├── ntreal
-│   │   │   ├── pov_frames
-│   │   │   └── teapot
-│   │   ├── animations
-│   │   │   ├── ambient
-│   │   │   ├── camera2
-│   │   │   ├── clockd
-│   │   │   ├── diffuse
-│   │   │   ├── float1
-│   │   │   ├── float2
-│   │   │   ├── float3
-│   │   │   ├── float4
-│   │   │   ├── fractalzoom
-│   │   │   ├── l_o
-│   │   │   ├── quilted
-│   │   │   ├── raddem
-│   │   │   ├── reflection
-│   │   │   ├── speclr
-│   │   │   ├── splinefollow
-│   │   │   ├── vect1
-│   │   │   └── vect2
-│   │   ├── camera
-│   │   │   └── mesh_camera
-│   │   ├── incdemo
-│   │   │   ├── glasses
-│   │   │   ├── metals
-│   │   │   ├── stones
-│   │   │   └── woods
-│   │   ├── interior
-│   │   │   └── media
-│   │   ├── language
-│   │   │   ├── arrays
-│   │   │   ├── fileio
-│   │   │   └── macros
-│   │   ├── objects
-│   │   │   ├── csg
-│   │   │   └── quartic
-│   │   ├── previews
-│   │   │   ├── advanced
-│   │   │   ├── animations
-│   │   │   ├── bsp
-│   │   │   ├── camera
-│   │   │   ├── incdemo
-│   │   │   ├── interior
-│   │   │   ├── language
-│   │   │   ├── lights
-│   │   │   ├── mesh_camera
-│   │   │   ├── objectmods
-│   │   │   ├── objects
-│   │   │   ├── output
-│   │   │   ├── qtvr
-│   │   │   ├── rad_sub
-│   │   │   └── textures
-│   │   ├── templates
-│   │   │   ├── Animation
-│   │   │   ├── Basic_Scenes
-│   │   │   ├── Basic_Shapes_angular
-│   │   │   ├── Basic_Shapes_round
-│   │   │   ├── blob_fractal
-│   │   │   ├── Colors_in_textures
-│   │   │   ├── General_statements
-│   │   │   ├── height_field_and_HF_macros
-│   │   │   ├── Include
-│   │   │   ├── Isosurfaces_by_basic_functions
-│   │   │   ├── Isosurfaces_by_function_inc
-│   │   │   ├── Isosurfaces_by_pattern_functions
-│   │   │   ├── Lights_skies_fogs_rainbow
-│   │   │   ├── Math_functions
-│   │   │   ├── Meshes_by_meshmaker_inc
-│   │   │   ├── Non_CSG_shapes
-│   │   │   ├── Parametric_Surfaces
-│   │   │   ├── Polynomial_Quartic
-│   │   │   ├── Radiosity_Photons
-│   │   │   ├── Random
-│   │   │   ├── Shapes2_inc
-│   │   │   ├── Shapes3_inc
-│   │   │   ├── Shearing_and_transform
-│   │   │   ├── Sphere_sweep_Spline_curves
-│   │   │   ├── Text_Shapes_3D
-│   │   │   ├── Textures_Materials
-│   │   │   └── While_Loops_For_Loops
-│   │   ├── textures
-│   │   │   ├── finishes
-│   │   │   ├── normals
-│   │   │   ├── patterns
-│   │   │   └── pigments
-│   │   ├── bsp
-│   │   ├── lights
-│   │   ├── objectmods
-│   │   ├── output
-│   │   ├── portfolio
-│   │   ├── qtvr
-│   │   ├── radiosity
-│   │   └── subsurface
-│   ├── source
-│   │   ├── backend
-│   │   │   ├── bounding
-│   │   │   ├── control
-│   │   │   ├── lighting
-│   │   │   ├── render
-│   │   │   ├── scene
-│   │   │   └── support
-│   │   ├── base
-│   │   │   ├── animation
-│   │   │   ├── data
-│   │   │   ├── font
-│   │   │   └── image
-│   │   ├── core
-│   │   │   ├── bounding
-│   │   │   ├── colour
-│   │   │   ├── lighting
-│   │   │   ├── material
-│   │   │   ├── math
-│   │   │   ├── render
-│   │   │   ├── scene
-│   │   │   ├── shape
-│   │   │   └── support
-│   │   ├── frontend
-│   │   ├── parser
-│   │   ├── povms
-│   │   └── vm
-│   ├── unix
-│   │   ├── icons
-│   │   │   └── source
-│   │   ├── config
-│   │   └── povconfig
-│   ├── vfe
-│   │   └── unix
-│   ├── icons
-│   ├── include
-│   ├── ini
-│   └── scripts
-├── quick_tk
-│   ├── core
-│   └── examples
-├── RayTrace
-│   └── src
-│       ├── external
-│       │   └── python
-│       ├── images
-│       │   └── cover
-│       ├── scene_data
-│       │   ├── book2_scene1_2026-10-04_032211
-│       │   ├── book2_scene1_2026-10-04_032257
-│       │   ├── book2_scene1_2026-10-13_202924
-│       │   ├── book2_scene1_2026-10-13_203750
-│       │   ├── book2_scene1_2026-10-13_221021
-│       │   ├── book2_scene1_2026-10-14_112836
-│       │   └── director
-│       ├── TheNextWeek
-│       │   ├── external
-│       │   └── python
-│       ├── TheRestOfYourLife
-│       │   ├── external
-│       │   └── python
-│       ├── editedpovray-osurce
-│       ├── gif_preview
-│       ├── pov_frames
-│       ├── SavedGifs
-│       └── TunellScene
-├── TkFileTool.onefile-build
-│   ├── blobs
-│   └── static_src
-├── Tutorial
-│   ├── MCP
-│   │   └── source-code-final
-│   │       ├── mcp_client
-│   │       ├── mcp_client.egg-info
-│   │       └── mcp_server
-│   ├── mcp-client
-│   │   ├── mcp-client
-│   │   └── mcp-server
-│   ├── Selenium
-│   │   ├── build
-│   │   │   ├── bdist.win-amd64
-│   │   │   └── lib
-│   │   ├── src
-│   │   │   ├── bandcamp
-│   │   │   └── pycamp.egg-info
-│   │   └── training
-│   ├── Serialize-Data
-│   │   ├── executable-code
-│   │   │   ├── code-objects
-│   │   │   ├── digital-signature
-│   │   │   └── pickle-importable
-│   │   ├── hierarchical-data
-│   │   │   └── data
-│   │   ├── http-payload
-│   │   │   ├── django-rest-api
-│   │   │   ├── fastapi-rest-api
-│   │   │   ├── flask-rest-api
-│   │   │   └── pydantic-demo
-│   │   ├── python-objects
-│   │   │   ├── customize-pickle
-│   │   │   ├── foreign-formats
-│   │   │   ├── json-encode
-│   │   │   └── standard-python
-│   │   ├── schema-based
-│   │   │   ├── avro-demo
-│   │   │   └── protocol-buffers-demo
-│   │   └── tabular-data
-│   │       ├── csv-demo
-│   │       └── parquet-demo
-│   └── Classes
-├── backups
-├── data
-├── decorators
-├── pillow-scripts
-├── schedule
-├── skills-demo
-├── testdir
-└── TkinterDemos
+C:/Users/Linda/Trading_Bot_V2/Ron/Code
+├── MyFileToolReport.txt [2026-11-06 12:12:22]
+├── Cash History.csv [2026-11-06 12:07:39]
+├── test.js [2026-11-02 05:59:51]
+├── .DS_Store [2026-11-01 18:46:12]
+├── 3dViewerApp.zip [2026-11-01 08:36:25]
+├── trades_list.py [2026-11-01 05:10:46]
+├── TkTrades_list.py [2026-11-01 05:05:38]
+├── testotfile.csv [2026-11-01 03:39:07]
+├── TkFileTool.py [2026-11-01 03:26:46]
+├── MyFileToolReport.json [2026-11-01 03:11:20]
+├── MyFileToolReport.csv [2026-11-01 03:06:30]
+├── hosturl [2026-10-29 05:23:30]
+├── testotfile [2026-10-28 20:27:50]
+├── uv.lock [2026-10-28 18:54:30]
+├── pyproject.toml [2026-10-28 18:53:58]
+├── local_functions.py [2026-10-28 13:55:53]
+├── TkCalc.py [2026-10-28 07:16:18]
+├── testfile [2026-10-27 23:00:13]
+├── pymag.py [2026-10-27 19:05:35]
+├── TkFileTool-2026-10-27.py [2026-10-27 08:24:36]
+├── .hidden_file.txt [2026-10-26 20:06:19]
+├── testfile.PY [2026-10-26 08:12:46]
+├── mfind.py [2026-10-25 06:27:38]
+├── test.txt [2026-10-24 19:50:57]
+├── New shortcut.lnk [2026-10-24 03:26:36]
+├── os_walk.py [2026-10-23 08:14:00]
+├── ClassTest.py [2026-10-23 08:02:34]
+├── local_functions.Copy.py [2026-10-21 17:52:02]
+├── showcase [2026-10-21 16:03:23]
+├── def2lambda.py [2026-10-18 10:46:37]
+├── report [2026-10-17 16:26:59]
+├── report.json [2026-10-17 16:26:59]
+├── log [2026-10-17 14:59:23]
+├── stdout.txt [2026-10-17 13:56:29]
+├── pyrefly.toml [2026-10-16 04:24:01]
+├── OpOverLoaded.py [2026-10-10 06:58:46]
+├── cummincations.py [2026-10-10 04:41:33]
+├── p103finalproject.py [2026-10-10 01:27:29]
+├── sort_inc.py [2026-10-09 20:40:25]
+├── test_p103finalproject.py [2026-10-09 13:10:56]
+├── test2fa.py [2026-10-09 09:46:35]
+├── opoverloaded.old.py [2026-10-07 05:34:54]
+├── persist_filter.py [2026-10-06 05:15:25]
+├── test.py [2026-10-02 13:56:19]
+├── tst.py [2026-10-02 13:37:29]
+├── timer.py [2026-10-02 13:31:29]
+├── Performance.csv [2026-10-02 07:01:38]
+├── Cash History38.csv [2026-10-02 06:21:43]
+├── Cash History46.csv [2026-10-02 06:20:25]
+├── calc_inc.py [2026-10-01 11:29:25]
+├── get_hightradebalance.py [2026-10-01 00:19:32]
+├── modular_calc_demo.py [2026-09-28 05:03:01]
+├── TkTicTacToe.py [2026-09-26 23:06:24]
+├── TkQuickTKBasic.py [2026-09-26 04:58:26]
+├── CashHistory.csv [2026-09-25 13:08:17]
+├── objects_info.py [2026-09-25 04:35:19]
+├── trade_report_table.py [2026-09-23 21:33:54]
+├── analyzee_mfe_mae_log.py [2026-09-22 13:24:31]
+├── comprehenstions_examples.py [2026-09-22 13:20:56]
+├── remove_trade.py [2026-09-22 13:18:49]
+├── setup_filter.py [2026-09-22 13:17:43]
+├── sorts.py [2026-09-22 13:17:18]
+├── position_sizer.py [2026-09-22 02:02:29]
+├── ray_tracer8.py [2026-09-22 02:02:29]
+├── ray_tracer7.py [2026-09-22 02:02:29]
+├── ray_tracer6.py [2026-09-22 02:02:29]
+├── pyhelper.py [2026-09-22 02:02:29]
+├── ray_tracer5.py [2026-09-22 02:02:29]
+├── Tkinfo.py [2026-09-22 02:02:29]
+├── DkDemo.py [2026-09-22 02:02:29]
+├── ray_tracer4.py [2026-09-22 02:02:29]
+├── TkFullDemo.py [2026-09-22 02:02:29]
+├── image_convert.py [2026-09-22 02:02:29]
+├── ray_tracer3.py [2026-09-22 02:02:29]
+├── StringsLissAndDicts_Insstructions.py [2026-09-22 02:02:29]
+├── TkRowColGridDemo.py [2026-09-22 02:02:29]
+├── grreeters.py [2026-09-22 02:02:29]
+├── ray_tracer2.py [2026-09-22 02:02:29]
+├── fee_check.py [2026-09-22 02:02:29]
+├── rat_tracer.py [2026-09-22 02:02:29]
+├── grep_like2.py [2026-09-22 02:02:29]
+├── def save_log_to_file(filename, content_l.py [2026-09-22 02:02:29]
+├── quick_tk_shell2.py [2026-09-22 02:02:29]
+├── grep_like.py [2026-09-22 02:02:29]
+├── quick_tk_shell.py [2026-09-22 02:02:29]
+├── water_wave.py [2026-09-22 02:02:29]
+├── sqliter_error_andling.py [2026-09-22 02:02:29]
+├── sqlite_tutorial.py [2026-09-22 02:02:29]
+├── sqlite_pansas_totrial.py [2026-09-22 02:02:29]
+├── sqlite_pandas_csv_to_db.py [2026-09-22 02:02:29]
+├── odop_solar.py [2026-09-22 02:02:29]
+├── sqlite_csv_to_db_pure_python.py [2026-09-22 02:02:29]
+├── testcode.py [2026-09-22 02:02:29]
+├── test_import_bubble.py [2026-09-22 02:02:29]
+├── data_structures_reference.py [2026-09-22 02:02:29]
+├── julisa_set.py [2026-09-22 02:02:29]
+├── test_import.py [2026-09-22 02:02:29]
+├── item_count..py [2026-09-22 02:02:29]
+├── comet.py [2026-09-22 02:02:29]
+├── schoolproj.py [2026-09-22 02:02:29]
+├── insertion_sort.py [2026-09-22 02:02:29]
+├── teast.py [2026-09-22 02:02:29]
+├── calc_pnl_cost2.py [2026-09-22 02:02:29]
+├── calc_pnl_cost.py [2026-09-22 02:02:29]
+├── budget_tracker.py [2026-09-22 02:02:29]
+├── ray_tracer9_spatial.py [2026-09-22 02:02:29]
+├── bubble_sort.py [2026-09-22 02:02:29]
+├── astral_wormhole.py [2026-09-22 02:02:29]
+├── CartRegister.py [2026-09-22 02:02:29]
+├── EstToPst.py [2026-09-22 02:02:29]
+├── Calculate_grade.py [2026-09-22 02:02:29]
+├── DictionaryListsReference.py [2026-09-22 02:02:29]
+├── ad_gravity.py [2026-09-22 02:02:29]
+├── PrintingListsandFunctionResults.py [2026-09-22 02:02:29]
+├── index.html [2026-09-14 05:00:37]
+├── breakout_tradelog.csv [2026-09-09 07:13:03]
+├── .myignore [2026-09-05 13:13:15]
+├── sphere.py [2026-09-04 06:57:55]
+├── aabb.py [2026-09-04 06:57:55]
+├── ClassTest.Copy.py [2026-08-31 11:22:36]
+├── outfile.csv [2026-08-28 12:18:39]
+├── sorts.py - Shortcut.lnk [2026-08-26 12:21:29]
+├── py102proj1.py [2026-08-25 17:47:01]
+├── stdin.py [2026-08-25 17:43:04]
+├── square.py [2026-08-25 17:43:04]
+├── outfile2 [2026-08-22 10:43:42]
+├── outfile1 [2026-08-22 10:43:42]
+├── notes.txt [2026-08-22 10:43:42]
+├── logfile.txt [2026-08-22 10:43:42]
+├── import torch.txt [2026-08-22 10:43:42]
+├── file2 [2026-08-22 10:43:42]
+├── MobaDiffReport.txt [2026-08-22 10:43:42]
+├── .ignoreme [2026-08-22 10:22:35]
+├── use_toolbox.py [2026-08-12 13:31:52]
+├── toolbox.py [2026-08-12 13:31:52]
+├── sqlite_pandas_csv_to_db.oy [2026-08-12 13:31:52]
+├── sound-test.html [2026-08-12 13:31:52]
+├── list_sort_practice.py [2026-08-12 13:31:52]
+├── Untitled-1.py [2026-08-12 13:31:52]
+└── ManualTest.ps1 [2026-08-12 13:31:52]

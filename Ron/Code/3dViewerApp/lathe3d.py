@@ -36,6 +36,7 @@ PRESETS = {
 
 
 def _unit(v, what="vector"):
+    """Return x scaled to length 1; raise ValueError (naming `what`) if it is the zero vector."""
     v = np.asarray(v, float)
     n = np.linalg.norm(v)
     if n < 1e-12:
@@ -44,6 +45,7 @@ def _unit(v, what="vector"):
 
 
 def _perp(n):
+    """Return a unit vector perpendicular to n."""
     return _unit(np.cross(n, (1.0, 0, 0) if abs(n[0]) < 0.9 else (0, 1.0, 0)))
 
 
@@ -63,8 +65,10 @@ def catmull_rom(pts, sub=SUB):
 
 
 class Lathe3d(_Geometry3d):
+    """A surface of revolution: a 2D profile (radius, height) spun around an axis."""
     def __init__(self, base=(0, 0, 0), axis=(0, 0, 1), ref=None, profile=None, segments=24,
                  sweep=360.0, curved=True, faceted=False, bc="white", fc="tan", name="Lathe3d"):
+        """Set up the lathe from a base point, axis, zero-angle reference, profile, segment count and sweep (degrees)."""
         b = np.asarray(base, float)
         a = np.asarray(axis, float)
         s = np.linalg.norm(a)
@@ -85,6 +89,7 @@ class Lathe3d(_Geometry3d):
 
     # --- stored points (what move / rotate / scale act on)
     def _points(self):
+        """Return the three defining points: base, tip and reference."""
         return [self._base, self._tip, self._ref]
 
     def frame(self):
@@ -99,45 +104,58 @@ class Lathe3d(_Geometry3d):
 
     # --- getters / setters
     def get_base(self):
+        """Return the base point."""
         return self._base
 
     def get_tip(self):
+        """Return the tip point (the far end of the axis)."""
         return self._tip
 
     def get_axis(self):
+        """Return the unit axis direction as a tuple."""
         return tuple(self.frame()[1])
 
     def get_size(self):
+        """Return the axis length (the scale of the profile)."""
         return self.frame()[4]
 
     def get_profile(self):
+        """Return a copy of the profile as (radius, height) pairs."""
         return list(self._profile)
 
     def set_profile(self, profile):
+        """Replace the profile with (radius, height) pairs; raise ValueError if fewer than 2."""
         prof = [(max(0.0, float(r)), float(h)) for r, h in profile]
         if len(prof) < 2:
             raise ValueError("A profile needs at least 2 points")
         self._profile = prof
 
     def get_segments(self):
+        """Return how many steps the sweep is divided into."""
         return self._segments
 
     def get_sweep(self):
+        """Return the sweep angle in degrees."""
         return self._sweep
 
     def is_curved(self):
+        """Return True if the profile is drawn as a smooth curve."""
         return self._curved
 
     def is_faceted(self):
+        """Return True if faces are shown flat instead of smooth."""
         return self._faceted
 
     def get_bc(self):
+        """Return the border color."""
         return self._bc
 
     def get_fc(self):
+        """Return the fill color."""
         return self._fc
 
     def get_name(self):
+        """Return the object's name."""
         return self._name
 
     def get_center(self):
@@ -147,6 +165,7 @@ class Lathe3d(_Geometry3d):
         return Point3d(*(b + an * s * (min(hs) + max(hs)) / 2))
 
     def __str__(self):
+        """Return a one-line description: name, base, axis, profile points, segments and sweep."""
         b, an, _u, _v, s = self.frame()
         return (f"Lathe3d {self._name}: base ({', '.join(f'{c:g}' for c in np.round(b, 3))}), "
                 f"axis ({', '.join(f'{c:g}' for c in np.round(an, 3))}) x{s:g}, "
@@ -161,6 +180,7 @@ class Lathe3d(_Geometry3d):
         return list(self._profile)
 
     def angles(self):
+        """Return the sweep angles (radians) of every segment edge."""
         return np.radians(self._sweep) * np.arange(self._segments + 1) / self._segments
 
     def mesh(self):
@@ -180,6 +200,7 @@ class Lathe3d(_Geometry3d):
 
     @staticmethod
     def _span_normals(prof):
+        """Return the 2D outward normal of each profile span (zero for a zero-length span)."""
         d = np.diff(prof, axis=0)
         n2 = np.stack([d[:, 1], -d[:, 0]], 1)
         ln = np.linalg.norm(n2, axis=1, keepdims=True)
@@ -200,6 +221,7 @@ class Lathe3d(_Geometry3d):
 
     # --- CSV numbers
     def to_nums(self):
+        """Return the list of numbers that rebuilds this lathe (the inverse of from_nums)."""
         b, t, rf = (np.array(p.get_xyz(), float) for p in self._points())
         flags = (1 if self._curved else 0) + (2 if self._faceted else 0)
         return (list(b) + list(t - b) + list(_unit(rf - b)) + [self._segments, self._sweep, flags]
@@ -207,6 +229,7 @@ class Lathe3d(_Geometry3d):
 
     @classmethod
     def from_nums(cls, n, bc=None, fc=None, name="Lathe3d"):
+        """Build a lathe from its saved numbers; raise ValueError if there are too few."""
         n = [float(x) for x in n]
         if len(n) < 16:
             raise ValueError("lathe3d needs base, axis, ref, segments, sweep, flags and 2+ profile points")
@@ -249,6 +272,7 @@ def pov_shape(nums, vec, fmt):
 # the editor window
 # ----------------------------------------------------------------------------
 def _f(v):
+    """Format a number with up to 3 decimals and no trailing zeros."""
     s = f"{float(v):.3f}".rstrip("0").rstrip(".")
     return "0" if s in ("-0", "") else s
 
@@ -259,6 +283,7 @@ class LatheTool:
     W, H = 420, 520
 
     def __init__(self, app, entry=None):
+        """Open the lathe editor window, for a new shape or to edit the given scene entry."""
         self.app = app
         self.entry = entry
         self.orig = (list(entry.nums), entry.c1, entry.c2) if entry is not None else None
@@ -275,6 +300,7 @@ class LatheTool:
 
     # --- layout
     def _build(self):
+        """Create the editor's widgets."""
         frm = ttk.Frame(self.top, padding=6)
         frm.pack(fill=tk.BOTH, expand=True)
         left = ttk.Frame(frm)
@@ -364,6 +390,7 @@ class LatheTool:
         self._mode()
 
     def _xyz(self, parent, row, label, vals):
+        """Add a labeled row of three number boxes to parent and return their variables."""
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w")
         vs = []
         for i, d in enumerate(vals):
@@ -373,6 +400,7 @@ class LatheTool:
         return vs
 
     def _mode(self):
+        """Set the window title and button labels for new-shape or edit mode."""
         if self.entry is None:
             self.top.title("Lathe tool - new shape")
             self.lbl_mode.configure(text="New lathe (ghost in the main view)")
@@ -383,6 +411,7 @@ class LatheTool:
             self.btn_ok.configure(text="Apply")
 
     def load_entry(self, e):
+        """Fill the editor from an existing scene entry."""
         o = Lathe3d.from_nums(e.nums)
         n = e.nums
         self.profile = o.get_profile()
@@ -399,14 +428,17 @@ class LatheTool:
 
     # --- profile canvas: axis line in the middle, right side is the profile, left its mirror
     def origin(self):
+        """Return the canvas pixel of the axis foot (profile origin)."""
         w, h = max(self.cv.winfo_width(), 10), max(self.cv.winfo_height(), 10)
         return w / 2, h - 30
 
     def to_screen(self, r, h):
+        """Convert a profile (radius, height) to canvas pixels."""
         x0, y0 = self.origin()
         return x0 + r * self.ppu, y0 - (h - self.h0) * self.ppu
 
     def to_profile(self, x, y):
+        """Convert canvas pixels to a profile (radius, height), snapped if Snap is on."""
         x0, y0 = self.origin()
         r, h = abs(x - x0) / self.ppu, (y0 - y) / self.ppu + self.h0
         if self.v_snap.get():
@@ -419,6 +451,7 @@ class LatheTool:
         return round(r, 4), round(h, 4)
 
     def fit(self):
+        """Choose the zoom and offset so the whole profile fits the canvas."""
         self.cv.update_idletasks()
         rs = [r for r, _h in self.profile] + [1.0]
         hs = [h for _r, h in self.profile]
@@ -429,6 +462,7 @@ class LatheTool:
         self.draw()
 
     def nearest(self, x, y, tol=9):
+        """Return the index of the profile point within `tol` pixels of (x, y), or None."""
         best, bi = tol, None
         for i, (r, h) in enumerate(self.profile):
             for sx, sy in (self.to_screen(r, h), self.to_screen(-r, h)):
@@ -438,6 +472,7 @@ class LatheTool:
         return bi
 
     def press(self, ev, insert=False):
+        """Start dragging a point, or insert a new one (insert=True or a click in empty space)."""
         i = self.nearest(ev.x, ev.y)
         if i is not None and not insert:
             self.drag = i
@@ -462,28 +497,33 @@ class LatheTool:
         return "break"
 
     def motion(self, ev):
+        """Move the point being dragged and update the view."""
         if self.drag is None or self.drag >= len(self.profile):
             return
         self.profile[self.drag] = self.to_profile(ev.x, ev.y)
         self.changed()
 
     def delete_point(self, ev):
+        """Delete the profile point under the mouse (a profile keeps at least 2)."""
         i = self.nearest(ev.x, ev.y)
         if i is not None and len(self.profile) > 2:
             del self.profile[i]
             self.changed()
 
     def use_preset(self):
+        """Replace the profile with the chosen preset shape."""
         self.profile = [tuple(p) for p in PRESETS[self.v_preset.get()]]
         self.fit()
         self.changed()
 
     def clear(self):
+        """Empty the profile so a new one can be drawn."""
         self.profile = []
         self.draw()
         self.status.configure(text="Click beside the axis to place points, bottom to top")
 
     def draw(self):
+        """Redraw the profile editor canvas."""
         c = self.cv
         c.delete("all")
         if not hasattr(self, "h0"):
@@ -531,6 +571,7 @@ class LatheTool:
 
     # --- shape <-> main view
     def make(self):
+        """Build a Lathe3d from the current settings; raise ValueError on bad numbers."""
         base = [float(v.get()) for v in self.v_base]
         axis = [float(v.get()) for v in self.v_axis]
         ref = getattr(self, "_ref", None)
@@ -540,11 +581,13 @@ class LatheTool:
                        name=self.v_name.get().strip() or "lathe")
 
     def changed(self):
+        """Redraw now and schedule a (coalesced) update of the main-view ghost."""
         self.draw()
         if self._pending is None:                    # coalesce bursts of drag events
             self._pending = self.top.after(25, self._update_view)
 
     def _update_view(self):
+        """Show the current lathe as a ghost in the main view."""
         self._pending = None
         try:
             obj = self.make()
@@ -564,6 +607,7 @@ class LatheTool:
         self.app.redraw()
 
     def commit(self):
+        """Add the lathe to the scene, or apply the edit to the entry, then close."""
         try:
             obj = self.make()
         except (ValueError, TypeError) as exc:
@@ -593,6 +637,7 @@ class LatheTool:
         app.refresh()
 
     def close(self):
+        """Cancel pending updates, remove the ghost and close the window."""
         if self._pending is not None:
             self.top.after_cancel(self._pending)
         app = self.app

@@ -24,22 +24,28 @@ RED = "#c53030"
 
 # --------------------------------------------------------------- draw helpers
 def _arrow(c, x1, y1, x2, y2, color=INK, width=2, dash=None):
+    """Draw a line from (x1, y1) to (x2, y2) with an arrowhead at the end."""
     c.create_line(x1, y1, x2, y2, arrow="last", fill=color, width=width,
                   dash=dash, capstyle="round")
 
 def _line(c, x1, y1, x2, y2, color=INK, width=2, dash=None):
+    """Draw a plain line from (x1, y1) to (x2, y2)."""
     c.create_line(x1, y1, x2, y2, fill=color, width=width, dash=dash, capstyle="round")
 
 def _box(c, x, y, w, h, fill=FILL, outline=BLUE, width=2, dash=None):
+    """Draw a rectangle at (x, y) of size w by h."""
     c.create_rectangle(x, y, x + w, y + h, fill=fill, outline=outline, width=width, dash=dash)
 
 def _oval(c, x, y, w, h, fill=FILL, outline=BLUE, width=2):
+    """Draw an oval in the box at (x, y) of size w by h."""
     c.create_oval(x, y, x + w, y + h, fill=fill, outline=outline, width=width)
 
 def _poly(c, pts, fill=FILL, outline=BLUE, width=2):
+    """Draw a filled polygon through the flat list of points `pts`."""
     c.create_polygon(pts, fill=fill, outline=outline, width=width)
 
 def _txt(c, x, y, s, color=INK, size=9, anchor="center", bold=False):
+    """Write the text `s` at (x, y) in the help font."""
     f = ("Segoe UI", size, "bold") if bold else ("Segoe UI", size)
     c.create_text(x, y, text=s, fill=color, font=f, anchor=anchor)
 
@@ -56,6 +62,7 @@ def _cube(c, x, y, s, fill=FILL, top="#eaf2ff", side="#aecbf0", outline=BLUE):
 
 # --------------------------------------------------------------- diagrams
 def _d_overview(c):
+    """Diagram: the three parts of the window (view, object list, panel)."""
     _txt(c, CANVAS_W / 2, 18, "The window has three parts", bold=True, size=11)
     _box(c, 30, 45, 250, 210, fill="#eef4ff")
     _txt(c, 155, 60, "3D view  —  orbit, pan, zoom", color=BLUE)
@@ -70,6 +77,7 @@ def _d_overview(c):
         _txt(c, 315, 188 + i * 18, t, color=INK, size=8, anchor="w")
 
 def _d_navigate(c):
+    """Diagram: orbit, pan and zoom around the view."""
     _cube(c, 180, 160, 90)
     _arrow(c, 150, 120, 110, 95, color=BLUE)
     _arrow(c, 330, 120, 370, 95, color=BLUE)
@@ -78,6 +86,7 @@ def _d_navigate(c):
     _txt(c, 240, 262, "W A S D fly,  R / F up-down,  Shift = faster", color=MUTE)
 
 def _d_tree(c):
+    """Diagram: selecting rows in the object list."""
     _txt(c, CANVAS_W / 2, 18, "Click a row to select.  Shift / Ctrl pick more.", size=10)
     items = [(0, "floor"), (0, "house  (group)"), (1, "wall1"), (1, "wall2"),
              (1, "roof"), (0, "lamp")]
@@ -92,6 +101,7 @@ def _d_tree(c):
     _txt(c, 250, 268, "Delete removes,  Ctrl+Z undo,  double-click = Properties", color=MUTE)
 
 def _d_add(c):
+    """Diagram: the Add menu and the shapes it makes."""
     _txt(c, CANVAS_W / 2, 18, "Add menu:  pick a kind, type two points, OK", size=10)
     _cube(c, 55, 110, 46)
     _oval(c, 150, 70, 60, 60, fill=GFILL, outline=GREEN)
@@ -106,6 +116,7 @@ def _d_add(c):
     _txt(c, 250, 250, "Solids, curved tubes and the Lathe tool are all in the Add menu", color=MUTE)
 
 def _d_transforms(c):
+    """Diagram: Move, Center, Scale and Rotate."""
     _txt(c, CANVAS_W / 2, 16, "Move / Center / Scale / Rotate the selection", size=10)
     _cube(c, 55, 110, 46)
     _arrow(c, 115, 95, 185, 95, color=GREEN, width=3)
@@ -120,6 +131,7 @@ def _d_transforms(c):
     _txt(c, 210, 245, "Rotate by degrees   (Undo transform steps back one)", color=INK, size=9, anchor="w")
 
 def _d_pivot(c):
+    """Diagram: rotating about a point or an axis line."""
     _txt(c, CANVAS_W / 2, 16, "Rotate about a pivot point, or about an axis line", size=10)
     # pivot point
     cx, cy = 130, 150
@@ -142,6 +154,7 @@ def _d_pivot(c):
     _txt(c, 250, 275, "Pivot = center / point / an object;  axis spins around any line", color=MUTE)
 
 def _d_replicate(c):
+    """Diagram: Replicate makes stepped copies."""
     _txt(c, CANVAS_W / 2, 16, "Replicate:  N copies, each stepped and (optionally) smaller", size=9)
     x = 40
     s = 60
@@ -155,6 +168,7 @@ def _d_replicate(c):
     _txt(c, 250, 274, "put them in a group to move the whole run at once", color=MUTE)
 
 def _d_ring(c):
+    """Diagram: Ring copy spreads copies around a circle."""
     import math
     _txt(c, CANVAS_W / 2, 16, "Ring copy:  copies spread around a circle", size=10)
     cx, cy, r = 250, 165, 95
@@ -168,6 +182,7 @@ def _d_ring(c):
     _txt(c, 250, 282, "from/to degrees set the spread;  add step for a spiral", color=MUTE)
 
 def _d_groups(c):
+    """Diagram: a group moves and scales as one."""
     _txt(c, CANVAS_W / 2, 16, "Group:  tag objects so they move/scale together", size=10)
     _box(c, 55, 55, 240, 190, fill="", outline=GREEN, width=2, dash=(6, 4))
     _txt(c, 175, 70, "house", color=GREEN, bold=True)
@@ -179,6 +194,7 @@ def _d_groups(c):
     _txt(c, 390, 170, "groups can nest", size=9, color=MUTE)
 
 def _d_twin(c):
+    """Diagram: Twin makes a mirrored copy."""
     _txt(c, CANVAS_W / 2, 16, "Twin:  a mirrored copy lifted off the first", size=10)
     _poly(c, [150, 180, 250, 180, 200, 110], fill=FILL, outline=BLUE)
     _poly(c, [150, 182, 250, 182, 200, 252], fill=GFILL, outline=GREEN)
@@ -188,6 +204,7 @@ def _d_twin(c):
     _txt(c, 330, 200, "axis X/Y/Z, flip option", size=8, anchor="w")
 
 def _d_csg(c):
+    """Diagram: Union, Difference and Intersect."""
     _txt(c, CANVAS_W / 2, 16, "CSG:  combine two solids", size=10)
     labels = ("Union", "Difference", "Intersect")
     for i, lab in enumerate(labels):
@@ -208,6 +225,7 @@ def _d_csg(c):
     _txt(c, 250, 272, "@name targets a whole group", color=MUTE)
 
 def _d_hollow(c):
+    """Diagram: Hollow shells out a solid."""
     _txt(c, CANVAS_W / 2, 16, "Hollow:  shell out a solid, set wall thickness", size=10)
     _box(c, 150, 70, 200, 170, fill="#e6eefc", outline=BLUE)
     _box(c, 170, 90, 160, 130, fill=BG, outline=BLUE, dash=(4, 3))
@@ -218,6 +236,7 @@ def _d_hollow(c):
     _txt(c, 250, 262, "open end:  none / top / both  (like a pipe or a cup)", color=MUTE)
 
 def _d_align(c):
+    """Diagram: Align snaps objects to the first one clicked."""
     _txt(c, CANVAS_W / 2, 16, "Align:  snap objects to the first one clicked", size=10)
     _line(c, 90, 150, 410, 150, color=RED, dash=(5, 3))
     _box(c, 90, 120, 50, 50, fill=GFILL, outline=GREEN)
@@ -229,6 +248,7 @@ def _d_align(c):
     _txt(c, 250, 250, "pick axes (X/Y/Z) and how:  min / center / max edge", color=MUTE)
 
 def _d_colors(c):
+    """Diagram: line color and fill color."""
     _txt(c, CANVAS_W / 2, 16, "Colors:  line color and fill color", size=10)
     _cube(c, 150, 170, 110, fill="#ffd6d6", top="#ffecec", side="#ffb3b3", outline=RED)
     _txt(c, 205, 230, "line = outline", color=RED, size=9)
@@ -239,6 +259,7 @@ def _d_colors(c):
     _txt(c, 410, 170, "fill", anchor="w", size=8)
 
 def _d_material(c):
+    """Diagram: a POV-Ray material with an optional image texture."""
     _txt(c, CANVAS_W / 2, 16, "Material:  a POV-Ray look, optional image texture", size=9)
     _box(c, 120, 70, 150, 150, fill="#d7c2a0", outline=ORANGE)
     for i in range(1, 5):
@@ -251,6 +272,7 @@ def _d_material(c):
     _txt(c, 340, 190, "own image file", size=9, anchor="w", color=MUTE)
 
 def _d_layers(c):
+    """Diagram: layers shown and hidden."""
     _txt(c, CANVAS_W / 2, 16, "Layers:  tag objects, then show or hide a whole layer", size=9)
     sheets = [("Default", "#cfe3ff", True), ("Walls", "#c6f6d5", True),
               ("Wiring", "#feebc8", False), ("Notes", "#fed7e2", True)]
@@ -264,6 +286,7 @@ def _d_layers(c):
     _txt(c, 250, 262, "unticking a layer hides it in the 3D view, preview and render", color=MUTE)
 
 def _d_snapshots(c):
+    """Diagram: saving a camera snapshot."""
     _txt(c, CANVAS_W / 2, 16, "Snapshots:  save the current camera to come back to", size=9)
     _oval(c, 60, 120, 44, 44, fill="#333", outline="#000")
     _poly(c, [100, 130, 130, 120, 130, 165, 100, 155], fill="#555", outline="#000")
@@ -276,6 +299,7 @@ def _d_snapshots(c):
     _txt(c, 250, 250, "click a saved snapshot to fly the camera back to it", color=MUTE)
 
 def _d_director(c):
+    """Diagram: camera keys along a path (the Director, F8)."""
     import math
     _txt(c, CANVAS_W / 2, 16, "Director (F8):  camera keys along a path for a flythrough", size=9)
     pts = [(70, 220), (160, 140), (260, 200), (360, 110), (440, 160)]
@@ -287,6 +311,7 @@ def _d_director(c):
     _txt(c, 250, 262, "set eye / aim / fov per key;  Play flies through them in order", color=MUTE)
 
 def _d_pov(c):
+    """Diagram: POV-Ray render (F9)."""
     _txt(c, CANVAS_W / 2, 16, "POV-Ray render (F9):  the photo-quality picture", size=10)
     _box(c, 60, 60, 170, 150, fill="#eef4ff")
     _txt(c, 145, 50, "Draft (fast)", color=BLUE, size=9)
@@ -298,6 +323,7 @@ def _d_pov(c):
     _txt(c, 250, 258, "Save .pov writes the scene file;  Open POV GUI launches POV-Ray", color=MUTE)
 
 def _d_taichi(c):
+    """Diagram: the Taichi GPU preview (F10)."""
     _txt(c, CANVAS_W / 2, 16, "Taichi preview (F10):  a fast GPU window you can drag in", size=9)
     _box(c, 60, 55, 250, 200, fill="#1a1a22", outline="#444")
     _cube(c, 150, 170, 60, fill="#8fb3e0", top="#cfe3ff", side="#5a7fb0", outline="#1a3a60")
@@ -310,6 +336,7 @@ def _d_taichi(c):
     _txt(c, 250, 275, "same actions as the main window;  orbit/pan/fly here too", color=MUTE)
 
 def _d_scripts(c):
+    """Diagram: running a .py script that builds objects."""
     _txt(c, CANVAS_W / 2, 16, "Scripts:  run a .py file that builds objects", size=10)
     _box(c, 70, 90, 110, 120, fill="#fff", outline="#888")
     _txt(c, 125, 78, "build.py", size=9, color=MUTE)
@@ -324,6 +351,7 @@ def _d_scripts(c):
 TOPICS = {}
 
 def _topic(tid, title, body, draw=None):
+    """Register a help topic: id, title, body text and an optional diagram function."""
     TOPICS[tid] = {"title": title, "body": body.strip("\n"), "draw": draw}
 
 _topic("overview", "Welcome / Overview", """
@@ -865,7 +893,9 @@ def kind_topic(kind):
 
 # --------------------------------------------------------------- window
 class HelpWindow:
+    """The help window: a topic list on the left and the topic text and diagram on the right."""
     def __init__(self, master, topic=None):
+        """Open the help window under `master`, showing `topic` (or the overview)."""
         self.top = tk.Toplevel(master)
         self.top.title("3D Viewer - Help")
         self.top.geometry("820x560")
@@ -908,6 +938,7 @@ class HelpWindow:
         self.show(topic or "overview")
 
     def _on_pick(self, _e=None):
+        """Show the topic picked in the list."""
         row = (self.tree.selection() or [""])[0]
         tid = self._iid.get(row)
         if tid:
@@ -925,6 +956,7 @@ class HelpWindow:
         self._render(tid)
 
     def _render(self, tid):
+        """Show topic `tid`: its title, text and diagram."""
         t = TOPICS[tid]
         self.current = tid
         self.title_lbl.config(text=t["title"])
@@ -943,6 +975,7 @@ class HelpWindow:
         self.text.config(state="disabled")
 
     def lift_to(self, topic=None):
+        """Bring the window to the front, switching to `topic` if given."""
         if topic:
             self.show(topic)
         self.top.deiconify()

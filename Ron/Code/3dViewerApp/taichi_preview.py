@@ -31,9 +31,202 @@ import time
 import numpy as np
 import taichi as ti
 
+import cloudshadow
+
 ti.init(arch=ti.gpu, offline_cache=True)     # Vulkan/CUDA on the PC, Metal on the Mac
 ARCH = ti.lang.impl.current_cfg().arch.name
 print(f"Taichi preview on {ARCH}")
+
+# ---- sky: a view-filling grid of triangles far behind everything, coloured per vertex ----
+# (a full-window image can't be used: GGUI draws set_image over the 3D scene, hiding it; and
+#  sprites/particles were ~10x slower than a mesh.)  The grid follows the camera, so it is "at infinity".
+SKY_GU, SKY_GV = 96, 60                    # grid cells across / down
+SKY_NVERT = (SKY_GU + 1) * (SKY_GV + 1)
+SKY_LIGHT = 1.51                             # the preview's lights brighten a lit surface by this much
+SKY_MODES = {"off": 0, "gradient": 1, "clouds": 2, "sunset": 3, "stars": 4, "image": 5}
+sky_pos = ti.Vector.field(3, ti.f32, shape=SKY_NVERT)
+sky_nrm = ti.Vector.field(3, ti.f32, shape=SKY_NVERT)
+sky_col = ti.Vector.field(3, ti.f32, shape=SKY_NVERT)
+sky_ind = ti.field(ti.i32, shape=SKY_GU * SKY_GV * 6)
+sky_tex = ti.Vector.field(3, ti.f32, shape=(1024, 512))      # equirectangular picture, if any
+
+
+def _sky_indices():
+    i, j = np.meshgrid(np.arange(SKY_GU), np.arange(SKY_GV), indexing="ij")
+    a = (i * (SKY_GV + 1) + j).ravel()
+    b = a + (SKY_GV + 1)
+    return np.stack([a, b, a + 1, b, b + 1, a + 1], 1).ravel().astype(np.int32)
+
+
+sky_ind.from_numpy(_sky_indices())
+
+# ---- cloud shadows: a ground-hugging grid laid just over the ground slab, darkened per vertex where a cloud layer
+#      blocks the sun (GGUI has no transparency, so the overlay carries the ground's own colour and is seamless when lit) ----
+SH_N = 128                                   # grid cells per side
+SH_NV = (SH_N + 1) ** 2
+sh_pos = ti.Vector.field(3, ti.f32, shape=SH_NV)
+sh_nrm = ti.Vector.field(3, ti.f32, shape=SH_NV)
+sh_col = ti.Vector.field(3, ti.f32, shape=SH_NV)
+sh_ind = ti.field(ti.i32, shape=SH_N * SH_N * 6)
+_i, _j = np.meshgrid(np.arange(SH_N), np.arange(SH_N), indexing="ij")
+_a = (_i * (SH_N + 1) + _j).ravel()
+_b = _a + (SH_N + 1)
+sh_ind.from_numpy(np.stack([_a, _b, _a + 1, _b, _b + 1, _a + 1], 1).ravel().astype(np.int32))
+SH_STRENGTH = 0.6                            # how dark full shade is (1 = black)
+
+
+def find_ground(verts, colors, tri_obj):
+    """(object index, z of its top, colour, (xmin, xmax, ymin, ymax)) of the biggest flat slab in the scene, or None."""
+    if not len(tri_obj):
+        return None
+    own = np.repeat(tri_obj, 3)
+    vi = np.flatnonzero(own >= 0)
+    if not len(vi):
+        return None
+    vi = vi[np.argsort(own[vi], kind="stable")]               # vertices grouped by owner: one pass for every bounding box
+    o, P = own[vi], np.asarray(verts, float)[vi]
+    starts = np.flatnonzero(np.r_[True, o[1:] != o[:-1]])
+    lo, hi = np.minimum.reduceat(P, starts), np.maximum.reduceat(P, starts)
+    ext = hi - lo
+    flat = (ext[:, 2] <= 0.05 * np.maximum(ext[:, 0], ext[:, 1])) & (ext[:, 0] * ext[:, 1] > 0)
+    if not flat.any():
+        return None
+    j = int(np.argmax(np.where(flat, ext[:, 0] * ext[:, 1], -1.0)))
+    k = int(o[starts[j]])
+    mine = vi[o == k]
+    top = np.asarray(colors, float)[mine[verts[mine, 2] >= hi[j, 2] - 1e-6]]
+    return k, float(hi[j, 2]), top.mean(0), (float(lo[j, 0]), float(hi[j, 0]), float(lo[j, 1]), float(hi[j, 1]))
+
+
+@ti.func
+def _hash3(p):
+    # sine-free hash: GPU sin() is too coarse for big arguments and leaves seams between cells
+    p3 = p * 0.1031
+    p3 = p3 - ti.floor(p3)
+    p3 += p3.dot(ti.Vector([p3.y, p3.z, p3.x]) + 33.33)
+    q = ti.Vector([(p3.x + p3.y) * p3.z, (p3.x + p3.z) * p3.y, (p3.y + p3.z) * p3.x])
+    return q - ti.floor(q)                    # vec3 in 0..1
+
+
+@ti.func
+def _vnoise(p):
+    i = ti.floor(p)
+    f = p - i
+    f = f * f * (3.0 - 2.0 * f)
+    acc = 0.0
+    for dx in ti.static(range(2)):
+        for dy in ti.static(range(2)):
+            for dz in ti.static(range(2)):
+                o = ti.Vector([float(dx), float(dy), float(dz)])
+                w = (f.x if dx else 1.0 - f.x) * (f.y if dy else 1.0 - f.y) * (f.z if dz else 1.0 - f.z)
+                acc += w * _hash3(i + o).x
+    return acc
+
+
+@ti.func
+def _fbm(p):
+    a, s, tot = 0.5, 1.0, 0.0
+    for _ in ti.static(range(5)):
+        tot += a * _vnoise(p * s)
+        a *= 0.5
+        s *= 2.0
+    return tot / 0.96875
+
+
+@ti.func
+def _lerp3(a, b, t):
+    return a + (b - a) * ti.min(ti.max(t, 0.0), 1.0)
+
+
+@ti.kernel
+def sky_frame(mode: ti.i32, p0: ti.f32, p1: ti.f32, p2: ti.f32, p3: ti.f32, p4: ti.f32, p5: ti.f32, p6: ti.f32, p7: ti.f32, p8: ti.f32, p9: ti.f32, p10: ti.f32, p11: ti.f32, p12: ti.f32, p13: ti.f32, p14: ti.f32, p15: ti.f32, p16: ti.f32, p17: ti.f32, p18: ti.f32, p19: ti.f32, p20: ti.f32, p21: ti.f32):
+    """Place the grid across the view and colour each vertex by the sky in its direction.
+    p0..p21 = eye(3) fwd(3) right(3) up(3) tan(fov/2) aspect dist top(3) horizon(3) rotate
+    (scalars: one cheap launch per frame).  World is Z-up; z of the direction plays the part of
+    POV's y (the elevation), mirroring pov_export.sky_pov so both windows agree."""
+    eye = ti.Vector([p0, p1, p2])
+    fwd = ti.Vector([p3, p4, p5])
+    rgt = ti.Vector([p6, p7, p8])
+    upv = ti.Vector([p9, p10, p11])
+    tanh, aspect, dist = p12, p13, p14
+    top = ti.Vector([p15, p16, p17])
+    hor = ti.Vector([p18, p19, p20])
+    rot = p21
+    for k in sky_pos:
+        iu, iv = k // (SKY_GV + 1), k % (SKY_GV + 1)
+        sx = (2.0 * iu / SKY_GU - 1.0) * 1.04             # a little past the edges: no gaps
+        sy = (2.0 * iv / SKY_GV - 1.0) * 1.04
+        d = (fwd + sx * tanh * aspect * rgt + sy * tanh * upv).normalized()
+        sky_pos[k] = eye + d * dist
+        sky_nrm[k] = -d                                   # facing the eye: lit evenly, like SKY_LIGHT assumes
+        e = d.z                                           # -1 below .. +1 overhead
+        c = _lerp3(hor, top, e)                           # gradient: horizon below 0, top at zenith
+        if mode == 3:                                     # sunset: same stops as the POV color_map
+            p = (e + 1.0) * 0.5
+            c = ti.Vector([0.98, 0.62, 0.30])
+            if p > 0.5:
+                c = _lerp3(ti.Vector([0.98, 0.62, 0.30]), ti.Vector([0.85, 0.40, 0.40]), (p - 0.5) / 0.06)
+            if p > 0.56:
+                c = _lerp3(ti.Vector([0.85, 0.40, 0.40]), ti.Vector([0.45, 0.25, 0.50]), (p - 0.56) / 0.12)
+            if p > 0.68:
+                c = _lerp3(ti.Vector([0.45, 0.25, 0.50]), ti.Vector([0.05, 0.07, 0.22]), (p - 0.68) / 0.32)
+        elif mode == 2:                                   # clouds over the gradient
+            # (a flat sky_sphere has no parallax, so sample noise on the ray direction itself)
+            n = _fbm(ti.Vector([d.x * 4.0 + rot * 0.05, d.y * 4.0, d.z * 9.0]))
+            a = ti.min(ti.max((n - 0.45) / 0.25, 0.0), 1.0) * 0.85
+            a *= ti.min(ti.max(e * 4.0 + 0.4, 0.0), 1.0)  # thin out toward the horizon
+            shade = ti.min(ti.max((n - 0.7) / 0.3, 0.0), 1.0)
+            cl = _lerp3(ti.Vector([1.0, 1.0, 1.0]), ti.Vector([0.85, 0.87, 0.92]), shade)
+            c = c * (1.0 - a) + cl * a
+        elif mode == 4:                                   # stars on near-black
+            c = ti.Vector([0.01, 0.012, 0.03])
+            q = d * 60.0                                  # (blobs ~ a grid cell: sampled per vertex)
+            cell = ti.floor(q)
+            h = _hash3(cell)
+            if h.x > 0.93:
+                ctr = cell + 0.3 + 0.4 * ti.Vector([h.y, h.z, h.x])
+                r2 = (q - ctr).dot(q - ctr)
+                b = ti.max(1.0 - r2 * 9.0, 0.0) * (0.6 + 0.9 * h.y)
+                c += ti.Vector([b, b, b * (0.8 + 0.2 * h.z)])
+        elif mode == 5:                                   # equirectangular picture
+            az = ti.atan2(d.y, d.x) / (2.0 * math.pi) + 0.5 + rot / 360.0
+            az = az - ti.floor(az)
+            u = az * 1023.0
+            v = (ti.min(ti.max(e, -1.0), 1.0) * 0.5 + 0.5) * 511.0
+            u0 = int(ti.floor(u))
+            v0 = int(ti.floor(v))
+            fu, fv = u - u0, v - v0
+            u1, v1 = (u0 + 1) % 1024, ti.min(v0 + 1, 511)
+            c = (sky_tex[u0, v0] * (1 - fu) + sky_tex[u1, v0] * fu) * (1 - fv) + \
+                (sky_tex[u0, v1] * (1 - fu) + sky_tex[u1, v1] * fu) * fv
+        sky_col[k] = c / SKY_LIGHT
+
+
+_sky_tex_key = [None]
+
+
+def _hex(s, default):
+    s = str(s or default).lstrip("#")
+    if len(s) != 6:
+        s = default.lstrip("#")
+    return [int(s[k:k + 2], 16) / 255.0 for k in (0, 2, 4)]
+
+
+def sky_load_image(path):
+    """Fill sky_tex from a picture file (cached by path + mtime); False if it can't be read."""
+    try:
+        key = (path, os.path.getmtime(path))
+        if key == _sky_tex_key[0]:
+            return True
+        from PIL import Image
+        im = Image.open(path).convert("RGB").resize((1024, 512), Image.BILINEAR)
+        arr = np.asarray(im, np.float32) / 255.0                  # (512, 1024, 3), row 0 = top
+        sky_tex.from_numpy(np.ascontiguousarray(arr[::-1].transpose(1, 0, 2)))   # [u, v], v up
+        _sky_tex_key[0] = key
+        return True
+    except Exception as ex:
+        print(f"sky image: {ex}", file=sys.stderr, flush=True)
+        return False
 
 
 _del_was = [False]
@@ -368,6 +561,14 @@ def main():
     def upload(v, nrm, col, lv, lcol):
         """Send the scene to the GPU, cut at the slice plane when it's on."""
         v, nrm, col, lv, lcol = (np.asarray(a, np.float32) for a in (v, nrm, col, lv, lcol))
+        shade["dropped"] = False
+        g = shadow_ground()
+        if g is not None and len(v) == len(data["tri_obj"]) * 3 and not (sec["on"] and sec["pt"] is not None):
+            top = (data["tri_obj"] == g[0]) & (nrm[0::3, 2] > 0.9)       # the shadow grid takes the ground's top face's place
+            if top.any():
+                keep = np.repeat(~top, 3)
+                v, nrm, col = v[keep], nrm[keep], col[keep]
+                shade["dropped"] = True
         if sec["on"] and sec["pt"] is not None and data is not None and (
                 len(v) != len(data["tri_obj"]) * 3 or len(lv) != len(data["seg_obj"]) * 2):
             try:                                             # scene and selection out of step: show it all
@@ -556,9 +757,77 @@ def main():
             M = rot(drag["op"], drag["amt"])
         return drag["mask"], M, drag["pivot"], t
 
+    trk_t = [None]                           # shot time (s) while the path plays; None = objects at rest
+
+    shade = {"src": None, "t": None, "ground": None, "dropped": False}
+
+    def shadow_ground():
+        """(object index, top z, colour, (xmin, xmax, ymin, ymax)) of the ground the cloud shadows fall on, or None."""
+        if data is None or "cl_n" not in data or int(data["cl_n"]) == 0 or "tri_obj" not in data:
+            return None
+        if shade["src"] is not data:
+            shade.update(src=data, t=None, ground=find_ground(data["verts"], data["colors"], data["tri_obj"]))
+        return shade["ground"]
+
+    def update_shadows():
+        """Re-colour the shadow grid for the clouds at the shot time (rest = t 0); True when it should be drawn.
+        Only redone when the scene reloads or the time moves 0.1 s - the clouds drift slowly."""
+        g = shadow_ground()
+        if g is None or not shade["dropped"]:            # the ground's own top face must be out of the way
+            return False
+        t = 0.0 if trk_t[0] is None else round(float(trk_t[0]) * 10) / 10
+        if shade["t"] == t:
+            return True
+        shade["t"] = t
+        _k, gz, gcol, (x0, x1, y0, y1) = g
+        xs, ys = np.linspace(x0, x1, SH_N + 1), np.linspace(y0, y1, SH_N + 1)
+        X, Y = np.meshgrid(xs, ys, indexing="ij")
+        clouds = {"sun": {"az": data["cl_sun"][0], "el": data["cl_sun"][1]},
+                  "layers": [{"alt": data["cl_alt"][i], "heading": data["cl_heading"][i], "speed": data["cl_speed"][i],
+                              "coverage": data["cl_coverage"][i], "soft": data["cl_soft"][i],
+                              "density": data["cl_density"][i], "size": data["cl_size"][i], "seed": data["cl_seed"][i]}
+                             for i in range(int(data["cl_n"]))]}
+        dark = cloudshadow.ground_shadow(X, Y, gz, clouds, t)
+        pos = np.stack([X, Y, np.full_like(X, gz)], -1).reshape(-1, 3)
+        col = (np.asarray(gcol, float)[None, :] * (1.0 - SH_STRENGTH * dark.reshape(-1, 1)))
+        sh_pos.from_numpy(pos.astype(np.float32))
+        sh_nrm.from_numpy(np.tile(np.array([0, 0, 1], np.float32), (SH_NV, 1)))
+        sh_col.from_numpy(col.astype(np.float32))
+        return True
+
+    def trk_xfs():
+        """(mask, M, centre, shift) for each Director object track at the playing time - the same
+        pose the Director's renders use: scale, then x/y/z turns about the object's centre, then move."""
+        if trk_t[0] is None or data is None or "trk_key" not in data or not len(data["trk_key"]):
+            return []
+        who, C, K = data["trk_who"], data["trk_c"], data["trk_key"]
+        out = []
+        for iid in dict.fromkeys(who.tolist()):
+            sel = who == iid
+            mask = data["obj_iids"] == iid
+            if not mask.any():
+                continue
+            ks = K[sel][np.argsort(K[sel][:, 0], kind="stable")]
+            t = trk_t[0]
+            if t <= ks[0, 0]:
+                a = b = ks[0]
+            elif t >= ks[-1, 0]:
+                a = b = ks[-1]
+            else:
+                j = int(np.searchsorted(ks[:, 0], t, side="right")) - 1
+                a, b = ks[j], ks[j + 1]
+            span = b[0] - a[0]
+            u = 0.0 if span <= 0 else (t - a[0]) / span
+            if b[8] > 0.5:
+                u = u * u * (3 - 2 * u)
+            p = a[1:8] + (b[1:8] - a[1:8]) * u          # move xyz, rot xyz, scale
+            M = rot("zrot", p[5]) @ rot("yrot", p[4]) @ rot("xrot", p[3]) * p[6]
+            out.append((mask, M, C[sel][0].astype(float), p[0:3].copy()))
+        return out
+
     def show_offsets():
         """Draw dragged / not-yet-saved objects where they're going."""
-        xfs = [p[:4] for p in pending] + ([drag_xf()] if drag and drag["moved"] else [])
+        xfs = [p[:4] for p in pending] + ([drag_xf()] if drag and drag["moved"] else []) + trk_xfs()
         key = b"".join(m.tobytes() + M.tobytes() + np.asarray(c).tobytes() + t.tobytes()
                        for m, M, c, t in xfs)
         if key == shown[0]:
@@ -974,6 +1243,14 @@ def main():
                 i = min(range(len(opts)), key=lambda k: abs(opts[k] - fds))
                 send(f"CMD rset fog_distance {opts[(i + 1) % len(opts)]}")
             g.text("fog height / turbulence / colour: full panel (F6)")
+            sk = str(data.get("rs_sky", "off"))
+            if g.button(f"Sky: {sk}  (click to cycle)"):
+                order = list(SKY_MODES)
+                if not str(data.get("rs_sky_path", "")):
+                    order.remove("image")
+                send(f"CMD rset sky {order[(order.index(sk) + 1) % len(order)] if sk in order else 'gradient'}")
+            if sk != "off":
+                g.text("sky colours / picture: full panel (F6)")
             g.text("on = richer light, slower render. Off for quick Draft previews.")
             if g.button("Render now with these  (F9)"):
                 send_cam()
@@ -1357,17 +1634,21 @@ def main():
                 elif drag["moved"] and drag["op"] == "scale":   # up bigger, down smaller
                     f = float(np.exp(px_y * 0.005))
                     drag["amt"] = max(round(f, 1), 0.1) if snap[0] else f
-        if data is not None and "tri_obj" in data and (pending or drag or shown[0] is not None):
-            show_offsets()
         if play[0] is not None:
             i = int((time.time() - play[0]) * float(data["path_fps"]))
             if i >= n_path():
                 play[0] = None
                 i = n_path() - 1
             path_frame(i)
+            trk_t[0] = i / float(data["path_fps"]) if play[0] is not None else None   # objects play along; rest when done
+            if "tri_obj" in data and (pending or drag or shown[0] is not None or trk_t[0] is not None):
+                show_offsets()
             if play[0] is None:
                 cam.up(0.0, 0.0, 1.0)                     # done: free flying again from the last frame
         else:
+            trk_t[0] = None
+            if data is not None and "tri_obj" in data and (pending or drag or shown[0] is not None):
+                show_offsets()
             fast = 5.0 if win.is_pressed(ti.ui.SHIFT) else 1.0
             walk_look(radius * 0.004 * fast)
             if nav[0] is not None:
@@ -1388,6 +1669,8 @@ def main():
         if tris.n:
             v, nrm, col = tris.fields
             scene.mesh(v, normals=nrm, per_vertex_color=col, two_sided=True, vertex_count=tris.n)
+        if update_shadows():
+            scene.mesh(sh_pos, indices=sh_ind, normals=sh_nrm, per_vertex_color=sh_col, two_sided=True)
         if lines.n:
             lv, lc = lines.fields
             scene.lines(lv, width=2, per_vertex_color=lc, vertex_count=lines.n)
@@ -1400,6 +1683,23 @@ def main():
             gv, gc = giz.fields
             scene.lines(gv, width=4, per_vertex_color=gc, vertex_count=giz.n)
         canvas.set_background_color((0.11, 0.12, 0.14))
+        smode = SKY_MODES.get(str(data.get("rs_sky", "off")), 0) if data is not None else 0
+        if smode == 5 and not sky_load_image(str(data.get("rs_sky_path", ""))):
+            smode = 1                                         # unreadable picture: plain gradient
+        if smode:
+            ww, wh = win.get_window_shape()
+            ep = np.array([float(v) for v in cam.curr_position])
+            sf = np.array([float(v) for v in cam.curr_lookat]) - ep
+            sf /= np.linalg.norm(sf) + 1e-12
+            sr = np.cross(sf, [float(v) for v in cam.curr_up])
+            sr /= np.linalg.norm(sr) + 1e-12
+            su = np.cross(sr, sf)
+            sky_r = float(radius) * 10.0                      # inside the far plane (radius * 20)
+            sky_frame(smode, *ep.tolist(), *sf.tolist(), *sr.tolist(), *su.tolist(),
+                      float(np.tan(np.radians(fov[0]) / 2)), float(ww) / max(float(wh), 1.0), sky_r,
+                      *_hex(data.get("rs_sky_top"), "#2a5fb0"), *_hex(data.get("rs_sky_horizon"), "#bcd6f0"),
+                      float(data.get("rs_sky_rotate", 0.0)))
+            scene.mesh(sky_pos, indices=sky_ind, normals=sky_nrm, per_vertex_color=sky_col, two_sided=True)
         if hdrag is not None:
             print(f"[dh {frame}] submit begin hmark.n={hmark.n}", file=sys.stderr, flush=True)
         canvas.scene(scene)

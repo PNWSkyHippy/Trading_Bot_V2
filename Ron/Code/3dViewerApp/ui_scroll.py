@@ -13,6 +13,7 @@ def x11_wheel(widget, handler, everywhere=False):
         return
 
     def shim(e, d):
+        """Pass a Button-4/5 click to the handler as a wheel event with delta +120 or -120."""
         e.delta = d
         return handler(e)
     bind = widget.bind_all if everywhere else widget.bind
@@ -35,9 +36,11 @@ def scrollable(parent, padding=6):
     win = sc.create_window(0, 0, window=inner, anchor="nw")
 
     def inner_changed(_e=None):
+        """Resize the canvas scroll region to fit the inner frame."""
         sc.configure(scrollregion=(0, 0, inner.winfo_reqwidth(), inner.winfo_reqheight()))
 
     def canvas_changed(e):
+        """Stretch the inner frame to fill the canvas when there is room."""
         sc.itemconfigure(win, width=max(e.width, inner.winfo_reqwidth()))
         # stretch to fill when there's room, so nothing floats at the top of a tall window
         sc.itemconfigure(win, height=max(e.height, inner.winfo_reqheight()))
@@ -47,6 +50,7 @@ def scrollable(parent, padding=6):
     sc.bind("<Configure>", canvas_changed)
 
     def wheel(e):
+        """Scroll the panel under the mouse; ignore the event if its window was closed."""
         try:
             w = holder.winfo_containing(e.x_root, e.y_root)
         except (tk.TclError, KeyError):                 # this panel's window was closed

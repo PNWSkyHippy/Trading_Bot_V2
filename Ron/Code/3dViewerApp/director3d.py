@@ -10,6 +10,7 @@ Shots use the same dictionary as RayTrace/src/camera_path.py.  Inside this windo
 they are in viewer coordinates (Z up); project files and rayincludes.py presets are
 written in POV coordinates (Y up), so tkray_tracer's director opens them too.
 """
+import contextlib
 import copy
 import glob
 import json
@@ -94,6 +95,52 @@ def default_shot(app):
                           "steps": 48, "fov_a": 45, "fov_c": 45}],
             "object": {"kind": "Sphere", "position": list(t), "size": 1, "color": "#75baff"},
             "lights": [], "fps": 24, "ground_y": 0, "roll": 0}
+
+
+# ----------------------------------------------------------------------------
+# object motion: per-object keyframes on the shot's clock (seconds)
+#   shot["tracks"] = {entry name: [{"t": s, "move": [x,y,z], "rot": [x,y,z], "scale": f, "ease": bool}, ...]}
+# Values are totals measured from the object's rest pose (move = offset, rot = degrees about its own
+# centre, scale = factor about its centre).  Kept in viewer (Z-up) coordinates, so swap_shot leaves them be.
+# ----------------------------------------------------------------------------
+def blank_key(t=0.0):
+    return {"t": float(t), "move": [0.0, 0.0, 0.0], "rot": [0.0, 0.0, 0.0], "scale": 1.0, "ease": False}
+
+
+def pose_at(keys, t):
+    """Interpolated {move, rot, scale} at time t; holds the first / last key outside the range."""
+    ks = sorted(keys, key=lambda k: k["t"])
+    if t <= ks[0]["t"]:
+        a = b = ks[0]
+    elif t >= ks[-1]["t"]:
+        a = b = ks[-1]
+    else:
+        i = max(j for j, k in enumerate(ks) if k["t"] <= t)
+        a, b = ks[i], ks[i + 1]
+    span = b["t"] - a["t"]
+    u = 0.0 if span <= 0 else (t - a["t"]) / span
+    if b.get("ease"):
+        u = u * u * (3 - 2 * u)
+    mix = lambda x, y: x + (y - x) * u                                  # noqa: E731
+    return {"move": [mix(p, q) for p, q in zip(a["move"], b["move"])],
+            "rot": [mix(p, q) for p, q in zip(a["rot"], b["rot"])],
+            "scale": mix(a.get("scale", 1.0), b.get("scale", 1.0))}
+
+
+def track_rows(pose, centre):
+    """A pose as scene transform rows (the same CSV rows an entry's own transforms use).
+    centre = the point it turns / scales about: the object's own middle at rest, or (shot["pivots"])
+    another object's.  An explicit point, because a scale row's "center" pivot would use the origin."""
+    rows = []
+    pt = ["point"] + [repr(float(v)) for v in centre]
+    if abs(pose["scale"] - 1.0) > 1e-9:
+        rows.append(["scale", repr(float(pose["scale"]))] + pt)
+    for op, deg in zip(("xrot", "yrot", "zrot"), pose["rot"]):
+        if abs(deg) > 1e-9:
+            rows.append([op, repr(float(deg))] + pt)
+    if any(abs(v) > 1e-12 for v in pose["move"]):
+        rows.append(["move"] + [repr(float(v)) for v in pose["move"]])
+    return rows
 
 
 def safe_name(name):
@@ -194,6 +241,8 @@ class Director(tk.Toplevel):
         nb.pack(fill=tk.BOTH, expand=True)
         self._build_moves(nb)
         self._build_lights(nb)
+        self._build_objects(nb)
+        self._build_clouds(nb)
         self._build_output(nb)
 
     def _vec_row(self, parent, row, label, key, extra=None):
@@ -304,6 +353,295 @@ class Director(tk.Toplevel):
         ttk.Label(f, text="No lights = the viewer's own lighting: a key light plus a\n"
                           "fill light that rides along with the camera (good for tunnels).",
                   foreground="#8f98a6").pack(anchor="w", pady=4)
+
+    def _build_objects(self, nb):
+        f = ttk.Frame(nb, padding=4)
+        nb.add(f, text="Object motion")
+        r = ttk.Frame(f)
+        r.pack(fill=tk.X)
+        self.v_tobj = tk.StringVar()
+        self.cb_tobj = ttk.Combobox(r, textvariable=self.v_tobj, width=22, state="readonly",
+                                    postcommand=self._refresh_objs)
+        self.cb_tobj.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(r, text="+ Track", command=self.add_track).pack(side=tk.LEFT, padx=2)
+        ttk.Button(r, text="Delete track", command=self.delete_track).pack(side=tk.LEFT)
+        self.lb_tracks = tk.Listbox(f, height=4, exportselection=False, bg="#111317", fg="#d8dde6")
+        self.lb_tracks.pack(fill=tk.X, pady=4)
+        self.lb_tracks.bind("<<ListboxSelect>>", lambda _e: self._pick_track())
+        self.lb_keys = tk.Listbox(f, height=6, exportselection=False, bg="#111317", fg="#d8dde6")
+        self.lb_keys.pack(fill=tk.X)
+        self.lb_keys.bind("<<ListboxSelect>>", lambda _e: self._pick_key())
+        g = ttk.Frame(f)
+        g.pack(fill=tk.X, pady=6)
+        for j, t in enumerate(("X", "Y", "Z")):
+            ttk.Label(g, text=t).grid(row=0, column=1 + j)
+        self.v_kt = tk.StringVar(value="0")
+        ttk.Label(g, text="Time (s)").grid(row=1, column=0, sticky="w")
+        ttk.Entry(g, textvariable=self.v_kt, width=10).grid(row=1, column=1)
+        ttk.Button(g, text="= this frame", command=self.key_time_from_frame).grid(row=1, column=2, columnspan=2)
+        self.v_kmove = [tk.StringVar(value="0") for _ in range(3)]
+        self.v_krot = [tk.StringVar(value="0") for _ in range(3)]
+        ttk.Label(g, text="Move by").grid(row=2, column=0, sticky="w")
+        ttk.Label(g, text="Turn (deg)").grid(row=3, column=0, sticky="w")
+        for j in range(3):
+            ttk.Entry(g, textvariable=self.v_kmove[j], width=10).grid(row=2, column=1 + j, padx=1, pady=1)
+            ttk.Entry(g, textvariable=self.v_krot[j], width=10).grid(row=3, column=1 + j, padx=1, pady=1)
+        self.v_kscale = tk.StringVar(value="1")
+        self.v_kease = tk.BooleanVar(value=False)
+        ttk.Label(g, text="Scale").grid(row=4, column=0, sticky="w")
+        ttk.Entry(g, textvariable=self.v_kscale, width=10).grid(row=4, column=1)
+        ttk.Checkbutton(g, text="ease in/out", variable=self.v_kease).grid(row=4, column=2, columnspan=2)
+        bb = ttk.Frame(f)
+        bb.pack(fill=tk.X)
+        ttk.Button(bb, text="Set key", command=self.set_key).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(bb, text="Delete key", command=self.delete_key).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.l_tinfo = ttk.Label(f, foreground="#8f98a6", wraplength=380, justify="left")
+        self.l_tinfo.pack(anchor="w", pady=4)
+        self._track = None
+        self._fill_tracks()
+
+    # ---------------------------------------------------------- object motion
+    def _tracks(self):
+        return self.shot.setdefault("tracks", {})
+
+    def _refresh_objs(self):
+        self.cb_tobj.configure(values=[e.name for e in self.app.entries if e.obj is not None])
+
+    def _fill_tracks(self):
+        tr = self._tracks()
+        self.lb_tracks.delete(0, tk.END)
+        for name, keys in tr.items():
+            self.lb_tracks.insert(tk.END, f"{name}   ({len(keys)} keys)")
+        names = list(tr)
+        if self._track in names:
+            self.lb_tracks.selection_set(names.index(self._track))
+        self._fill_keys()
+        fps = max(1, self.shot.get("fps", 24))
+        dur = max(0, len(self.frames) - 1) / fps
+        self.l_tinfo.configure(text=f"Shot length {dur:.2f}s at {fps} fps. Keys are totals from the object's "
+                                    "rest pose; values between keys are interpolated. The Director preview and "
+                                    "renders show the motion (the main 3D view stays at rest).")
+
+    def _fill_keys(self):
+        self.lb_keys.delete(0, tk.END)
+        fmt = lambda v: ",".join(f"{x:g}" for x in v)                      # noqa: E731
+        for k in sorted(self._tracks().get(self._track, []), key=lambda k: k["t"]):
+            self.lb_keys.insert(tk.END, f"{k['t']:g}s  move {fmt(k['move'])}  turn {fmt(k['rot'])}  x{k['scale']:g}"
+                                        + ("  ease" if k.get("ease") else ""))
+
+    def _pick_track(self):
+        sel = self.lb_tracks.curselection()
+        if sel:
+            self._track = list(self._tracks())[sel[0]]
+            self._fill_keys()
+
+    def _pick_key(self):
+        sel = self.lb_keys.curselection()
+        if not sel or self._track not in self._tracks():
+            return
+        k = sorted(self._tracks()[self._track], key=lambda k: k["t"])[sel[0]]
+        self.v_kt.set(f"{k['t']:g}")
+        for v, x in zip(self.v_kmove, k["move"]):
+            v.set(f"{x:g}")
+        for v, x in zip(self.v_krot, k["rot"]):
+            v.set(f"{x:g}")
+        self.v_kscale.set(f"{k['scale']:g}")
+        self.v_kease.set(bool(k.get("ease")))
+
+    def key_time_from_frame(self):
+        t = self.frame_time(self.frame)
+        self.v_kt.set(f"{t:g}")
+        if self._tracks().get(self._track):
+            pose = pose_at(self._tracks()[self._track], t)       # start the key from the current interpolation
+            for v, x in zip(self.v_kmove, pose["move"]):
+                v.set(f"{x:g}")
+            for v, x in zip(self.v_krot, pose["rot"]):
+                v.set(f"{x:g}")
+            self.v_kscale.set(f"{pose['scale']:g}")
+
+    def add_track(self):
+        name = self.v_tobj.get()
+        if not name:
+            self.say("Pick an object in the list first", err=True)
+            return
+        self._tracks().setdefault(name, [blank_key(0.0)])
+        self._track = name
+        self._fill_tracks()
+        self.changed_motion()
+
+    def delete_track(self):
+        if self._track in self._tracks():
+            del self._tracks()[self._track]
+            self._track = None
+            self._fill_tracks()
+            self.changed_motion()
+
+    def set_key(self):
+        if self._track not in self._tracks():
+            self.say("Add or select a track first", err=True)
+            return
+        try:
+            k = {"t": max(0.0, float(self.v_kt.get())),
+                 "move": [float(v.get()) for v in self.v_kmove],
+                 "rot": [float(v.get()) for v in self.v_krot],
+                 "scale": float(self.v_kscale.get()), "ease": bool(self.v_kease.get())}
+        except ValueError:
+            self.say("Key values need numbers", err=True)
+            return
+        if k["scale"] <= 0:
+            self.say("Scale must be above 0", err=True)
+            return
+        keys = [x for x in self._tracks()[self._track] if abs(x["t"] - k["t"]) > 1e-9]
+        keys.append(k)
+        self._tracks()[self._track] = sorted(keys, key=lambda x: x["t"])
+        self._fill_tracks()
+        self.changed_motion()
+
+    def delete_key(self):
+        sel = self.lb_keys.curselection()
+        if not sel or self._track not in self._tracks():
+            return
+        keys = sorted(self._tracks()[self._track], key=lambda k: k["t"])
+        del keys[sel[0]]
+        if keys:
+            self._tracks()[self._track] = keys
+        else:
+            del self._tracks()[self._track]
+            self._track = None
+        self._fill_tracks()
+        self.changed_motion()
+
+    def changed_motion(self):
+        self.autosave()
+        self.draw_preview()
+        self.app.preview_refresh()                  # the Taichi window plays the new keys too
+
+    # ---------------------------------------------------------- cloud layers
+    CLOUD_FIELDS = (("Altitude", "alt"), ("Heading (deg, compass)", "heading"), ("Speed (units/s)", "speed"),
+                    ("Coverage 0-1", "coverage"), ("Softness 0.02-0.5", "soft"), ("Shadow density 0-1", "density"),
+                    ("Blob size", "size"), ("Colour (visible)", "color"))
+
+    def _clouds(self):
+        c = self.shot.setdefault("clouds", pov_export.default_clouds())
+        c.setdefault("layers", [])
+        c.setdefault("sun", pov_export.default_clouds()["sun"])
+        return c
+
+    def _build_clouds(self, nb):
+        f = ttk.Frame(nb, padding=4)
+        nb.add(f, text="Clouds")
+        self.cloud_i = 0
+        top = ttk.Frame(f)
+        top.pack(fill=tk.X)
+        self.lb_clouds = tk.Listbox(top, height=4, exportselection=False, bg="#111317", fg="#d8dde6")
+        self.lb_clouds.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.lb_clouds.bind("<<ListboxSelect>>", lambda _e: self._pick_cloud())
+        bb = ttk.Frame(top)
+        bb.pack(side=tk.LEFT, padx=4)
+        self.v_cpre = tk.StringVar(value=list(pov_export.CLOUD_PRESETS)[1])
+        ttk.Combobox(bb, textvariable=self.v_cpre, values=list(pov_export.CLOUD_PRESETS), width=24,
+                     state="readonly").pack(fill=tk.X)
+        ttk.Button(bb, text="+ Preset layer", command=self.add_cloud).pack(fill=tk.X)
+        ttk.Button(bb, text="Delete", command=self.delete_cloud).pack(fill=tk.X)
+        g = ttk.Frame(f)
+        g.pack(fill=tk.X, pady=4)
+        self.cv = {}
+        ttk.Label(g, text="Name").grid(row=0, column=0, sticky="w")
+        self.cv["name"] = tk.StringVar()
+        ttk.Entry(g, textvariable=self.cv["name"], width=14).grid(row=0, column=1, sticky="w")
+        for r, (lab, key) in enumerate(self.CLOUD_FIELDS, 1):
+            ttk.Label(g, text=lab).grid(row=r, column=0, sticky="w")
+            self.cv[key] = tk.StringVar()
+            en = ttk.Entry(g, textvariable=self.cv[key], width=10)
+            en.grid(row=r, column=1, sticky="w")
+            en.bind("<Return>", lambda _e: self.apply_cloud())
+        self.cv["visible"] = tk.BooleanVar()
+        ttk.Checkbutton(g, text="Draw the layer (fly through it); off = shadows only", variable=self.cv["visible"],
+                        command=self.apply_cloud).grid(row=len(self.CLOUD_FIELDS) + 1, column=0, columnspan=3, sticky="w")
+        ttk.Button(f, text="Apply layer  [Enter]", command=self.apply_cloud).pack(anchor="w")
+        s = ttk.LabelFrame(f, text="Sun (casts the shadows; replaces the key light)", padding=4)
+        s.pack(fill=tk.X, pady=(6, 0))
+        self.csun = {k: tk.StringVar() for k in ("az", "el", "brightness", "ft")}
+        for j, (lab, key) in enumerate((("Azimuth", "az"), ("Elevation", "el"), ("Brightness", "brightness"),
+                                        ("Units per foot", "ft"))):
+            ttk.Label(s, text=lab).grid(row=j // 2, column=(j % 2) * 2, sticky="w")
+            en = ttk.Entry(s, textvariable=self.csun[key], width=8)
+            en.grid(row=j // 2, column=(j % 2) * 2 + 1, padx=2)
+            en.bind("<Return>", lambda _e: self.apply_sun())
+        ttk.Button(s, text="Apply sun", command=self.apply_sun).grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(f, text="Layers drift on the shot clock, so shadows slide across the ground in Director\n"
+                          "renders (POV only). Presets use feet x 'units per foot' for altitude and size.",
+                  foreground="#8f98a6").pack(anchor="w", pady=4)
+        self._fill_clouds()
+
+    def _fill_clouds(self):
+        c = self.shot.get("clouds") or {}
+        layers = c.get("layers", [])
+        self.lb_clouds.delete(0, tk.END)
+        for ly in layers:
+            self.lb_clouds.insert(tk.END, f"{ly.get('name', 'layer')}   alt {ly.get('alt', 0):g}")
+        self.cloud_i = min(self.cloud_i, max(0, len(layers) - 1))
+        if layers:
+            self.lb_clouds.selection_set(self.cloud_i)
+        self._pick_cloud(False)
+        sun = c.get("sun") or pov_export.default_clouds()["sun"]
+        for k in ("az", "el", "brightness"):
+            self.csun[k].set(f"{sun.get(k, 0):g}")
+        self.csun["ft"].set(f"{c.get('ft', 0.3048):g}")
+
+    def _pick_cloud(self, read=True):
+        sel = self.lb_clouds.curselection()
+        if read and sel:
+            self.cloud_i = sel[0]
+        layers = (self.shot.get("clouds") or {}).get("layers", [])
+        ly = layers[self.cloud_i] if self.cloud_i < len(layers) else {}
+        self.cv["name"].set(ly.get("name", ""))
+        for _lab, key in self.CLOUD_FIELDS:
+            v = ly.get(key, "")
+            self.cv[key].set(f"{v:g}" if isinstance(v, (int, float)) else str(v))
+        self.cv["visible"].set(bool(ly.get("visible")))
+
+    def add_cloud(self):
+        c = self._clouds()
+        c["layers"].append(pov_export.cloud_layer_from_preset(self.v_cpre.get(), float(c.get("ft", 0.3048))))
+        self.cloud_i = len(c["layers"]) - 1
+        self._fill_clouds()
+        self.changed()
+
+    def delete_cloud(self):
+        layers = self._clouds()["layers"]
+        if layers:
+            del layers[self.cloud_i]
+            self._fill_clouds()
+            self.changed()
+
+    def apply_cloud(self):
+        layers = self._clouds()["layers"]
+        if not layers:
+            return
+        ly = layers[self.cloud_i]
+        try:
+            for _lab, key in self.CLOUD_FIELDS:
+                txt = self.cv[key].get().strip()
+                ly[key] = txt if key == "color" else float(txt)
+        except ValueError:
+            self.say("Cloud layer: a number field has text in it", err=True)
+            return
+        ly["name"] = self.cv["name"].get().strip() or "layer"
+        ly["visible"] = bool(self.cv["visible"].get())
+        self._fill_clouds()
+        self.changed()
+
+    def apply_sun(self):
+        c = self._clouds()
+        try:
+            for k in ("az", "el", "brightness"):
+                c["sun"][k] = float(self.csun[k].get())
+            c["ft"] = float(self.csun["ft"].get())
+        except ValueError:
+            self.say("Sun: a number field has text in it", err=True)
+            return
+        self.changed()
 
     def _build_output(self, nb):
         f = ttk.Frame(nb, padding=4)
@@ -561,12 +899,14 @@ class Director(tk.Toplevel):
                     default="no", parent=self):
                 return
         self.shot = default_shot(self.app)
+        self._track = None
         self.seg_i = self.light_i = self.frame = 0
         self.v_fps.set("24")
         self.v_roll.set("0")
         self.fill_move()
         self.fill_light()
         self.changed()
+        self._fill_tracks()
 
     # --------------------------------------------------------------- lights
     def fill_light(self):
@@ -673,6 +1013,45 @@ class Director(tk.Toplevel):
         near = max(1e-4, 0.002 * float(np.linalg.norm(tgt - eye)))
         return {"eye": eye, "right": right, "up": up, "fwd": fwd, "f": f, "near": near}
 
+    def frame_time(self, i):
+        return i / max(1, self.shot.get("fps", 24))
+
+    def app_center(self, e):
+        import viewer3d
+        return viewer3d.center_of(e.obj)
+
+    def track_centres(self):
+        """{track name: the point it turns / scales about, at rest} - the object's own middle, or the
+        middle of the object named in shot["pivots"] (a moon turning about its planet)."""
+        out = {}
+        for name in self.shot.get("tracks", {}):
+            e = next((x for x in self.app.entries if x.name == name and x.obj is not None), None)
+            if e is None:
+                continue
+            about = self.shot.get("pivots", {}).get(name)
+            pe = next((x for x in self.app.entries if x.name == about and x.obj is not None), None) if about else None
+            out[name] = self.app_center(pe or e)
+        return out
+
+    @contextlib.contextmanager
+    def posed(self, t):
+        """Scene objects with their keyed motion applied for time t; rest pose restored on exit."""
+        saved = []
+        try:
+            mids = self.track_centres()                   # all at rest, before anything is posed
+            for name, keys in self.shot.get("tracks", {}).items():
+                e = next((x for x in self.app.entries if x.name == name), None)
+                if e is None or not keys or name not in mids:
+                    continue
+                saved.append((e, e.transforms))
+                e.transforms = list(e.transforms) + track_rows(pose_at(keys, t), mids[name])
+                self.app.rebuild(e)
+            yield
+        finally:
+            for e, tfs in saved:
+                e.transforms = tfs
+                self.app.rebuild(e)
+
     def draw_preview(self):
         c = self.prev
         if not self.frames or not c.winfo_exists():
@@ -682,7 +1061,8 @@ class Director(tk.Toplevel):
         w, h = (cw, cw / asp) if cw / ch < asp else (ch * asp, ch)
         fr = self.frames[self.frame]
         try:
-            self.app.draw_through(c, self.frame_view(fr, w, h), grid=self.v_pgrid.get())
+            with self.posed(self.frame_time(self.frame)):
+                self.app.draw_through(c, self.frame_view(fr, w, h), grid=self.v_pgrid.get())
         except Exception as exc:                          # noqa: BLE001 - keep the window alive
             c.delete("all")
             c.create_text(10, 10, anchor="nw", fill="#ff7b72", text=f"preview: {exc}")
@@ -1097,15 +1477,26 @@ class Director(tk.Toplevel):
             spec["point_at"] = aim
         return spec
 
+    def has_clouds(self):
+        return bool(self.shot.get("clouds", {}).get("layers"))
+
     def lights_text(self, follow_camera=None):
+        sun = pov_export.sun_pov(self.shot["clouds"].get("sun", {})) if self.has_clouds() else ""
         if self.shot["lights"]:
             out = [pov_export.light_block(self._light_spec(lt)) for lt in self.shot["lights"]]
-            return "\n".join(out) + "\n"
+            return sun + "\n".join(out) + "\n"
         cam = self.pov_cam(self.frames[0])
         if follow_camera is None:
-            return pov_export.default_lights(self.pov_cam(self.frames[self.frame]))
+            lines = pov_export.default_lights(self.pov_cam(self.frames[self.frame])).splitlines()
+            return sun + "\n".join(lines[1:] if sun else lines) + "\n"     # the sun replaces the key light
         key = pov_export.default_lights(cam).splitlines()[0]
-        return key + f"\nlight_source {{ {follow_camera}, color rgb <0.45, 0.48, 0.55> shadowless }}\n"
+        fill = f"light_source {{ {follow_camera}, color rgb <0.45, 0.48, 0.55> shadowless }}\n"
+        return sun + fill if sun else key + "\n" + fill
+
+    def clouds_text(self):
+        if not self.has_clouds():
+            return ""
+        return pov_export.cloud_pov(self.shot["clouds"], self.frame_time(self.frame))
 
     def size(self):
         try:
@@ -1117,7 +1508,7 @@ class Director(tk.Toplevel):
 
     def frame_text(self, fr):
         return pov_export.scene_pov(self.app.pov_items(), self.pov_cam(fr), self.app.rgb,
-                                    background=app_bg(), lights=self.lights_text(),
+                                    background=app_bg(), lights=self.lights_text(), extra=self.clouds_text(),
                                     render=getattr(self.app, "render_settings", None))
 
     def animation_text(self):
@@ -1145,6 +1536,22 @@ class Director(tk.Toplevel):
         head, sep, rest = text.partition("global_settings")
         return head + decl + sep + rest
 
+    def moving_animation_text(self, name, out_dir):
+        """Objects move: write one complete scene per frame (director/<name>/f<N>.pov, camera and
+        posed objects baked in) and a master .pov that includes the one for frame_number."""
+        keep = self.frame
+        try:
+            for i, fr in enumerate(self.frames):
+                self.frame = i
+                with self.posed(self.frame_time(i)):
+                    text = self.frame_text(fr)
+                with open(os.path.join(out_dir, f"f{i + 1}.pov"), "w", encoding="utf-8") as fh:
+                    fh.write(text)
+        finally:
+            self.frame = keep
+        return (f"// Camera Director: {self.shot.get('name', 'shot')}, {len(self.frames)} frames, "
+                f"moving objects\n#include concat(\"director/{name}/f\", str(frame_number, 0, 0), \".pov\")\n")
+
     def write_animation(self):
         os.makedirs(app_pov_dir(), exist_ok=True)
         name = safe_name(self.v_name.get())
@@ -1156,7 +1563,8 @@ class Director(tk.Toplevel):
         q = ["Quality=5", "Antialias=Off"] if self.v_q.get() == "Draft" else \
             ["Quality=9", "Antialias=On", "Antialias_Threshold=0.2", "Sampling_Method=2", "Antialias_Depth=3"]
         with open(pov_path, "w", encoding="utf-8") as fh:
-            fh.write(self.animation_text())
+            fh.write(self.moving_animation_text(name, out_dir) if (self.shot.get("tracks") or self.has_clouds())
+                     else self.animation_text())
         with open(ini_path, "w", encoding="utf-8") as fh:
             fh.write("\n".join([
                 f"Input_File_Name={os.path.basename(pov_path)}",
@@ -1180,7 +1588,8 @@ class Director(tk.Toplevel):
         if not self.frames:
             return
         w, h = self.size()
-        text = self.frame_text(self.frames[self.frame])
+        with self.posed(self.frame_time(self.frame)):
+            text = self.frame_text(self.frames[self.frame])
         quality = self.v_q.get().lower()
         result = {}
         self.say(f"Rendering frame {self.frame + 1} at {w}x{h}...")
@@ -1391,9 +1800,12 @@ class Director(tk.Toplevel):
         self.v_fps.set(str(self.shot.get("fps", 24)))
         self.v_roll.set(str(self.shot.get("roll", 0)))
         self.seg_i = self.light_i = self.frame = 0
+        self._track = None
         self.fill_move()
         self.fill_light()
         self.changed()
+        self._fill_tracks()
+        self._fill_clouds()
 
     def save_project(self):
         path = filedialog.asksaveasfilename(parent=self, initialdir=app_pov_dir(),

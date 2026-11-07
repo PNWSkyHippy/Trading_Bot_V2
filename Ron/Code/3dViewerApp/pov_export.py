@@ -26,6 +26,7 @@ POINT_RADIUS = 0.08
 # small writers
 # ----------------------------------------------------------------------------
 def _n(v):
+    """Format a number with up to 5 decimals and no trailing zeros."""
     s = f"{float(v):.5f}".rstrip("0").rstrip(".")
     return "0" if s in ("-0", "") else s
 
@@ -36,6 +37,7 @@ def vec(p):
 
 
 def unit(v):
+    """Return v scaled to length 1 (unchanged if it is zero)."""
     v = np.array(v, float)
     L = np.linalg.norm(v)
     return v / L if L > 1e-12 else v
@@ -48,6 +50,7 @@ def rgb_text(color, rgb_of):
 
 
 def indent(text, pad="    "):
+    """Indent every non-blank line of `text` by `pad`."""
     return "\n".join(pad + ln if ln.strip() else ln for ln in text.splitlines())
 
 
@@ -275,10 +278,12 @@ def bend_pov(c, start, r, angle_deg, normal):
 
 
 def shape_pov(item, rgb_of, includes=None):
+    """Return the POV-Ray text for one scene item; rgb_of turns a color name into (r, g, b)."""
     k, v = item["kind"], [float(x) for x in item["nums"]]
     p = lambda i: np.array(v[i:i + 3])                      # noqa: E731
 
     def put(head, body, frame=None, **kw):
+        """Wrap a shape's head and body in a POV block using this item's settings."""
         return block(head, body, {**item, **kw}, rgb_of, frame, includes)
 
     if k == "sphere3d":                 # map_type 1 = spherical, poles on the viewer's Z
@@ -407,6 +412,7 @@ DEFAULT_LIGHT = {
 
 
 def _light(spec):
+    """Return a light spec with the defaults filled in."""
     return {**DEFAULT_LIGHT, **(spec or {})}
 
 
@@ -478,6 +484,7 @@ CSG_POV = {"combine": "merge", "cut": "difference", "overlap": "intersection"}
 
 
 def wrap(op, parts, name):
+    """Return the parts combined under a CSG operator (union, difference ...) with a comment name."""
     return f"// {name}\n{op} {{\n" + "".join(indent(s.rstrip("\n")) + "\n" for s in parts) + "}\n"
 
 
@@ -555,14 +562,21 @@ DEFAULT_RENDER = {
     # fog / atmosphere (Phase 3): "ground" = low mist layer, "distance" = uniform haze
     "fog": False, "fog_type": "ground", "fog_color": "#aeb4bf",
     "fog_distance": 18.0, "fog_height": 3.0, "fog_turbulence": 0.15,
+    # sky (everything above the floor that no object blocks): "off", a SKY_PRESETS name,
+    # or "image" (equirectangular panorama named in sky_image, kept in the pov folder)
+    "sky": "off", "sky_top": "#2a5fb0", "sky_horizon": "#bcd6f0",
+    "sky_image": "", "sky_rotate": 0.0,
 }
+SKY_PRESETS = ("gradient", "clouds", "sunset", "stars")
 
 
 def _render(render):
+    """Return the render settings with the defaults filled in."""
     return {**DEFAULT_RENDER, **(render or {})}
 
 
 def global_settings_pov(render=None):
+    """Return the POV global_settings block (gamma, trace level, radiosity, photons)."""
     r = _render(render)
     lines = ["    assumed_gamma 1.0", f"    max_trace_level {max(1, int(r['max_trace']))}"]
     if r.get("ambient_light"):
@@ -600,6 +614,55 @@ def fog_pov(render, rgb_of):
         lines.append(f"    turbulence {_n(turb)}")
     lines.append("}")
     return "\n".join(lines)
+
+
+def sky_pov(render, rgb_of):
+    """A sky_sphere: a pigment wrapped on an infinite sphere that shows wherever a ray leaves the
+    scene without hitting anything, so the floor and every object always draw in front of it.
+    Returns (pov text, include file or None); ("", None) when the sky is off.  POV-only.
+    (POV-Ray's own skies.inc fails to parse on this install, so presets are built here.)"""
+    r = _render(render)
+    mode = str(r.get("sky") or "off")
+    if mode == "off":
+        return "", None
+    rot = float(r.get("sky_rotate") or 0.0)
+    spin = f"\n    rotate <0, {_n(rot)}, 0>" if rot else ""
+
+    def col(key, default):
+        """Return a POV rgb color for settings key `key`, falling back to `default`."""
+        c = rgb_of(r.get(key) or default) or rgb_of(default)
+        return "rgb <%s, %s, %s>" % tuple(_n(x / 255.0) for x in c)
+    top, hor = col("sky_top", "#2a5fb0"), col("sky_horizon", "#bcd6f0")
+    # y runs -1..1 over the sphere; scale 2 / translate -1 maps that to 0..1 (horizon at 0.5)
+    grad = "gradient y scale 2 translate -1"
+    inc = None
+    if mode == "gradient":
+        layers = [f"pigment {{ {grad} color_map {{ [0 {hor}] [0.5 {hor}] [1 {top}] }} }}"]
+    elif mode == "clouds":
+        layers = [f"pigment {{ {grad} color_map {{ [0 {hor}] [0.5 {hor}] [1 {top}] }} }}",
+                  "pigment { bozo turbulence 0.65 octaves 6 omega 0.7 lambda 2\n"
+                  "        color_map { [0.0 rgbt <1, 1, 1, 1>] [0.45 rgbt <1, 1, 1, 1>]\n"
+                  "                    [0.7 rgbt <1, 1, 1, 0.15>] [1.0 rgbt <0.85, 0.87, 0.92, 0>] }\n"
+                  "        scale <0.25, 0.1, 0.25> }"]
+    elif mode == "sunset":
+        layers = [f"pigment {{ {grad} color_map {{ [0 rgb <0.95, 0.55, 0.25>] [0.5 rgb <0.98, 0.62, 0.3>]\n"
+                  "        [0.56 rgb <0.85, 0.4, 0.4>] [0.68 rgb <0.45, 0.25, 0.5>]\n"
+                  "        [1 rgb <0.05, 0.07, 0.22>] } }"]
+    elif mode == "stars":
+        layers = ["pigment { color rgb <0.01, 0.012, 0.03> }",
+                  "pigment { granite scale 0.012\n"
+                  "        color_map { [0 rgbt <1, 1, 1, 1>] [0.82 rgbt <1, 1, 1, 1>] [0.95 rgbt <1, 1, 1, 0.4>]\n"
+                  "                    [1 rgbt <1, 1, 1, 0>] } }"]
+    elif mode == "image":
+        fname = os.path.basename(str(r.get("sky_image") or ""))
+        if not fname:
+            return "", None
+        kind = IMAGE_TYPES.get(os.path.splitext(fname)[1].lower(), "png")
+        layers = [f'pigment {{ image_map {{ {kind} "{fname}" map_type 1 interpolate 2 }} }}']
+    else:
+        return "", None
+    body = "\n".join("    " + ly for ly in layers)
+    return "sky_sphere {\n" + body + spin + "\n}", inc
 
 
 def _reflective(text):
@@ -641,6 +704,7 @@ def add_light_photons(lights_text):
 
 def scene_pov(items, cam, rgb_of, background="#1b1d22", lights=None, extra="",
               render=None, light_specs=None):
+    """Return the whole POV-Ray scene text: camera, background, lights, objects and render settings."""
     bg = rgb_of(background) or (27, 29, 34)
     r = _render(render)
     if light_specs is not None:                     # structured per-light model (Phase 2)
@@ -658,6 +722,11 @@ def scene_pov(items, cam, rgb_of, background="#1b1d22", lights=None, extra="",
            *([fog_pov(r, rgb_of)] if r.get("fog") else []),
            "", camera_pov(cam), lt]
     includes = set()
+    sky_text, sky_inc = sky_pov(r, rgb_of)
+    if sky_text:
+        out.insert(out.index(""), sky_text)
+        if sky_inc:
+            includes.add(sky_inc)
     shapes = combine([shape_pov(it, rgb_of, includes) for it in items], items)
     if r.get("photons"):
         shapes = [tag_object_photons(s) for s in shapes]
@@ -672,6 +741,7 @@ def scene_pov(items, cam, rgb_of, background="#1b1d22", lights=None, extra="",
 # running POV-Ray
 # ----------------------------------------------------------------------------
 def wsl_path(path):
+    """Convert a Windows path to its WSL /mnt/... form."""
     path = os.path.abspath(path)
     drive, rest = os.path.splitdrive(path)
     return "/mnt/" + drive.rstrip(":").lower() + rest.replace("\\", "/")
@@ -709,4 +779,87 @@ def render(pov_text, width, height, work_dir, quality="draft", timeout=300):
 
 
 def open_official_gui(pov_path=None):
+    """Open the official POV-Ray program, optionally on `pov_path`."""
     subprocess.Popen([PVENGINE] + ([pov_path] if pov_path else []))
+
+
+# ----------------------------------------------------------------------------
+# cloud layers (Director): drifting noise planes at a set altitude.  Each layer casts a soft
+# filtered shadow on the ground (the plane is invisible to the camera, "no_image"), and can also
+# be drawn as a visible haze sheet to fly through.  clouds = {"sun": {...}, "layers": [...]}, all in
+# the viewer's Z-up units (x east, y north, z up); compass headings are degrees clockwise from north.
+#   layer: {"name", "alt", "heading", "speed", "coverage" 0-1, "soft" 0.02-0.5, "density" 0-1,
+#           "size" (blob size, scene units), "visible" bool, "color", "seed"}
+#   sun:   {"az", "el", "color", "brightness"}  - a parallel light, so shadows fall true
+# Presets are in feet / ft-per-second and get scaled by clouds["ft"] (scene units per foot).
+# ----------------------------------------------------------------------------
+CLOUD_PRESETS = {
+    "Morning fog (800 ft)":     dict(alt=800,   speed=2,  coverage=0.85, soft=0.45, density=0.55, size=2500, visible=True,  color="#e8ecf0"),
+    "Stratus (6,000 ft)":       dict(alt=6000,  speed=25, coverage=0.55, soft=0.25, density=0.70, size=5000, visible=True,  color="#f2f4f7"),
+    "Altocumulus (12,000 ft)":  dict(alt=12000, speed=40, coverage=0.45, soft=0.20, density=0.60, size=4000, visible=False, color="#f6f7f9"),
+    "Thunderstorm (22,000 ft)": dict(alt=22000, speed=30, coverage=0.30, soft=0.12, density=0.92, size=9000, visible=False, color="#8c929c"),
+    "Inversion cap (9,000 ft)": dict(alt=9000,  speed=6,  coverage=1.00, soft=0.50, density=0.50, size=12000, visible=True, color="#cfd3d9"),
+}
+
+
+def default_clouds():
+    """Return a new cloud setup: units, sun and no layers."""
+    return {"ft": 0.3048, "sun": {"az": 135.0, "el": 55.0, "color": "#fff4e0", "brightness": 1.1}, "layers": []}
+
+
+def cloud_layer_from_preset(name, ft=0.3048, heading=270.0):
+    """Return a cloud layer built from a named preset, scaled by `ft` and flying toward `heading`."""
+    p = CLOUD_PRESETS[name]
+    return {"name": name.split(" (")[0], "alt": p["alt"] * ft, "heading": heading, "speed": p["speed"] * ft,
+            "coverage": p["coverage"], "soft": p["soft"], "density": p["density"], "size": p["size"] * ft,
+            "visible": p["visible"], "color": p["color"], "seed": 0}
+
+
+def _hex3(c, default):
+    """Turn a '#rrggbb' color (or `default` if invalid) into three 0..1 number strings."""
+    c = str(c or default).lstrip("#")
+    if len(c) != 6:
+        c = default.lstrip("#")
+    return tuple(_n(int(c[i:i + 2], 16) / 255.0) for i in (0, 2, 4))
+
+
+def sun_pov(sun):
+    """A parallel 'sun' light (viewer Z-up az/el -> POV Y-up)."""
+    az, el = math.radians(float(sun.get("az", 135.0))), math.radians(float(sun.get("el", 55.0)))
+    x, y, z = math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)
+    k = max(0.0, float(sun.get("brightness", 1.1)))
+    r, g, b = (float(v) * k for v in (int(str(sun.get("color") or "#fff4e0").lstrip("#")[i:i + 2], 16) / 255.0 for i in (0, 2, 4)))
+    return (f"light_source {{ <{_n(x * 1e5)}, {_n(z * 1e5)}, {_n(y * 1e5)}>, color rgb <{_n(r)}, {_n(g)}, {_n(b)}> "
+            "parallel point_at <0, 0, 0> }\n")
+
+
+def cloud_pov(clouds, t):
+    """POV text for every cloud layer at shot time t (seconds): the layers drift with t."""
+    out = []
+    for i, ly in enumerate(clouds.get("layers", [])):
+        alt = float(ly.get("alt", 100.0))
+        size = max(0.01, float(ly.get("size", 50.0)))
+        cov = min(1.0, max(0.0, float(ly.get("coverage", 0.5))))
+        soft = min(0.5, max(0.02, float(ly.get("soft", 0.25))))
+        den = min(1.0, max(0.0, float(ly.get("density", 0.7))))
+        h = math.radians(float(ly.get("heading", 270.0)))
+        sp = float(ly.get("speed", 0.0)) * float(t)
+        seed = float(ly.get("seed", 0)) + i
+        th = 0.08 + (1.0 - cov) * 0.67               # bozo clusters round 0.5: map coverage onto that
+        top = min(0.999, th + soft)
+        tx, tz = math.sin(h) * sp + seed * 37.1, math.cos(h) * sp + seed * 91.7
+
+        def pig(rgb, opacity):
+            """Return the POV cloud pigment for a color and an opacity."""
+            return (f"pigment {{ bozo turbulence 0.55 octaves 5 omega 0.5 lambda 2.2\n"
+                    f"        color_map {{ [0 rgbt <{rgb}, 1>] [{_n(th)} rgbt <{rgb}, 1>] [{_n(top)} rgbt <{rgb}, {_n(1 - opacity)}>] "
+                    f"[1 rgbt <{rgb}, {_n(1 - opacity)}>] }}\n"
+                    f"        scale {_n(size)} translate <{_n(tx)}, {_n(i * 13.7)}, {_n(tz)}> }}")
+        nm = str(ly.get("name") or f"layer{i}")
+        out.append(f"// cloud layer: {nm}\nplane {{ y, {_n(alt)}\n    {pig('1, 1, 1', den)}\n"
+                   "    finish { ambient 0 diffuse 0 }\n    no_image no_reflection\n}")
+        if ly.get("visible"):
+            col = ", ".join(_hex3(ly.get("color"), "#f2f4f7"))
+            out.append(f"plane {{ y, {_n(alt)}\n    {pig(col, min(1.0, den * 0.9))}\n"
+                       "    finish { ambient 0.75 diffuse 0.35 }\n    no_shadow\n}")
+    return "\n".join(out) + ("\n" if out else "")

@@ -1,0 +1,204 @@
+{
+  "name": "mrbill",
+  "segments": [
+    {
+      "kind": "Arc",
+      "a": [
+        -0.1379,
+        12.21,
+        -5.98
+      ],
+      "b": [
+        -5.061,
+        11.27,
+        -2.8
+      ],
+      "c": [
+        2.73,
+        11.27,
+        9.111
+      ],
+      "target_a": [
+        0.0516,
+        11.4,
+        -0.0849
+      ],
+      "target_c": [
+        4.792,
+        0.154,
+        0.8666
+      ],
+      "steps": 24,
+      "fov_a": 45.0,
+      "fov_c": 30.0
+    },
+    {
+      "kind": "Arc",
+      "a": [
+        2.73,
+        11.27,
+        9.111
+      ],
+      "b": [
+        -0.2617,
+        4.435,
+        3.264
+      ],
+      "c": [
+        -0.4491,
+        3.437,
+        7.464
+      ],
+      "target_a": [
+        4.792,
+        0.154,
+        0.8666
+      ],
+      "target_c": [
+        -2.59,
+        1.355,
+        1.844
+      ],
+      "steps": 24,
+      "fov_a": 30.0,
+      "fov_c": 45.0
+    },
+    {
+      "kind": "Arc",
+      "a": [
+        -0.4491,
+        3.437,
+        7.464
+      ],
+      "b": [
+        -4.375,
+        14.92,
+        -13.55
+      ],
+      "c": [
+        5.251,
+        4.792,
+        -0.7102
+      ],
+      "target_a": [
+        -2.59,
+        1.355,
+        1.844
+      ],
+      "target_c": [
+        1.337,
+        1.355,
+        -0.7648
+      ],
+      "steps": 24,
+      "fov_a": 45.0,
+      "fov_c": 45.0
+    },
+    {
+      "kind": "Arc",
+      "a": [
+        5.251,
+        4.792,
+        -0.7102
+      ],
+      "b": [
+        2.895,
+        3.074,
+        -4.949
+      ],
+      "c": [
+        -3.067,
+        2.786,
+        -0.3151
+      ],
+      "target_a": [
+        1.337,
+        1.355,
+        -0.7648
+      ],
+      "target_c": [
+        -0.6967,
+        1.355,
+        -0.1318
+      ],
+      "steps": 24,
+      "fov_a": 45.0,
+      "fov_c": 25.0
+    }
+  ],
+  "object": {
+    "kind": "Sphere",
+    "position": [
+      -3.0350765364479733,
+      1.3545669356588366,
+      1.268844385598422
+    ],
+    "size": 1,
+    "color": "#75baff"
+  },
+  "lights": [
+    {
+      "position": [
+        0.6474,
+        8.8309,
+        -2.3058
+      ],
+      "color": "#5367c8",
+      "brightness": 1.0,
+      "shadowless": false,
+      "spot": true,
+      "fade": null,
+      "spot_radius": 18.0,
+      "spot_falloff": 30.0,
+      "spot_tightness": 10.0
+    },
+    {
+      "position": [
+        114.819,
+        51.2759,
+        39.6496
+      ],
+      "color": "#efde10",
+      "brightness": 1.0,
+      "shadowless": true,
+      "spot": true,
+      "fade": null,
+      "spot_radius": 18.0,
+      "spot_falloff": 30.0,
+      "spot_tightness": 10.0
+    },
+    {
+      "position": [
+        7.0323,
+        30.6063,
+        -31.6132
+      ],
+      "color": "#8226b9",
+      "brightness": 1.0,
+      "shadowless": false,
+      "spot": true,
+      "fade": null,
+      "spot_radius": 18.0,
+      "spot_falloff": 30.0,
+      "spot_tightness": 10.0
+    },
+    {
+      "position": [
+        -0.8813,
+        32.456,
+        -14.7854
+      ],
+      "color": "#40f780",
+      "brightness": 1.0,
+      "shadowless": false,
+      "spot": true,
+      "fade": null,
+      "spot_radius": 18.0,
+      "spot_falloff": 30.0,
+      "spot_tightness": 10.0
+    }
+  ],
+  "fps": 24,
+  "ground_y": 0,
+  "roll": 0
+}

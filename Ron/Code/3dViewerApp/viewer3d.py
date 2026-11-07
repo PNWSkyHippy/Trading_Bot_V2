@@ -67,10 +67,12 @@ def tube_bends(obj):
 
 
 def is_lib_plane(obj):
+    """Return True if obj is a class3d Plane3d."""
     return Plane3d is not None and isinstance(obj, Plane3d)
 
 
 def is_round(obj):
+    """Return True if obj is one of the round library types."""
     return bool(ROUND_TYPES) and isinstance(obj, ROUND_TYPES)
 
 SCENE_FILE = os.path.join(HERE, "scene3d.csv")   # legacy default (still loaded if present)
@@ -109,10 +111,12 @@ FILL_ALPHA = 0.30
 # small helpers
 # ----------------------------------------------------------------------------
 def xyz(p):
+    """Return a Point3d as an (x, y, z) tuple of floats."""
     return tuple(float(c) for c in p.get_xyz())
 
 
 def fmt(v):
+    """Format a number with up to 2 decimals and no trailing zeros."""
     s = f"{float(v):.2f}".rstrip("0").rstrip(".")
     return "0" if s in ("-0", "") else s
 
@@ -124,19 +128,23 @@ def num(v):
 
 
 def chunks3(nums):
+    """Split a flat list of numbers into (x, y, z) triples."""
     return [tuple(nums[i:i + 3]) for i in range(0, len(nums) - 2, 3)]
 
 
 def square_corners(sq):
+    """Return the four corner points of a Square3d."""
     return [xyz(line.get_start()) for line in (sq._line1, sq._line2, sq._line3, sq._line4)]
 
 
 def square_edges(sq):
+    """Return the four (start, end) edges of a Square3d."""
     return [(xyz(line.get_start()), xyz(line.get_end()))
             for line in (sq._line1, sq._line2, sq._line3, sq._line4)]
 
 
 def cube_faces(cube):
+    """Return the six Square3d faces of a Cube3d."""
     return (cube._square1, cube._square2, cube._square3,
             cube._square4, cube._square5, cube._square6)
 
@@ -157,6 +165,7 @@ def points_of(obj):
 
 
 def center_of(obj):
+    """Return the center point of obj as an (x, y, z) tuple."""
     if isinstance(obj, Point3d):
         return xyz(obj)
     if is_lib_plane(obj):
@@ -165,6 +174,7 @@ def center_of(obj):
 
 
 def lib_plane_normal(obj):
+    """Return the normal of a library Plane3d as an (x, y, z) tuple."""
     n = obj.get_norm()
     return tuple(float(c) for c in (xyz(n) if isinstance(n, Point3d) else n))
 
@@ -213,6 +223,7 @@ def call(obj, method, *args):
 
 
 def scale_obj(obj, factor):
+    """Scale obj by `factor` about the origin."""
     if isinstance(obj, Sphere3d):
         obj.get_center().__imul__(factor)
         obj.set_static_radius(obj.get_radius() * factor)
@@ -226,6 +237,7 @@ def scale_obj(obj, factor):
 # transforms  (tf dict  <->  CSV row)
 # ----------------------------------------------------------------------------
 def _pivot_from(fields):
+    """Turn the pivot fields of a transform row into a pivot value."""
     if not fields or fields[0].lower() in ("", "default", "none"):
         return None
     mode = fields[0].lower()
@@ -239,6 +251,7 @@ def _pivot_from(fields):
 
 
 def _pivot_fields(pivot):
+    """Turn a pivot value back into the fields stored in a transform row."""
     if pivot is None:
         return ["default"]
     if isinstance(pivot, str):
@@ -247,6 +260,7 @@ def _pivot_fields(pivot):
 
 
 def parse_row(row):
+    """Turn a CSV transform row into a transform dict."""
     op = ALIASES.get(row[0].lower(), row[0].lower())
     if op == "move":
         return {"op": "move", "d": tuple(float(v) for v in row[1:4])}
@@ -262,6 +276,7 @@ def parse_row(row):
 
 
 def tf_to_row(tf):
+    """Turn a transform dict into a CSV row."""
     op = tf["op"]
     if op == "move":
         return ["move"] + [num(v) for v in tf["d"]]
@@ -275,6 +290,7 @@ def tf_to_row(tf):
 
 
 def tf_text(tf):
+    """Return a short readable description of a transform."""
     op = tf["op"]
     if op == "move":
         return "move(" + ", ".join(fmt(v) for v in tf["d"]) + ")"
@@ -368,6 +384,7 @@ def sample_points(obj):
 
 
 def _sample_points(obj):
+    """Return sample points on obj, used to size and fit the view."""
     pts = []
     if isinstance(obj, mesh_io.Mesh3d):
         return [tuple(c) for c in obj.corners()]
@@ -505,6 +522,7 @@ def hollow_inner(obj, t, opening="none"):
     A = F @ np.diag(k) @ F.T
 
     def m(p):                                  # world point -> inner copy
+        """Map a world point to the matching point on the inner copy."""
         return tuple(float(v) for v in A @ np.asarray(p, float) + shift)
 
     c1, c2 = (str(c) if c else "" for c in color_of(obj))
@@ -613,7 +631,9 @@ def measure_text(a, b=None, fmt_=None):
 # scene entries  (one CSV object row + its transform rows)
 # ----------------------------------------------------------------------------
 class Entry:
+    """One scene object: its kind, name, colors, numbers and saved transforms."""
     def __init__(self, kind, name, c1="", c2="", nums=(), transforms=None):
+        """Store the kind, name, colors, numbers and transforms."""
         self.kind = kind
         self.name = name
         self.c1 = c1 or ""
@@ -631,15 +651,18 @@ class Entry:
         self.twin_obj = None
 
     def row(self):
+        """Return the CSV row for this object."""
         return [self.kind, self.name, self.c1, self.c2] + [num(v) for v in self.nums]
 
 
 def make_square(corners, bc=None, fc=None):
+    """Return a Square3d from four corners."""
     lines = [Line3d(tuple(corners[i]), tuple(corners[(i + 1) % 4])) for i in range(4)]
     return Square3d(*lines, bc=bc, fc=fc)
 
 
 def plane_corners(p, n, size):
+    """Return the four corners of a square plane of `size` through p with normal n."""
     p, n = np.array(p, float), np.array(n, float)
     if np.linalg.norm(n) == 0:
         raise ValueError("Plane normal cannot be zero.")
@@ -676,6 +699,7 @@ def make_cube(name, pts, bc=None, fc=None):
 
 
 def build(e):
+    """Build the class3d object described by Entry e."""
     n, c1, c2 = e.nums, e.c1 or None, e.c2 or None
     if e.kind in solids3d.KINDS:
         return solids3d.build(e.kind, n, c1, c2, e.name)
@@ -848,6 +872,7 @@ def scene_groups(entries, scale=1.0, only=None):
     groups, skipped, done = [], [], set()
 
     def sc(fac):
+        """Scale a group's face list when the scene is scaled."""
         return fac if scale == 1.0 else [(a * scale, b * scale, c * scale, n) for a, b, c, n in fac]
     for r in results:
         done |= set(r["members"])
@@ -884,6 +909,7 @@ def scene_groups(entries, scale=1.0, only=None):
 
 
 def load_scene(path):
+    """Read a scene CSV file and return its list of Entry objects."""
     entries = []
     with open(path, newline="") as f:
         for lineno, row in enumerate(csv.reader(f), 1):
@@ -936,6 +962,7 @@ def load_scene(path):
 
 
 def save_scene(path, entries):
+    """Write the entries to a scene CSV file."""
     with open(path, "w", newline="") as f:
         f.write("# viewer3d scene. Object rows: kind,name,color,fill,numbers...\n"
                 "#   point3d x,y,z | line3d/vector3d x1,y1,z1,x2,y2,z2 | square3d 4 corners\n"
@@ -992,6 +1019,7 @@ _SNAP_CACHE = {}
 
 
 def _n12(v):
+    """Format a number with up to 12 significant digits."""
     s = f"{float(v):.12g}"
     return "0" if s in ("-0", "") else s
 
@@ -1089,6 +1117,7 @@ def snapshot_rows(e):
 def _same_place(e, short):
     """Build e with its full and its short steps; True when they land on each other."""
     def placed(rows):
+        """Build the object with the given transform rows applied."""
         tmp = copy.copy(e)
         tmp.transforms = rows
         obj = build(tmp)
@@ -1109,17 +1138,22 @@ def _same_place(e, short):
 # script recorder: wraps the library's transform methods while a script runs
 # ----------------------------------------------------------------------------
 class Event:
+    """One recorded move or rotate: the object, the transform and the points before and after."""
     def __init__(self, obj, tf, before, after):
+        """Store the object, transform, and points before and after."""
         self.obj, self.tf, self.before, self.after = obj, tf, before, after
 
 
 class Recorder:
+    """Records the moves and rotations a script makes so they can be replayed."""
     def __init__(self):
+        """Start with no events."""
         self.events = []
         self.depth = 0
         self.saved = []
 
     def install(self):
+        """Wrap the move, rotate and scale methods so calls are recorded."""
         plan = {Point3d: tuple(ROT_TYPES) + ("move",),
                 _Geometry3d: tuple(ROT_TYPES) + ("move", "scale")}
         for cls, names in plan.items():
@@ -1130,12 +1164,15 @@ class Recorder:
                     setattr(cls, name, self._wrap(name, orig))
 
     def uninstall(self):
+        """Restore the original methods."""
         for cls, name, orig in self.saved:
             setattr(cls, name, orig)
         self.saved = []
 
     def _wrap(rec, name, orig):
+        """Return a wrapper around method `orig` that records each top-level call."""
         def wrapper(self, *args, **kwargs):
+            """Run the method and record it unless it is a nested call."""
             if rec.depth:                      # inner per-point calls pass straight through
                 return orig(self, *args, **kwargs)
             try:
@@ -1157,7 +1194,9 @@ class Recorder:
 
     @staticmethod
     def _describe(name, obj, args, kwargs):
+        """Return a transform dict describing a recorded call."""
         def arg(i, *keys):
+            """Return positional argument i, or the first of the keyword names given."""
             if len(args) > i:
                 return args[i]
             for k in keys:
@@ -1180,14 +1219,21 @@ class Recorder:
 
 
 class PaneWriter:
+    """File-like object that writes printed text into a Tk text pane."""
     def __init__(self, text, tag=None):
+        """Remember the text widget and an optional tag."""
         self.text, self.tag = text, tag
 
     def write(self, s):
-        self.text.insert("end", s, self.tag)
-        self.text.see("end")
+        """Append text to the pane and scroll to the end."""
+        try:
+            self.text.insert("end", s, self.tag)
+            self.text.see("end")
+        except tk.TclError:                   # window already destroyed
+            pass
 
     def flush(self):
+        """Do nothing (needed by the file interface)."""
         pass
 
 
@@ -1237,6 +1283,7 @@ ADD_SPECS.update(solids3d.ADD_SPECS)
 
 
 def add_nums(label, v):
+    """Return the numbers for a new object of type `label` from the dialog values."""
     if label == "Point":
         return list(v["p"])
     if label in ("Line", "Vector"):
@@ -1274,6 +1321,7 @@ def add_nums(label, v):
 # built from edited values (current geometry, so its transform rows get baked in)
 # ----------------------------------------------------------------------------
 def _unit(v, what="vector"):
+    """Return v scaled to length 1; raise ValueError if it is zero."""
     v = np.array(v, float)
     if np.linalg.norm(v) < 1e-12:
         raise ValueError(f"{what} cannot be zero")
@@ -1423,7 +1471,9 @@ def prop_nums(e, v, changed):
 # the app
 # ----------------------------------------------------------------------------
 class App:
+    """The main viewer: scene list, side panel, 3D view and all the tools."""
     def __init__(self, root, classic=False):
+        """Build the window, load the scene and start the viewer."""
         self.root = root
         self.classic = classic         # classic = the old Tk viewport; default = Taichi is the main window
         root.title("3D Testbed - class3d viewer" + ("" if classic else " - MAIN window (close = quit)"))
@@ -1494,6 +1544,7 @@ class App:
             # item forms:  None -> separator
             #              (label, callable[, accel]) -> command
             #              (label, [sub-items])       -> labelled sub-section (submenu, recurses)
+            """Fill menu m from a list of items (commands, separators, submenus)."""
             for it in items:
                 if it is None:
                     m.add_separator()
@@ -1514,6 +1565,7 @@ class App:
                     m.add_command(label=label, command=cmd, **opts)
 
         def menu(title, *items):
+            """Add a top-level menu with the given items."""
             m = tk.Menu(bar, tearoff=0)
             fill(m, items)
             bar.add_cascade(label=title, menu=m)
@@ -1555,6 +1607,7 @@ class App:
         layers_m = tk.Menu(vm, tearoff=0)
 
         def post_layers():
+            """Rebuild the Layers menu with a checkbox per layer."""
             layers_m.delete(0, "end")
             for n, v in self.layer_vars.items():
                 layers_m.add_checkbutton(label=n, variable=v, command=lambda n=n: self._layer_toggle(n))
@@ -1667,6 +1720,7 @@ class App:
     # ------------------------------------------------------------- UI layout
     def _build_ui(self):
         # left: 3D view over the Output pane; right: the side panel, full height and scrollable
+        """Lay out the 3D view, output pane and side panel."""
         top = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         top.pack(fill=tk.BOTH, expand=True)
         outer = ttk.PanedWindow(top, orient=tk.VERTICAL)
@@ -1691,6 +1745,7 @@ class App:
         except tk.TclError:
             pass
         self.top_mag = None
+        self._mag = None               # the magnifier window's app (Ctrl+Shift+M toggles it)
  
         self._mac = self.root.tk.call("tk", "windowingsystem") == "aqua"
         if self._mac:                  # Mac: right button is Button-2; Ctrl-click also pans
@@ -1714,6 +1769,7 @@ class App:
         self._build_panel(panel)
         if not self.classic:             # Taichi mode: the output pane is small - give the panel the room
             def _give_panel_room(tries=[0]):
+                """Keep the side panel wide enough once the window has a size."""
                 try:
                     w = top.winfo_width()
                     if w < 200 and tries[0] < 20:
@@ -1745,14 +1801,20 @@ class App:
 
     def on_mag(self, event=None):
         # already open? close it (the key toggles) instead of stacking copies
-        if self._mag is not None and self._mag.master.winfo_exists():
-            self._mag.master.destroy()
-            self._mag = None
-            return "break"
+        """Toggle the magnifier window."""
+        mag, self._mag = getattr(self, "_mag", None), None
+        if mag is not None:
+            try:
+                if mag.master.winfo_exists():
+                    mag.master.destroy()
+                    return "break"
+            except tk.TclError:                  # window already gone: fall through and reopen
+                pass
         self._mag = run_magnifyer(self)
         return "break"
 
     def _build_panel(self, p):
+        """Build the side panel controls in frame p."""
         r1 = ttk.Frame(p)
         r1.pack(fill=tk.X, pady=2)
         ttk.Label(r1, text="Add:").pack(side=tk.LEFT)
@@ -2092,6 +2154,7 @@ class App:
             ef.columnconfigure(c, weight=1)
 
     def _xyz_row(self, parent, row, label, defaults):
+        """Add a row of three entry boxes and return their variables."""
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w")
         vars_ = []
         for i, d in enumerate(defaults):
@@ -2102,15 +2165,18 @@ class App:
 
     @staticmethod
     def _floats(vars_):
+        """Return the values of the variables as floats."""
         return tuple(float(v.get()) for v in vars_)
 
     def pick(self, var, parent=None):
         # parent = the window the button is in, so the picker opens on top of it
+        """Open the color chooser and put the result into `var`."""
         res = colorchooser.askcolor(color=var.get() or None, parent=parent or self.root)
         if res and res[1]:
             var.set(res[1])
 
     def valid_color(self, c):
+        """Return True if c is a color Tk understands."""
         try:
             self.root.winfo_rgb(c)
             return True
@@ -2132,6 +2198,7 @@ class App:
 
     @staticmethod
     def _recall_active():
+        """Return the scene file used last time, or None."""
         try:
             with open(ACTIVE_PTR) as f:
                 p = f.read().strip()
@@ -2153,10 +2220,12 @@ class App:
         self._update_scene_header()
 
     def _update_scene_header(self):
+        """Show the active scene file name in the tree header."""
         if self.tree.exists("scene"):
             self.tree.item("scene", text=f"Scene ({os.path.basename(self.scene_path)})")
 
     def load_or_bootstrap(self):
+        """Load the last scene or create the starter one."""
         prev = self._recall_active()
         if prev:                                          # reopen whatever scene we last worked in
             self.scene_path = prev
@@ -2184,6 +2253,7 @@ class App:
         self._update_scene_header()
 
     def save(self):
+        """Save the scene and note the change for undo."""
         old = self._scene_text()
         try:
             save_scene(self.scene_path, self.entries)
@@ -2223,6 +2293,7 @@ class App:
                                     parent=self.root):
             return
         self.entries = []
+        self.script_objs, self.events = [], []            # a new scene is blank: no leftover script run
         self._switch_scene(timestamped_scene())
         self.refresh()
         self.save()
@@ -2242,6 +2313,7 @@ class App:
         self.entries = entries
         for e in self.entries:
             self.rebuild(e)
+        self.script_objs, self.events = [], []            # the old script run doesn't belong to this scene
         self._switch_scene(path)
         self._load_scene_director()                       # bring this scene's camera work back
         self.refresh()
@@ -2270,6 +2342,7 @@ class App:
     UNDO_MAX = 200
 
     def _scene_text(self):
+        """Return the scene file text, or None if unreadable."""
         try:
             with open(self.scene_path, newline="") as f:
                 return f.read()
@@ -2277,6 +2350,7 @@ class App:
             return None
 
     def _note_undo(self, old):
+        """Push the old file text on the undo stack if the scene changed."""
         if old is None or getattr(self, "_undo_busy", False):
             return
         if old == self._scene_text():
@@ -2291,16 +2365,20 @@ class App:
 
     @staticmethod
     def _typing(ev):
+        """Return True if the key event came from a text box."""
         return ev is not None and ev.widget.winfo_class() in (
             "Entry", "TEntry", "Text", "TCombobox", "Listbox", "Spinbox", "TSpinbox")
 
     def undo(self, ev=None):
+        """Undo the last scene change."""
         return self._undo_redo(ev, "undo_stack", "redo_stack", "Undo")
 
     def redo(self, ev=None):
+        """Redo the last undone change."""
         return self._undo_redo(ev, "redo_stack", "undo_stack", "Redo")
 
     def _ctrl_z(self, ev):                    # Ctrl+Shift+Z = redo (Caps Lock alone doesn't count)
+        """Handle Ctrl+Z as undo, and Ctrl+Shift+Z as redo."""
         return self.redo(ev) if ev.state & 0x0001 else self.undo(ev)
 
     @staticmethod
@@ -2311,6 +2389,7 @@ class App:
         yield
 
     def _undo_redo(self, ev, src, dst, what, in_job=False):
+        """Step the scene between the undo and redo stacks."""
         if self._typing(ev):
             return None                       # let the text box have its own key
         src, dst = self.__dict__.setdefault(src, []), self.__dict__.setdefault(dst, [])
@@ -2335,6 +2414,7 @@ class App:
         self._undo_busy = True
         try:
             def same(e):                      # what the built object depends on
+                """Return a key that identifies what the built object depends on."""
                 return (tuple(e.row()), e.twin, tuple(tuple(r) for r in snapshot_rows(e)))
             built = {}                        # one undo usually changes one object: keep the rest
             for e in self.entries:
@@ -2357,12 +2437,14 @@ class App:
         return "break"
 
     def select_all(self, ev=None):
+        """Select every scene object."""
         if self._typing(ev):
             return None
         self.tree.selection_set([f"s{i}" for i in range(len(self.entries))])
         return "break"
 
     def select_none(self, ev=None):
+        """Clear the selection."""
         if self._typing(ev):
             return None
         self.tree.selection_remove(*self.tree.selection())
@@ -2371,6 +2453,7 @@ class App:
         return "break"
 
     def _delete_key(self, ev=None):
+        """Delete the selection when the Delete key is pressed."""
         if self._typing(ev):
             return None
         self.delete_selected()
@@ -2408,6 +2491,7 @@ class App:
         e.obj, e.twin_obj = obj, twin
 
     def unique_name(self, base):
+        """Return base, or base with a number added if the name is taken."""
         names = {e.name for e in self.entries}
         if base not in names:
             return base
@@ -2489,12 +2573,14 @@ class App:
         return None
 
     def sel_entry(self):
+        """Return the selected scene Entry, or None with a message."""
         if self.selected and self.selected[0] == "s":
             return self.selected[1]
         print("Select a scene object first (script objects: use 'Keep script objs').")
         return None
 
     def on_select(self, _event=None):
+        """Update the panels and the preview when the tree selection changes."""
         self.preview_refresh()                       # (runs when idle) highlight it in the preview too
         iid = (self.tree.selection() or [""])[0]
         if iid.startswith("s") and iid != "scene" and iid != "script":
@@ -2553,6 +2639,7 @@ class App:
 
     # -------------------------------------------------------------- editing
     def add_dialog(self):
+        """Ask for the numbers and colors, then add the chosen kind of object."""
         label = self.v_add.get()
         if label == "Lathe":                    # always a new one
             if self.lathe_tool is not None:
@@ -2605,6 +2692,7 @@ class App:
                 fields[key] = ("num", v)
 
         def ok():
+            """Read the dialog fields and add the object."""
             try:
                 vals = {}
                 for key, (ftype, v) in fields.items():
@@ -2730,6 +2818,7 @@ class App:
         self._props[0].lift()
 
     def _close_props(self):
+        """Close the Properties window."""
         if self._props is not None:
             self._props[0].destroy()
             self._props = None
@@ -2770,6 +2859,7 @@ class App:
                       foreground="#888").grid(row=len(spec) + 1, column=0, columnspan=4, sticky="w")
 
     def _apply_props(self):
+        """Apply the Properties window values to the object."""
         if self._props is None:
             return
         e = getattr(self, "_props_entry", None)
@@ -2811,10 +2901,12 @@ class App:
         old = e.obj
 
         def end_frame(b):
+            """Return the end point and frame (tangent, radial, normal) of a bend."""
             return (np.array(xyz(b.spine_point(1.0)), float),
                     np.column_stack([b.tangent(1.0), b.radial_dir(1.0), b.get_norm()]))
 
         def followers(b, seen):
+            """Return the bends that connect to the end of bend b."""
             p, f = end_frame(b)
             out = []
             for o in self.entries:
@@ -2842,6 +2934,7 @@ class App:
         return chain
 
     def rename(self):
+        """Rename the selected object."""
         e = self.sel_entry()
         if e is None:
             return
@@ -2858,6 +2951,7 @@ class App:
         self.refresh()
 
     def apply_twin(self):
+        """Make the selected object a mirrored twin of another."""
         e = self.sel_entry()
         if e is None:
             return
@@ -2880,6 +2974,7 @@ class App:
                                + (", first flipped" if e.twin[2] else "") if e.twin else "twin removed"))
 
     def apply_csg(self):
+        """Apply the chosen CSG operation to the selected object."""
         e = self.sel_entry()
         if e is None:
             return
@@ -2904,6 +2999,7 @@ class App:
             print(f"{who}: CSG removed")
 
     def csg_target_ok(self, tgt):
+        """Return True if tgt names an existing object or group."""
         if tgt.startswith("@"):
             return any(tgt[1:] in gsegs(o) for o in self.entries)
         return any(o.name == tgt for o in self.entries)
@@ -3033,6 +3129,10 @@ class App:
         msgs = []
         closed = "open" not in args
         args = [a for a in args if a != "open"]
+        if len(args) < 7:
+            print("Slice: need cx cy cz nx ny nz flip"
+                  + (f" - got {len(args)} value(s)" if args else ""))
+            return
         try:
             for i in range(0, len(args) - 6, 7):
                 p = [float(x) for x in args[i:i + 6]]
@@ -3052,6 +3152,7 @@ class App:
             print("  (Ctrl+Z undoes it)")
 
     def apply_hollow(self):
+        """Set the selected solid's hollow wall thickness."""
         e = self.sel_entry()
         if e is None:
             return
@@ -3082,6 +3183,7 @@ class App:
                                if e.hollow else "solid again"))
 
     def apply_colors(self):
+        """Apply the chosen line and fill colors to the selected object."""
         e = self.sel_entry()
         if e is None:
             return
@@ -3103,9 +3205,11 @@ class App:
     # ---- POV-Ray materials:  group -> {shown name: spec}  (spec format: pov_export.material)
     def _load_pov_lib(self):
         # worker thread: only hand the result over; Tk calls (after, widgets) stay on the main thread
+        """Load the POV material library in a worker thread."""
         self._pov_lib_ready = pov_export.library()
 
     def _poll_pov_lib(self):
+        """Wait for the material library, then fill the material lists."""
         lib = self.__dict__.pop("_pov_lib_ready", None)
         if lib is None:
             self.root.after(200, self._poll_pov_lib)
@@ -3116,6 +3220,7 @@ class App:
             self._show_material(self.selected[1])
 
     def _mat_choices(self):
+        """Return the material groups and their named choices."""
         ch = {"Color": {"own color": ""},
               "Studio": {k: f"studio:{k}" for k in pov_export.STUDIO}}
         for grp, rows in self.pov_lib.items():
@@ -3126,17 +3231,20 @@ class App:
         return ch
 
     def _mat_groups(self):
+        """Refresh the material group list."""
         self.mat_choices = self._mat_choices()
         self.cb_mat_grp["values"] = list(self.mat_choices)
         self._mat_group_changed(keep=True)
 
     def _mat_group_changed(self, keep=False):
+        """Refill the material name list for the chosen group."""
         names = list(self.mat_choices.get(self.v_mat_grp.get(), {}))
         self.cb_mat_name["values"] = names
         if not (keep and self.v_mat_name.get() in names):
             self.v_mat_name.set(names[0] if names else "")
 
     def _show_material(self, e):
+        """Show the material of Entry e in the group and name boxes."""
         for grp, names in self.mat_choices.items():
             for shown, spec in names.items():
                 if spec == e.mat:
@@ -3150,6 +3258,7 @@ class App:
         self.v_mat_scale.set(fmt(e.mat_scale))
 
     def apply_material(self):
+        """Apply the chosen material to the selected object."""
         e = self.sel_entry()
         if e is None:
             return
@@ -3167,6 +3276,7 @@ class App:
         print(f"{who}: material {mat or 'own color'}" + (f", scale {fmt(scale)}" if scale != 1 else ""))
 
     def pick_image(self):
+        """Choose an image file for the image-map texture."""
         path = filedialog.askopenfilename(title="Image map", filetypes=[
             ("Images", " ".join("*" + x for x in pov_export.IMAGE_TYPES)), ("All files", "*.*")])
         if not path:
@@ -3232,6 +3342,7 @@ class App:
         return tuple(float(v) for v in (cs.min(axis=0) + cs.max(axis=0)) / 2)
 
     def _selected_entries(self):
+        """Return the Entry objects selected in the tree."""
         return [self.entries[int(i[1:])] for i in self.tree.selection()
                 if i.startswith("s") and i[1:].isdigit()]
 
@@ -3286,6 +3397,7 @@ class App:
         self.preview_refresh()
 
     def tag_group(self):
+        """Put the selected objects into the named group."""
         name = self.v_group.get().strip().replace(",", "_").replace("/", "_")
         es = [o for s in self._sets_of_selection() for o in s]
         if not name or not es:
@@ -3319,6 +3431,7 @@ class App:
         """Animate tf on entry e (and its group), then store it under each object and save.
         pivot "group" = the group's middle as it is when the job runs (after earlier queued ones)."""
         def job():
+            """Run the queued transform on the object (or its whole group)."""
             es = [o for o in self.group_entries(e) if o.obj is not None]   # read when the job starts
             if not es:
                 return
@@ -3353,6 +3466,7 @@ class App:
         self.enqueue(job())
 
     def move_by(self):
+        """Move the selection (or director item) by the entered offset."""
         it = self.dir_item()
         e = None if it else self.sel_entry()
         if e is None and it is None:
@@ -3389,6 +3503,7 @@ class App:
         self.redraw()
 
     def dir_through(self):
+        """Set the director camera key to look through the entered point."""
         it = self.dir_item()
         if it is None:
             print("View through: select a Camera key in the tree (open the Director first)")
@@ -3396,6 +3511,7 @@ class App:
         self.director.look_through(it)
 
     def dir_from_view(self):
+        """Set the director camera key from the current 3D view."""
         it = self.dir_item()
         if it is None:
             print("Camera = 3D view: select a Camera key in the tree (open the Director first)")
@@ -3552,6 +3668,7 @@ class App:
 
     # ------------------------------------------------- view / camera key panel
     def _show_view(self, eye, look, fov):
+        """Show eye, look-at and field of view in the view boxes."""
         for vs, p in ((self.v_eye, eye), (self.v_look, look)):
             for v, val in zip(vs, p):
                 v.set(fmt(float(val)))
@@ -3573,6 +3690,7 @@ class App:
                         math.degrees(2 * math.atan((h / 2) / (self.scale * self.dist))))
 
     def _read_view(self):
+        """Return (eye, look, fov) from the view boxes, or None if invalid."""
         try:
             return (np.array(self._floats(self.v_eye), float), np.array(self._floats(self.v_look), float),
                     max(1.0, min(170.0, float(self.v_fov.get()))))
@@ -3604,6 +3722,7 @@ class App:
         return os.path.splitext(self.scene_path)[0] + ".views.json" if self.scene_path else None
 
     def _load_views(self):
+        """Return the saved named views."""
         try:
             with open(self._views_file(), encoding="utf-8") as f:
                 return json.load(f)
@@ -3611,6 +3730,7 @@ class App:
             return {}
 
     def _store_views(self, views):
+        """Save the named views to disk."""
         path = self._views_file()
         if path:
             tmp = path + ".tmp"
@@ -3659,6 +3779,7 @@ class App:
         print(f"View '{name}' restored  (in the Taichi preview press R / Viewer's view to go there)")
 
     def view_delete(self, name):
+        """Delete the saved view called `name`."""
         views = self._load_views()
         if views.pop(name, None) is not None:
             self._store_views(views)
@@ -3674,6 +3795,7 @@ class App:
         self._ask("Go to saved view", [("View", v, names)], lambda: self.view_recall(v.get()))
 
     def _fill_views_menu(self, m, delete=False):
+        """Fill menu m with the saved views, to load or (if delete) to delete."""
         m.delete(0, "end")
         names = sorted(self._load_views())
         if not names:
@@ -3818,6 +3940,7 @@ class App:
         ct, st = math.cos(t), math.sin(t)
 
         def turn(p):
+            """Rotate point p about the axis through o."""
             v = p - o
             return o + v * ct + np.cross(k, v) * st + k * float(k @ v) * (1 - ct)
         self.director.transform_item(it, turn)
@@ -3914,6 +4037,7 @@ class App:
               f"(undo: Rescale back to {fmt(now)})")
 
     def move_to(self):
+        """Move the selection so its center is at the entered point."""
         it = self.dir_item()
         e = None if it else self.sel_entry()
         if it is None and (e is None or e.obj is None):
@@ -3932,6 +4056,7 @@ class App:
         self._queue_tf(e, {"op": "move", "d": d})
 
     def scale_by(self):
+        """Scale the selection by the entered factor."""
         it = self.dir_item()
         e = None if it else self.sel_entry()
         if it is None and (e is None or e.obj is None):
@@ -3941,6 +4066,9 @@ class App:
         except ValueError:
             print("Scale: enter a number")
             return
+        if not it and (not math.isfinite(f) or f <= 0):
+            print("Scale: enter a number greater than 0")
+            return
         if it:                                   # about its own center (a whole shot grows / shrinks)
             c = self.director.item_center(it)
             self.director.transform_item(it, lambda p: c + (p - c) * f)
@@ -3949,6 +4077,7 @@ class App:
         self._queue_tf(e, {"op": "scale", "f": f})
 
     def rotate(self):
+        """Rotate the selection by the entered angle about the chosen pivot."""
         it = self.dir_item()
         e = None if it else self.sel_entry()
         if it is None and (e is None or e.obj is None):
@@ -3975,7 +4104,9 @@ class App:
         elif choice == "origin":
             pivot = (0.0, 0.0, 0.0)
         elif choice.startswith("obj:"):
-            other = next(o for o in self.entries if o.name == choice[4:])
+            other = next((o for o in self.entries if o.name == choice[4:]), None)
+            if other is None or other.obj is None:
+                raise ValueError(f"'{choice[4:]}' has no built object")
             pivot = center_of(other.obj)
         else:
             pivot = self._floats(self.v_pxyz)
@@ -3985,7 +4116,10 @@ class App:
             if axis == "custom":
                 a, b = self._floats(self.v_axa), self._floats(self.v_axb)
             else:
-                line = next(o for o in self.entries if o.name == axis).obj
+                line = next((o for o in self.entries if o.name == axis), None)
+                if line is None or line.obj is None:
+                    raise ValueError(f"axis '{axis}' has no built line")
+                line = line.obj
                 a, b = xyz(line.get_start()), xyz(line.get_end())
             if np.allclose(a, b):
                 raise ValueError("axis start and end are the same point")
@@ -4033,6 +4167,7 @@ class App:
               + tf_text(dict(tf, deg=a1 - a0)))
 
     def undo_tf(self):
+        """Undo the last transform of the selection."""
         if self.dir_item():
             self.director.undo()
             if self.dir_item():                  # still there after the undo
@@ -4054,6 +4189,7 @@ class App:
         self.redraw()
 
     def delete_selected(self):
+        """Delete the selected object, group or director item."""
         it = self.dir_item()
         if it:
             if it.startswith("d:light"):
@@ -4088,6 +4224,7 @@ class App:
 
     # ------------------------------------------------------- script running
     def ask_run_script(self):
+        """Ask for a Python script and run it."""
         path = filedialog.askopenfilename(initialdir=HERE, title="Run a python script",
                                           filetypes=[("Python", "*.py"), ("All", "*.*")])
         if path:
@@ -4101,6 +4238,7 @@ class App:
         captured = {}
 
         def prof(frame, event, _arg):
+            """Profile hook that captures the locals of main() when it returns."""
             if (event == "return" and frame.f_code.co_name == "main"
                     and os.path.normcase(os.path.abspath(frame.f_code.co_filename)) == target):
                 captured.update(dict(frame.f_locals))
@@ -4163,12 +4301,14 @@ class App:
         return keep
 
     def replay(self):
+        """Replay the moves recorded from the last script."""
         if not self.events:
             print("Nothing to replay - run a script that rotates or moves something.")
             return
         self.enqueue(self._replay_job())
 
     def _replay_job(self):
+        """Rewind the recorded moves, then play them step by step."""
         names = {id(o): n for n, o in self.script_objs}
         for ev in reversed(self.events):     # rewind everything to the script's start
             for p, c in ev.before:
@@ -4191,6 +4331,7 @@ class App:
         print("----- replay finished -----")
 
     def keep_script_objs(self):
+        """Copy the objects a script created into the scene."""
         if not self.script_objs:
             print("No script objects to keep.")
             return
@@ -4210,18 +4351,21 @@ class App:
 
     # ------------------------------------------------------------ animation
     def enqueue(self, gen):
+        """Add a step-by-step job and start the job loop if idle."""
         self.jobs.append(gen)
         if not self.job_running:
             self.job_running = True
             self._tick()
 
     def _delay(self):
+        """Return the animation delay in ms (at least 1)."""
         try:
             return max(1, int(float(self.v_delay.get())))
         except ValueError:
             return 40
 
     def _tick(self):
+        """Run one step of the current job and schedule the next."""
         while self.jobs:
             try:
                 next(self.jobs[0])
@@ -4240,6 +4384,7 @@ class App:
         self.root.after(1200, self._clear_overlay)
 
     def _clear_overlay(self):
+        """Remove the overlay when no job is running."""
         if not self.job_running:
             self.overlay = []
             self.redraw()
@@ -4263,6 +4408,7 @@ class App:
             yield
 
     def make_overlay(self, obj, tf, pivot, start):
+        """Return overlay items that show a transform (pivot, axis, arrow)."""
         items = []
         ctr = center_of(obj)
         op = tf["op"]
@@ -4271,7 +4417,7 @@ class App:
             items.append(("marker", start, "#ff9f43", "from"))
             return items
         if op == "scale":
-            items.append(("marker", (0, 0, 0), "#ff9f43", f"scale x{fmt(tf['f'])}"))
+            items.append(("marker", pivot, "#ff9f43", f"scale x{fmt(tf['f'])}"))
             return items
         if op == "vecrot":
             a, b = tf["axis"]
@@ -4292,10 +4438,12 @@ class App:
 
     # --------------------------------------------------------------- camera
     def reset_camera(self):
+        """Return the camera to the default view."""
         self.yaw, self.pitch = math.radians(-35), math.radians(25)
         self.scale, self.dist, self.target = 20.0, 60.0, (0.0, 0.0, 0.0)
 
     def open_director(self):
+        """Open the Director window, or bring it forward."""
         import director3d
         if self.director is not None and self.director.winfo_exists():
             self.director.lift()
@@ -4339,9 +4487,11 @@ class App:
 
     @staticmethod
     def make_entry(kind, name, c1, c2, nums):
+        """Return a new Entry."""
         return Entry(kind, name, c1, c2, nums)
 
     def _drag_start(self, ev, mode):
+        """Begin a mouse drag in the given mode (orbit, pan, handle)."""
         self.canvas.focus_set()              # so fly keys reach the canvas
         if mode == "orbit" and self.director is not None and self.director.grab_handle(ev.x, ev.y):
             mode = "handle"                  # dragging a director camera / aim / light handle
@@ -4349,6 +4499,7 @@ class App:
         self._press, self._dragged = (ev.x, ev.y), False
 
     def _release1(self, ev):
+        """End a drag, releasing any director handle."""
         d = self._drag
         if d and d[0] == "handle" and self.director:
             self.director.release_handle()
@@ -4388,6 +4539,7 @@ class App:
                 np.array((cy, -sy, 0.0)))
 
     def _fly(self, ev, mode, a, b, c=0):
+        """Move the camera from a fly key (ignored while typing)."""
         if ev.widget.winfo_class() in ("Entry", "TEntry", "Text", "TCombobox", "Listbox", "Spinbox", "TSpinbox"):
             return None                                # typing, not flying
         boost = 4 if ev.state & 0x0001 else 1          # Shift held
@@ -4409,6 +4561,7 @@ class App:
         return "break"
 
     def _drag_move(self, ev):
+        """Update the view for a mouse drag."""
         if not self._drag:
             return
         mode, x0, y0 = self._drag
@@ -4442,6 +4595,7 @@ class App:
 
     def _wheel(self, ev):
         # Windows and Tk 9 send +-120 per notch; older Mac Tk sends small counts (+-1..+-10).
+        """Zoom with the mouse wheel."""
         steps = ev.delta / 120 if abs(ev.delta) >= 120 else max(-3, min(3, ev.delta * 0.5))
         self.zoom(1.1 ** steps, ev)
 
@@ -4465,9 +4619,11 @@ class App:
         return np.array(self.target, float) - fwd * self.dist
 
     def near(self):
+        """Return the near-clip distance."""
         return self.view["near"] if self.view else 0.06 * self.dist
 
     def project(self, p):
+        """Project a 3D point to screen (x, y), or None if behind the camera."""
         v = self.view
         if v:                                  # director camera: plain pinhole projection
             d = np.asarray(p, float) - v["eye"]
@@ -4486,20 +4642,23 @@ class App:
         return self._w / 2 + x1 * f, self._h / 2 - up * f, depth, f
 
     def all_points(self):
+        """Return every sample point of every visible object."""
         return [p for _name, pts in self.points_by_object() for p in pts]
 
     def points_by_object(self):
+        """Return (name, points) for each visible object."""
         out = []
         for _name, obj, _sel in self.visible_objects():
             pts = []
             out.append((_name, pts))
             try:
                 pts += sample_points(obj)
-            except Exception:
-                pass
+            except Exception as exc:              # noqa: BLE001 - one bad object must not stop Fit
+                print(f"{_name}: not sampled for Fit view ({exc})")
         return [(n, p) for n, p in out if p]
 
     def fit_view(self):
+        """Zoom and aim the view to fit the whole scene."""
         self.canvas.update_idletasks()
         objs = self.points_by_object()
         if len(objs) > 2:
@@ -4527,6 +4686,7 @@ class App:
         self.redraw()
 
     def update_grid(self):
+        """Refresh the grid size from the scene and redraw."""
         global _SP_MEMO
         _SP_MEMO = {}                          # world width + grid both walk every object: sample once
         try:
@@ -4535,6 +4695,7 @@ class App:
             _SP_MEMO = None
 
     def _update_grid(self):
+        """Update the world-width label."""
         if hasattr(self, "l_world"):
             try:
                 self.l_world.configure(text=f"now {fmt(round(self.world_width(), 3))}")
@@ -4615,24 +4776,29 @@ class App:
                 "aspect": w / h}
 
     def pov_text(self):
+        """Return the POV-Ray scene text for the current scene."""
         return pov_export.scene_pov(self.pov_items(), self.pov_camera(), self.rgb,
                                     background=BG, render=self.render_settings,
                                     light_specs=self.lights)
 
     # Tk-viewport POV triggers: drop any Taichi camera so this window renders from its own view.
     def render_pov_here(self):
+        """Render with POV-Ray from the current 3D view."""
         self._pov_cam = None
         self.render_pov()
 
     def save_pov_here(self):
+        """Save a POV file from the current 3D view."""
         self._pov_cam = None
         self.save_pov()
 
     def open_pov_gui_here(self):
+        """Open the POV-Ray program on the current 3D view."""
         self._pov_cam = None
         self.open_pov_gui()
 
     def save_pov(self):
+        """Ask for a name and save the POV-Ray scene file."""
         os.makedirs(POV_DIR, exist_ok=True)
         path = filedialog.asksaveasfilename(parent=self.root, initialdir=POV_DIR,
                                             initialfile=os.path.basename(POV_FILE),
@@ -4643,6 +4809,7 @@ class App:
             print(f"Saved {path}")
 
     def open_pov_gui(self):
+        """Write the scene file and open it in the POV-Ray program."""
         os.makedirs(POV_DIR, exist_ok=True)
         with open(POV_FILE, "w", encoding="utf-8") as f:
             f.write(self.pov_text())
@@ -4697,6 +4864,7 @@ class App:
                   foreground="#888").grid(row=7, column=1, sticky="w")
 
         def go():
+            """Read the export options and write the STL/OBJ file."""
             try:
                 scale = float(v_scale.get())
             except ValueError:
@@ -4759,12 +4927,14 @@ class App:
         app = self
 
         class _Sess:                      # the bits turtle3d.run needs, backed by this App
+            """The session object turtle3d.run needs, backed by this App."""
             Entry = Entry
             entries = app.entries
             mesh_dir = MESH_DIR
 
             @staticmethod
             def _rebuild(e):
+                """Rebuild an entry's object after the turtle changes it."""
                 app.rebuild(e)
         try:
             msg = turtle3d.run_file(path, _Sess)
@@ -4828,6 +4998,8 @@ class App:
             rs["fog"] = (val == "1" or val.lower() == "true")
         elif field == "fog_type" and val in ("ground", "distance"):
             rs["fog_type"] = val
+        elif field == "sky" and val in ("off", "gradient", "clouds", "sunset", "stars", "image"):
+            rs["sky"] = val
         elif field == "fog_distance":
             try:
                 rs["fog_distance"] = max(0.1, float(val))
@@ -4888,8 +5060,14 @@ class App:
         v_fogh = tk.StringVar(value=f"{float(rs['fog_height']):g}")
         v_fogb = tk.StringVar(value=f"{float(rs['fog_turbulence']):g}")
         v_fogc = tk.StringVar(value=str(rs["fog_color"]))
+        v_sky = tk.StringVar(value=rs["sky"])
+        v_skyt = tk.StringVar(value=str(rs["sky_top"]))
+        v_skyh = tk.StringVar(value=str(rs["sky_horizon"]))
+        v_skyr = tk.StringVar(value=f"{float(rs['sky_rotate']):g}")
+        v_skyi = tk.StringVar(value=str(rs["sky_image"] or "(none)"))
 
         def apply(*_a):
+            """Read the render settings widgets into the settings."""
             try:
                 cnt = max(1000, int(float(v_phoc.get())))
             except ValueError:
@@ -4901,6 +5079,7 @@ class App:
                 tr = int(rs["max_trace"])
             v_trace.set(str(tr))
             def _pf(var, lo, hi, cur):               # parse a float field, clamp, write back
+                """Parse a float field, clamp it to lo..hi and write it back."""
                 try:
                     v = max(lo, min(hi, float(var.get())))
                 except ValueError:
@@ -4910,12 +5089,18 @@ class App:
             fd = _pf(v_fogd, 0.1, 1e6, rs["fog_distance"])
             fh = _pf(v_fogh, 0.01, 1e6, rs["fog_height"])
             fb = _pf(v_fogb, 0.0, 10.0, rs["fog_turbulence"])
+            sr = _pf(v_skyr, -360.0, 360.0, rs["sky_rotate"])
             rs.update(radiosity=bool(v_rad.get()), radiosity_quality=v_radq.get(),
                       photons=bool(v_pho.get()), photons_count=cnt, max_trace=tr,
                       fog=bool(v_fog.get()), fog_type=v_fogt.get(),
                       fog_distance=fd, fog_height=fh, fog_turbulence=fb,
-                      fog_color=(v_fogc.get().strip() or "#aeb4bf"))
+                      fog_color=(v_fogc.get().strip() or "#aeb4bf"),
+                      sky=v_sky.get(), sky_rotate=sr,
+                      sky_top=(v_skyt.get().strip() or "#2a5fb0"),
+                      sky_horizon=(v_skyh.get().strip() or "#bcd6f0"))
             bits = []
+            if rs["sky"] != "off":
+                bits.append("sky " + (rs["sky_image"] if rs["sky"] == "image" else rs["sky"]))
             if rs["radiosity"]:
                 bits.append(f"radiosity {rs['radiosity_quality']}")
             if rs["photons"]:
@@ -4926,6 +5111,7 @@ class App:
             lbl_state.configure(text="Active: " + ", ".join(bits))
 
         def sync():                                  # pull rs -> widgets (after a Taichi-menu change)
+            """Refresh the widgets from the render settings."""
             v_rad.set(bool(rs["radiosity"]))
             v_radq.set(rs["radiosity_quality"])
             v_pho.set(bool(rs["photons"]))
@@ -4937,9 +5123,33 @@ class App:
             v_fogh.set(f"{float(rs['fog_height']):g}")
             v_fogb.set(f"{float(rs['fog_turbulence']):g}")
             v_fogc.set(str(rs["fog_color"]))
+            v_sky.set(rs["sky"])
+            v_skyt.set(str(rs["sky_top"]))
+            v_skyh.set(str(rs["sky_horizon"]))
+            v_skyr.set(f"{float(rs['sky_rotate']):g}")
+            v_skyi.set(str(rs["sky_image"] or "(none)"))
+            apply()
+
+        def pick_sky_image():
+            """Choose an equirectangular panorama; it is copied into the pov folder because the
+            render finds image maps beside the .pov (same as material images)."""
+            path = filedialog.askopenfilename(
+                parent=win, title="Sky panorama (equirectangular, 2:1 works best)",
+                filetypes=[("Images", "*.jpg *.jpeg *.png *.tga *.tif *.tiff *.bmp *.hdr *.exr"),
+                           ("All files", "*.*")])
+            if not path:
+                return
+            os.makedirs(POV_DIR, exist_ok=True)
+            dest = os.path.join(POV_DIR, os.path.basename(path))
+            if os.path.abspath(path) != os.path.abspath(dest):
+                shutil.copyfile(path, dest)
+            rs["sky_image"] = os.path.basename(path)
+            v_skyi.set(rs["sky_image"])
+            v_sky.set("image")
             apply()
 
         def close():
+            """Close the render settings window."""
             self._render_dialog_sync = None
             self._render_win_settings = None
             win.destroy()
@@ -5003,6 +5213,26 @@ class App:
         ce_f.grid(row=5, column=1, sticky="w", pady=(4, 0))
         ce_f.bind("<FocusOut>", apply)
         ce_f.bind("<Return>", apply)
+
+        # --- sky: what shows where a ray leaves the scene without hitting anything -------------
+        sk = ttk.LabelFrame(win, text="Sky  -  background above the floor (shows in render)", padding=6)
+        sk.pack(fill=tk.X, pady=3)
+        ttk.Label(sk, text="Sky").grid(row=0, column=0, sticky="w")
+        ttk.Combobox(sk, textvariable=v_sky, values=("off",) + pov_export.SKY_PRESETS + ("image",),
+                     width=9, state="readonly").grid(row=0, column=1, sticky="w")
+        v_sky.trace_add("write", apply)
+        for rr, (lab, var) in enumerate((("Top colour (hex)", v_skyt),
+                                         ("Horizon colour (hex)", v_skyh),
+                                         ("Rotate (deg, image)", v_skyr)), start=1):
+            ttk.Label(sk, text=lab).grid(row=rr, column=0, sticky="w", pady=(4, 0))
+            ent = ttk.Entry(sk, textvariable=var, width=11)
+            ent.grid(row=rr, column=1, sticky="w", pady=(4, 0))
+            ent.bind("<FocusOut>", apply)
+            ent.bind("<Return>", apply)
+        ttk.Button(sk, text="Choose image…", command=pick_sky_image).grid(
+            row=4, column=0, sticky="w", pady=(4, 0))
+        ttk.Label(sk, textvariable=v_skyi, foreground="#777").grid(
+            row=4, column=1, sticky="w", pady=(4, 0))
 
         lbl_state = ttk.Label(win, text="", foreground="#1a6")
         lbl_state.pack(anchor="w", pady=(4, 2))
@@ -5159,11 +5389,13 @@ class App:
         v_faded = tk.StringVar(value="10")
 
         def cur():
+            """Return the light currently selected in the editor."""
             lights = self._ensure_lights()
             state["i"] = max(0, min(state["i"], len(lights) - 1))
             return lights[state["i"]]
 
         def refill():                                    # self.lights -> listbox
+            """Refill the light list box."""
             lights = self._ensure_lights()
             lb.delete(0, tk.END)
             for n, sp in enumerate(lights):
@@ -5176,6 +5408,7 @@ class App:
             lb.selection_set(state["i"])
 
         def load():                                      # spec -> widgets
+            """Show the selected light in the editor fields."""
             s = pov_export._light(cur())
             v_name.set(s["name"])
             for v, c in zip((v_x, v_y, v_z), s["pos"]):
@@ -5199,12 +5432,14 @@ class App:
             swatch.configure(bg=v_color.get())
 
         def _f(var, default):
+            """Return var as a float, or default if invalid."""
             try:
                 return float(var.get())
             except ValueError:
                 return default
 
         def apply(*_a):                                  # widgets -> spec -> refresh
+            """Write the editor fields into the light and refresh."""
             s = cur()
             s["name"] = v_name.get().strip() or s.get("name", "light")
             s["pos"] = [_f(v_x, s["pos"][0]), _f(v_y, s["pos"][1]), _f(v_z, s["pos"][2])]
@@ -5222,12 +5457,14 @@ class App:
             self._lights_refresh()
 
         def select(_e=None):
+            """Load the light picked in the list."""
             sel = lb.curselection()
             if sel:
                 state["i"] = sel[0]
                 load()
 
         def add():
+            """Add a light at the camera position."""
             lights = self._ensure_lights()
             eye = [float(x) for x in self.pov_camera()["eye"]]
             lights.append({"pos": eye, "color": [1.0, 1.0, 1.0], "intensity": 1.0,
@@ -5238,6 +5475,7 @@ class App:
             self._lights_refresh()
 
         def remove():
+            """Remove the selected light (keep at least one)."""
             lights = self._ensure_lights()
             if len(lights) > 1:
                 lights.pop(state["i"])
@@ -5247,6 +5485,7 @@ class App:
                 self._lights_refresh()
 
         def place_cam():
+            """Move the selected light to the camera position."""
             eye = self.pov_camera()["eye"]
             v_x.set(f"{eye[0]:.3f}".rstrip("0").rstrip("."))
             v_y.set(f"{eye[1]:.3f}".rstrip("0").rstrip("."))
@@ -5254,6 +5493,7 @@ class App:
             apply()
 
         def pick_color():
+            """Choose the light color."""
             from tkinter import colorchooser
             rgb, hx = colorchooser.askcolor(color=v_color.get(), parent=win, title="Light colour")
             if hx:
@@ -5261,6 +5501,7 @@ class App:
                 apply()
 
         def to_auto():                                   # reset values to the default key + fill
+            """Reset to the default key and fill lights."""
             self.lights = pov_export.default_light_specs(self.pov_camera())
             state["i"] = 0
             refill()
@@ -5268,10 +5509,12 @@ class App:
             self._lights_refresh("Lights: reset to default key + fill")
 
         def sync():                                      # Taichi-menu change -> reload dialog
+            """Reload the editor after a change from the Taichi menu."""
             refill()
             load()
 
         def close():
+            """Close the lights editor."""
             self._lights_dialog_sync = None
             self._lights_win = None
             win.destroy()
@@ -5286,6 +5529,7 @@ class App:
         row = 0
 
         def _entry(parent, label, var, width=8):
+            """Add a labelled entry box row to the editor."""
             nonlocal row
             ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=1)
             e = ttk.Entry(parent, textvariable=var, width=width)
@@ -5368,6 +5612,7 @@ class App:
         load()
 
     def render_pov(self):
+        """Render the scene with POV-Ray in a background thread."""
         if getattr(self, "_pov_job", None):
             print("POV-Ray: a render is already running")
             return
@@ -5390,6 +5635,7 @@ class App:
         self._pov_job.start()
 
         def poll():
+            """Wait for the render to finish, then show the picture."""
             if self._pov_job.is_alive():
                 self.root.after(200, poll)
                 return
@@ -5409,6 +5655,7 @@ class App:
         poll()
 
     def show_render(self, png):
+        """Show the rendered image png in a window."""
         win = getattr(self, "_render_win", None)
         if win is None or not win.winfo_exists():
             win = tk.Toplevel(self.root)
@@ -5496,6 +5743,7 @@ class App:
         msz = max(float(np.linalg.norm(span.max(0) - span.min(0))) * 0.012, 1e-3)
 
         def mark(p, c, r, tag):                     # a small wire cube + its draggable handle point
+            """Add a small wire cube and its drag handle at p."""
             p = np.asarray(p, float)
             cn = [p + r * np.array([sx, sy, sz], float)
                   for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)]
@@ -5506,6 +5754,7 @@ class App:
             hpts.append(p); htag.append(tag)
 
         def cross(p, c, r, tag):                    # a 3D plus-sign (aim points / lights)
+            """Add a 3D plus sign at p."""
             p = np.asarray(p, float)
             for ax in range(3):
                 e = np.zeros(3); e[ax] = r
@@ -5513,6 +5762,7 @@ class App:
             hpts.append(p); htag.append(tag)
 
         def frustum(p, aim, c, r, tag):             # a little camera: apex at p, lens opening toward aim
+            """Add a small camera shape at p looking toward aim."""
             p = np.asarray(p, float); aim = np.asarray(aim, float)
             fwd = aim - p
             n = float(np.linalg.norm(fwd))
@@ -5568,15 +5818,18 @@ class App:
         default = np.array(self.rgb(DEFAULT_LINE)) / 255
 
         def col(*cs):
+            """Return the first usable color as 0..1 RGB."""
             for c in cs:
                 if c and self.rgb(c) is not None:
                     return np.array(self.rgb(c)) / 255
             return default
 
         def lit(c):                                 # selected objects show lighter
+            """Lighten color c when the object is selected."""
             return c * 0.55 + 0.45 if cur[1] else c
 
         def add(P, N, c):                           # P, N: (T, 3, 3)
+            """Add triangles P with normals N and color c."""
             tv.append(P)
             tn.append(N)
             tc.append(np.broadcast_to(lit(c), P.shape))
@@ -5590,20 +5843,24 @@ class App:
             return np.repeat(n[:, None], 3, axis=1)
 
         def quads(G):                               # (a, b, 3) grid -> two triangles per cell
+            """Turn a grid of points into two triangles per cell."""
             p00, p10, p11, p01 = G[:-1, :-1], G[1:, :-1], G[1:, 1:], G[:-1, 1:]
             return np.concatenate([np.stack([p00, p10, p11], -2).reshape(-1, 3, 3),
                                    np.stack([p00, p11, p01], -2).reshape(-1, 3, 3)])
 
         def fan(pts):
+            """Turn a polygon's points into a triangle fan."""
             pts = np.asarray(pts, float)
             return np.stack([np.repeat(pts[:1], len(pts) - 2, 0), pts[1:-1], pts[2:]], 1)
 
         def seg(a, b, c):
+            """Add a line segment of color c."""
             lv.append((a, b))
             lc.append((lit(c), lit(c)))
             l_own.append(cur[0])
 
         def plane_lines(ctr, u, v, c):
+            """Add grid lines for a plane around ctr spanned by u and v."""
             s = self.grid_step
             k = max(int(round(self.grid_ext / s)), 1)
             if cur[0] >= 0:                         # its whole area is clickable in the preview
@@ -5780,6 +6037,12 @@ class App:
                 "rs_fog_distance": float(self.render_settings["fog_distance"]),
                 "rs_fog_height": float(self.render_settings["fog_height"]),
                 "rs_fog_turbulence": float(self.render_settings["fog_turbulence"]),
+                "rs_sky": str(self.render_settings.get("sky", "off")),
+                "rs_sky_top": str(self.render_settings.get("sky_top", "#2a5fb0")),
+                "rs_sky_horizon": str(self.render_settings.get("sky_horizon", "#bcd6f0")),
+                "rs_sky_rotate": float(self.render_settings.get("sky_rotate") or 0.0),
+                "rs_sky_path": (os.path.join(POV_DIR, os.path.basename(self.render_settings["sky_image"]))
+                                if self.render_settings.get("sky_image") else ""),
                 "lights_auto": bool(self.lights is None),
                 "lights_name": np.array([pov_export._light(s)["name"] for s in _lt] or [""], dtype=str),
                 "lights_int": np.array([float(pov_export._light(s)["intensity"]) for s in _lt]
@@ -5813,7 +6076,50 @@ class App:
                 "moves_done": getattr(self, "_ti_moves", 0),
                 "start_play": bool(getattr(self, "_ti_start_play", False)),
                 "dir_hpts": hpts.astype(np.float32) if len(hpts) else np.zeros((0, 3), np.float32),
-                "dir_htag": np.array(htag or [""], dtype=str), **path, **menu}
+                "dir_htag": np.array(htag or [""], dtype=str), **path, **self.preview_tracks(), **self.preview_clouds(), **menu}
+
+    def preview_clouds(self):
+        """The Director's cloud layers + sun, flattened for the preview's ground shadows (cl_n = 0: none)."""
+        d = self.director
+        try:
+            clouds = d.shot.get("clouds") if d is not None and d.winfo_exists() else None
+        except tk.TclError:
+            clouds = None
+        layers = list((clouds or {}).get("layers", []))
+        sun = (clouds or {}).get("sun", {})
+        col = lambda k, dflt: np.array([float(ly.get(k, dflt)) for ly in layers], float)   # noqa: E731
+        return {"cl_n": len(layers),
+                "cl_alt": col("alt", 100.0), "cl_heading": col("heading", 270.0), "cl_speed": col("speed", 0.0),
+                "cl_coverage": col("coverage", 0.5), "cl_soft": col("soft", 0.25), "cl_density": col("density", 0.7),
+                "cl_size": col("size", 50.0), "cl_seed": col("seed", 0.0),
+                "cl_sun": np.array([float(sun.get("az", 135.0)), float(sun.get("el", 55.0)),
+                                    float(sun.get("brightness", 1.1))], float)}
+
+    def preview_tracks(self):
+        """The Director's object-motion keys, flattened for the preview: one row per key,
+        trk_who = which tree row (the preview's obj_iids) and trk_c = that object's own centre."""
+        d = self.director
+        try:
+            tracks = d.shot.get("tracks", {}) if d is not None and d.winfo_exists() else {}
+        except tk.TclError:
+            tracks = {}
+        who, c, rows = [], [], []
+        for name, keys in tracks.items():
+            k = next((i for i, e in enumerate(self.entries) if e.name == name and e.obj is not None), None)
+            if k is None or not keys:
+                continue
+            try:
+                mid = d.track_centres()[name]           # its own middle, or the pivot object's
+            except Exception:                       # noqa: BLE001 - no centre: leave that track out
+                continue
+            for key in sorted(keys, key=lambda q: q["t"]):
+                who.append(f"s{k}")
+                c.append(mid)
+                rows.append([key["t"], *key["move"], *key["rot"], key.get("scale", 1.0),
+                             1.0 if key.get("ease") else 0.0])
+        return {"trk_who": np.array(who or [""], dtype="U16"),
+                "trk_c": np.array(c, float).reshape(-1, 3),
+                "trk_key": np.array(rows, float).reshape(-1, 9)}
 
     def preview_path(self):
         """The Camera Director's frames (eye, look-at, up, vfov) for playing in the preview."""
@@ -5838,6 +6144,7 @@ class App:
             self._ti_queued = True
 
             def go():
+                """Write the preview file once the window is idle."""
                 self._ti_queued = False
                 self.write_preview()
             self.root.after_idle(go)
@@ -5852,6 +6159,7 @@ class App:
         return d
 
     def write_preview(self):
+        """Write the scene to the file the Taichi preview reads."""
         path = os.path.join(self._preview_dir(), "_preview.npz")
         tmp = os.path.join(self._preview_dir(), "_preview_tmp.npz")
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -5861,7 +6169,7 @@ class App:
                 os.replace(tmp, path)
                 return path
             except PermissionError:
-                self.root.after(30)
+                time.sleep(0.03)                    # a short, explicit wait (after(ms) with no callback sleeps too)
         print("Taichi preview: could not update the mesh file")
         return path
 
@@ -5890,6 +6198,7 @@ class App:
 
     @staticmethod
     def _no_window():
+        """Return subprocess options that hide the console window on Windows."""
         return {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
     def open_preview(self, play=False, resume=False):
@@ -5920,6 +6229,7 @@ class App:
         self._ti_started, self._ti_done = time.time(), False
 
         def read():                                 # thread: PICK / XF / KEY / CMD lines -> queue, the rest -> log
+            """Read the preview's output: queue its commands, log the rest."""
             for line in proc.stdout:
                 if line.startswith(("PICK ", "XF ", "KEY ", "CMD ")):
                     picks.put(line.split())
@@ -6278,9 +6588,11 @@ class App:
                 boxes.append((one, v, ent))
 
         def get(panel_var):
+            """Return the current value of a panel variable or its dialog box."""
             return next((v.get() for one, v, _ent in boxes if one is panel_var), panel_var.get())
 
         def refollow(first=False):
+            """Refresh the dependent drop-down lists."""
             for ent, v, fn in follow:
                 vals = list(fn(get))
                 ent["values"] = vals
@@ -6289,11 +6601,13 @@ class App:
         refollow(first=True)
 
         def keep():
+            """Copy the dialog values into the panel and close."""
             for var, v, _ent in boxes:
                 var.set(v.get())
             top.destroy()
 
         def ok(_e=None):
+            """Accept the dialog and queue the job."""
             keep()
             self.enqueue(self._call_job(then))
         bf = ttk.Frame(top)
@@ -6313,6 +6627,7 @@ class App:
 
     # -------------------------------------------------------------- drawing
     def rgb(self, color):
+        """Return a color as (r, g, b) in 0..255, or None if invalid."""
         if color not in self._rgb_cache:
             try:
                 self._rgb_cache[color] = tuple(v / 257 for v in self.root.winfo_rgb(color))
@@ -6321,12 +6636,14 @@ class App:
         return self._rgb_cache[color]
 
     def blend(self, color, alpha):
+        """Return color blended with the background by alpha."""
         c, b = self.rgb(color), self.rgb(BG)
         if c is None:
             return None
         return "#%02x%02x%02x" % tuple(int(cc * alpha + bb * (1 - alpha)) for cc, bb in zip(c, b))
 
     def safe(self, color, default):
+        """Return color if valid, otherwise default."""
         return color if color and self.rgb(color) is not None else default
 
     def live_bool(self):
@@ -6365,6 +6682,7 @@ class App:
         return out
 
     def visible_objects(self):
+        """Return (name, object, selected) for every object that is shown."""
         out = []
         self._meta = meta = {}              # id(obj) -> (tree iid, drawn as cutter wire)
         self._holes = holes = {}            # id(inner copy) -> (inner copy, hollow entry)
@@ -6414,6 +6732,7 @@ class App:
             self._w, self._h = self.canvas.winfo_width(), self.canvas.winfo_height()
 
     def redraw(self):
+        """Redraw the 3D view (or refresh the Taichi preview)."""
         if not self.classic:            # Taichi mode: the GPU window is the view, no canvas to paint
             self.preview_refresh()      # but still push scene/director-overlay changes to it (coalesced)
             return
@@ -6448,15 +6767,18 @@ class App:
         self._settle_id = self.root.after(400, self._settle)
 
     def _nav_paint(self):
+        """Redraw during navigation."""
         self._nav_pending = False
         self.redraw()
 
     def _settle(self):
+        """Redraw at full quality after navigation stops."""
         self._settle_id = None
         self._moving = False
         self.redraw()
 
     def _paint(self, grid, extras):
+        """Paint the grid, the collected fills, lines and dots on the canvas."""
         c = self.canvas
         c.delete("all")
         self._w, self._h = c.winfo_width(), c.winfo_height()
@@ -6530,16 +6852,19 @@ class App:
                            "WASD move  Q/E down/up  arrows look  (Shift = faster, click view first)")
 
     def collect(self, obj, sel, fills, lines, dots):
+        """Gather the fills, lines and dots to draw for obj."""
         P = self.project
         width = 3.2 if sel else 1.6
         bc, fc = color_of(obj)
 
         def seg(a, b, color, arrow=None, w=None):
+            """Add a line segment, with an optional arrow."""
             s = self.seg2d(a, b)
             if s:
                 lines.append((s[0], s[1], color, w or width, arrow, None))
 
         def face(corners, fill):
+            """Add a filled face."""
             if not fill:
                 return
             pg = self.poly2d(corners)
@@ -6679,7 +7004,6 @@ class App:
     def collect_tube(self, obj, sel, fills, lines, dots):
         """Shaded tube surface for a CurvedCylinder3d or every bend of a CurvedTorus3d.
         Faces turned away from the camera are skipped; the outline is where seen meets unseen."""
-        P = self.project
         bc, fc = color_of(obj)
         bcol = self.safe(bc, DEFAULT_LINE)
         base = fc if self.rgb(fc or "") else bcol
@@ -6692,11 +7016,13 @@ class App:
         K = 8 if coarse else 16                         # facets around the tube
 
         def line(a, b, color, w):
+            """Add a line segment."""
             s = self.seg2d(a, b)
             if s:
                 lines.append((s[0], s[1], color, w, None, None))
 
         def spine_dist(bend):
+            """Return the screen distance from the cursor to the bend's spine."""
             pts = [np.array(xyz(bend.spine_point(i / 24)), float) for i in range(25)]
             best = math.inf
             for a, b in zip(pts, pts[1:]):
@@ -6781,6 +7107,7 @@ class App:
                     fills.append((pg[0], pg[1], self.blend(base, shade)))
 
         def line(a, b, color, w):
+            """Add a line segment."""
             s = self.seg2d(a, b)
             if s:
                 lines.append((s[0], s[1], color, w, None, None))
@@ -6909,6 +7236,7 @@ class App:
         return out
 
     def clip_seg(self, a, b):
+        """Clip segment a-b to the near plane; return None if fully behind."""
         near = self.near()
         a, b = np.asarray(a, float), np.asarray(b, float)
         da, db = self.cam_d(a), self.cam_d(b)
@@ -6969,6 +7297,7 @@ class App:
         return pts
 
     def collect_plane(self, obj, sel, fills, lines, dots):
+        """Gather the fills, lines and dots to draw for a plane."""
         P = self.project
         if is_lib_plane(obj):               # your Plane3d: through vec1's start, facing get_norm()
             ctr = np.array(center_of(obj), float)
@@ -7019,6 +7348,7 @@ class App:
 
     @staticmethod
     def _circle(cx, cy, r, n=48):
+        """Return n+1 points of a circle of radius r at (cx, cy)."""
         out = []
         for k in range(n + 1):
             t = 2 * math.pi * k / n
@@ -7026,6 +7356,7 @@ class App:
         return out
 
     def draw_grid(self):
+        """Draw the ground grid."""
         c, P = self.canvas, self.project
         E, s = self.grid_ext, self.grid_step
         n = int(round(E / s))
@@ -7058,6 +7389,7 @@ class App:
 
 
 def main():
+    """Start the viewer (--classic uses the old Tk viewport)."""
     classic = "--classic" in sys.argv   # old Tk viewport; default = Taichi GPU window is the main view
     root = tk.Tk()
     app = App(root, classic=classic)

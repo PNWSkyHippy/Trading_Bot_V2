@@ -1,0 +1,995 @@
+# viewer3d scene. Object rows: kind,name,color,fill,numbers...
+#   point3d x,y,z | line3d/vector3d x1,y1,z1,x2,y2,z2 | square3d 4 corners
+#   plane3d px,py,pz,nx,ny,nz,size | cube3d 4 base + 4 top corners | sphere3d cx,cy,cz,r
+#   circle3d cx,cy,cz,ex,ey,ez (center, edge point) | cylinder3d/cone3d same + height
+#     (both may end with an optional normal x,y,z)
+#   curvedcylinder3d bend cx,cy,cz, spine start x,y,z, tube r, angle deg, normal x,y,z
+#   curvedtorus3d cx,cy,cz, ring point x,y,z, tube r, segments, normal x,y,z
+#   lathe3d base x,y,z, axis x,y,z (length = size), zero-angle dir x,y,z, segments,
+#     sweep deg, flags (1 curved, 2 faceted), profile r1,h1,r2,h2,...
+#   prism3d/pyramid3d base center, base corner, top center (apex), sides
+#   truncatedprism3d same + top scale | truncatedcone3d base center, edge point, top center, top scale
+#   ellipsoid3d center, x tip, y tip, z tip | sphericalcap3d center, pole, cap height | hemisphere3d center, pole
+#   octahedron3d/dodecahedron3d/icosahedron3d/rhombicdodecahedron3d center, edge, x dir, y dir
+# Transform rows follow their object (degrees):
+#   xrot|yrot|zrot,deg,pivot   vecrot,deg,ax,ay,az,bx,by,bz,pivot   move,dx,dy,dz   scale,f
+#   pivot = default | center | origin | point,x,y,z
+#   (saved as a snapshot: each object's steps are merged into scale, vecrot, move)
+# pov,<material>,<texture scale> after an object row sets its POV-Ray material
+# group,<name> after an object row tags it into that group (moves/rotates as one);
+#   nested groups are a path, outermost first: group,row/pawn_2
+# twin,<lift %>,<own|Z|X|Y>,<flip first 0|1> adds a 180 deg turned copy below, merged into one
+# csg,<combine|cut|overlap>,<target name or @group>[,group:<name>]: this object (or with
+#   group:<name> that whole group) merges with / cuts / intersects the target
+# hollow,<wall thickness>,<none|top|bottom|both>: cut out an inner copy, walls that thick
+# layer,<name> after an object row puts it on that layer (blank = Default); layers show/hide together
+# mesh,<file> after a mesh3d row names its STL/OBJ sidecar (in the meshes/ folder)
+point3d,centerpt,,,0,0,0
+scale,0.067506
+point3d,edgept,,,0,0,20
+scale,0.067506
+point3d,tube_edgept,,,0,0,25
+scale,0.067506
+point3d,point1,,,1,1,1
+scale,0.067506
+point3d,point2,,,1.335413,6,0.465482
+scale,0.067506
+point3d,point3,,,-1.709346,5.837648,1
+scale,0.067506
+point3d,point_mul,,,6,216,1
+scale,0.067506
+plane3d,plane1,,,0,0,0,0,0,1,0.661694
+pov,image:section2.jpg,100
+layer,plane
+point3d,point4,,,5.004471,6,1
+scale,0.067506
+point3d,point5,,,6,6,1
+scale,0.067506
+point3d,point6,,,6,1,1
+scale,0.067506
+point3d,point7,,,6,1,1
+scale,0.067506
+point3d,point8,,,1,1,1
+scale,0.067506
+point3d,point21,,,2,12,2
+scale,0.067506
+cylinder3d,cylinder1,white,yellow,72.380992,181.232084,128.465732,66.709963,169.172243,127.293481,100,0.014548,-0.103511,0.994522
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,153.135432134,0,0,0,0.763142064532,0.400922558005,0.50682866121,default
+move,-5.21118301193,1.55858621716,1.98509355715
+cone3d,cone1,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.00744183569656
+vecrot,177.953162049,0,0,0,-0.972308830498,0.233692640571,0.00181325059408,default
+move,-0.664563386351,0.503541966563,7.8891973771
+point3d,red_pixel,blue,,5,2,1
+scale,0.067506
+mesh3d,sphere1,white,yellow
+mesh,sphere1_slice_20261028-075649.stl
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_7/g1_10
+scale,0.0169792736136
+vecrot,152.975251619,0,0,0,0.00186457371176,-0.0183695599038,0.999829526786,default
+move,0.99233063298,2.05698985186,5.88102365599
+cylinder3d,cylinder1_2,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_2
+scale,0.0077069549467
+vecrot,163.259244675,0,0,0,0.000206810993318,-0.018144975317,0.999835344994,default
+move,-0.012641033904,0.1756380919,7.6946587987
+cone3d,cone1_2,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_2
+scale,0.00744183569656
+vecrot,177.942777342,0,0,0,-0.989344253141,0.145595009868,0.000204640963068,default
+move,-0.719238091356,0.379104919943,7.8845039213
+cylinder3d,cylinder1_3,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_3
+scale,0.0077069549467
+vecrot,173.543283711,0,0,0,-0.00140762679437,-0.0179262114221,0.999838321695,default
+move,-0.018030512359,0.17273957233,7.6945296149
+cone3d,cone1_3,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_3
+scale,0.00744183569656
+vecrot,-177.94895795,0,0,0,0.998411515049,-0.0563246913561,0.00140561806254,default
+move,-0.750799570637,0.24690732158,7.8796457258
+cylinder3d,cylinder1_4,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_4
+scale,0.0077069549467
+vecrot,-176.172661324,0,0,0,-0.00300575462882,-0.0177096102404,0.999838654556,default
+move,-0.022815341565,0.16892581406,7.6943707683
+cone3d,cone1_4,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_4
+scale,0.00744183569656
+vecrot,-177.971654063,0,0,0,0.999437586489,0.0333988532518,0.00300454891967,default
+move,-0.758233406215,0.11119813645,7.8747789381
+cylinder3d,cylinder1_5,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_5
+scale,0.0077069549467
+vecrot,-165.888616366,0,0,0,-0.00461351362419,-0.0174916561578,0.99983636534,default
+move,-0.026841733748,0.16431939423,7.6941873642
+cone3d,cone1_5,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_5
+scale,0.00744183569656
+vecrot,178.010682773,0,0,0,-0.992414368783,-0.122852557771,-0.00457926653401,default
+move,-0.741300672732,-0.02366084336,7.8700599802
+cylinder3d,cylinder1_6,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_6
+scale,0.0077069549467
+vecrot,-155.604609008,0,0,0,-0.00625747713527,-0.017268744735,0.999831302988,default
+move,-0.029980277348,0.1590683669,7.6939852974
+cone3d,cone1_6,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_6
+scale,0.00744183569656
+vecrot,178.06572956,0,0,0,-0.977398743561,-0.211315587193,-0.00611708222491,default
+move,-0.700545602146,-0.15333513953,7.8656405234
+cylinder3d,cylinder1_7,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_7
+scale,0.0077069549467
+vecrot,-145.320668369,0,0,0,-0.00796664778319,-0.0170369387504,0.999823121978,default
+move,-0.054610422072,0.14876968733,7.5649170982
+cone3d,cone1_7,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_7
+scale,0.00744183569656
+vecrot,178.136350853,0,0,0,-0.954512089301,-0.298075202124,-0.00760560689047,default
+move,-0.659758413614,-0.27822874136,7.732808648
+cylinder3d,cylinder1_8,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_8
+scale,0.0077069549467
+vecrot,-135.036831325,0,0,0,-0.00977460946456,-0.0167916755838,0.999811230503,default
+move,-0.033222095784,0.14732287229,7.6935515447
+cone3d,cone1_8,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_8
+scale,0.00744183569656
+vecrot,178.221977598,0,0,0,-0.9239392788,-0.382432499532,-0.00903285074957,default
+move,-0.553531614477,-0.38075893493,7.8582541007
+cylinder3d,cylinder1_9,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_9
+scale,0.0077069549467
+vecrot,-124.753139494,0,0,0,-0.011722395801,-0.0165273766907,0.999794694553,default
+move,-0.033221175759,0.14120591542,7.6933338003
+cone3d,cone1_9,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_9
+scale,0.00744183569656
+vecrot,178.321919915,0,0,0,-0.885927134177,-0.463708115617,-0.010387321084,default
+move,-0.451997854841,-0.47119883553,7.8555245408
+cylinder3d,cylinder1_10,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_7/g1_10
+scale,0.0077069549467
+vecrot,-114.469646539,0,0,0,-0.013862632329,-0.0162368831315,0.999772069549,default
+move,-0.048420470844,0.13896294929,7.5645978674
+cone3d,cone1_10,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_7/g1_10
+scale,0.00744183569656
+vecrot,178.435372667,0,0,0,-0.840782394745,-0.5412476818,-0.0116581144498,default
+move,-0.358420501239,-0.5466416364,7.7247076988
+cylinder3d,cylinder1_11,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_11
+scale,0.0077069549467
+vecrot,-104.1864278,0,0,0,-0.0162659167444,-0.0159105854143,0.999741103098,default
+move,-0.029975824117,0.12946028253,7.6929313422
+cone3d,cone1_11,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_11
+scale,0.00744183569656
+vecrot,178.561421945,0,0,0,-0.788869213757,-0.614427071556,-0.0128350039031,default
+move,-0.209088790492,-0.59109402248,7.8524285555
+cylinder3d,cylinder1_12,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_12
+scale,0.0077069549467
+vecrot,-93.9035851091,0,0,0,-0.0190312168469,-0.0155350043538,0.999698192669,default
+move,-0.049316025838,0.11963730484,7.5639055999
+cone3d,cone1_12,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_12
+scale,0.00744183569656
+vecrot,178.699052514,0,0,0,-0.730606152184,-0.682657456864,-0.0139085218085,default
+move,-0.098001119315,-0.62126758979,7.7233076737
+cylinder3d,cylinder1_13,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_13
+scale,0.0077069549467
+vecrot,-83.6212694198,0,0,0,-0.0223037845107,-0.0150903442008,0.999637345595,default
+move,-0.022807923052,0.11960252985,7.6926150139
+cone3d,cone1_13,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_13
+scale,0.00744183569656
+vecrot,178.84715598,0,0,0,-0.666462783008,-0.745389992504,-0.0148700349792,default
+move,0.060470826882,-0.61805221078,7.8527694883
+cylinder3d,cylinder1_14,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_14
+scale,0.0077069549467
+vecrot,-73.3397129894,0,0,0,-0.0263079962723,-0.0145460029,0.999548049436,default
+move,-0.018021946087,0.11578856725,7.6925023374
+cone3d,cone1_14,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_14
+scale,0.00744183569656
+vecrot,179.004539754,0,0,0,-0.59695586538,-0.802120211502,-0.0157118136461,default
+move,0.194515203773,-0.59511973474,7.8542325708
+cylinder3d,cylinder1_15,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_15
+scale,0.0077069549467
+vecrot,-63.0593008574,0,0,0,-0.0314121503593,-0.0138517036982,0.99941052982,default
+move,-0.01263159619,0.11288981822,7.6924251565
+cone3d,cone1_15,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_15
+scale,0.00744183569656
+vecrot,179.169936608,0,0,0,-0.522645188333,-0.852392021164,-0.0164270925116,default
+move,0.322304014009,-0.54863541813,7.85650386
+cylinder3d,cylinder1_16,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_16
+scale,0.0077069549467
+vecrot,-52.7807110442,0,0,0,-0.0382687097707,-0.0129182735701,0.999183979085,default
+move,-0.006810123203,0.11099945052,7.6923859516
+cone3d,cone1_16,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_16
+scale,0.00744183569656
+vecrot,179.342014967,0,0,0,-0.444129012625,-0.895801359563,-0.0170101249009,default
+move,0.439730033497,-0.48009330406,7.8595103551
+cylinder3d,cylinder1_17,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_17
+scale,0.0077069549467
+vecrot,-42.5052755894,0,0,0,-0.0481572187363,-0.0115705523812,0.998772749228,default
+move,-0.000744633444,0.11017822206,7.6923859827
+cone3d,cone1_17,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_17
+scale,0.00744183569656
+vecrot,179.519389587,0,0,0,-0.362039275087,-0.93199937951,-0.0174562277346,default
+move,0.543019102741,-0.39169638283,7.8631554251
+cylinder3d,cylinder1_18,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_18
+scale,0.0077069549467
+vecrot,-32.236025463,0,0,0,-0.0639794306783,-0.00941034974721,0.997906848242,default
+move,-0.01711040283,0.10588071147,7.5635712851
+cone3d,cone1_18,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_18
+scale,0.00744183569656
+vecrot,-179.700632631,0,0,0,0.277036542278,0.96069520247,0.0177618184352,default
+move,0.606371081384,-0.29085763774,7.73846795
+cylinder3d,cylinder1_19,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_19
+scale,0.0077069549467
+vecrot,-21.9816416117,0,0,0,-0.0940166359692,-0.00529657649365,0.995556537038,default
+move,-0.025196379384,0.08678987498,7.689352367
+cone3d,cone1_19,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_19
+scale,0.00744183569656
+vecrot,-179.884285256,0,0,0,0.189804672097,0.981658240316,0.017924443363,default
+move,0.657934837695,-0.1922732703,7.868725786
+cylinder3d,cylinder1_20,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_20
+scale,0.0077069549467
+vecrot,-11.7810245921,0,0,0,-0.174833621867,0.00585608797978,0.984580576133,default
+move,-0.001943352764,0.04144102263,7.682597429
+cone3d,cone1_20,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_20
+scale,0.00744183569656
+vecrot,179.93113075,0,0,0,0.101045377257,0.994720004713,0.0179427968707,default
+move,0.71885239063,-0.11119014818,7.8666532474
+cylinder3d,cylinder1_21,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_21
+scale,0.0077069549467
+vecrot,2.44161712744,0,0,0,0.836247642834,-0.103586214863,-0.53847913232,default
+move,0.022072580601,0.11758725349,7.6927598156
+cone3d,cone1_21,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_21
+scale,0.00744183569656
+vecrot,-179.747101055,0,0,0,-0.0114726041378,-0.999775446503,-0.0178167315912,default
+move,0.75733707523,0.09608121308,7.8815531828
+cylinder3d,cylinder1_22,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_22
+scale,0.0077069549467
+vecrot,9.20323570257,0,0,0,0.218718360827,-0.0473050909337,0.974640706624,default
+move,0.026495998664,0.12181435962,7.6929316326
+cone3d,cone1_22,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_22
+scale,0.00744183569656
+vecrot,179.565106933,0,0,0,-0.078193131482,0.996783791937,0.0175472596612,default
+move,0.75256842911,0.231912110793,7.8863654281
+cylinder3d,cylinder1_23,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_23
+scale,0.0077069549467
+vecrot,19.3650877121,0,0,0,0.101887121258,-0.0318259912162,0.994286739731,default
+move,0.03009294681,0.126763005,7.6931251473
+cone3d,cone1_23,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_23
+scale,0.00744183569656
+vecrot,179.386613258,0,0,0,-0.167230548167,0.985768878894,0.0171365446782,default
+move,0.723607940666,0.364713367575,7.8909531042
+cylinder3d,cylinder1_24,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_24
+scale,0.0077069549467
+vecrot,29.6122031339,0,0,0,0.0649093209324,-0.0268728446449,0.997529262867,default
+move,0.032747816371,0.13227413664,7.6933341396
+cone3d,cone1_24,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_24
+scale,0.00744183569656
+vecrot,179.213056802,0,0,0,-0.254923333327,0.966818977991,0.0165878847643,default
+move,0.671386417626,0.490216653714,7.8951687593
+cylinder3d,cylinder1_25,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_25
+scale,0.0077069549467
+vecrot,39.8789035745,0,0,0,0.0466389441263,-0.0244161563758,0.998613368726,default
+move,0.034375277142,0.13817062119,7.6935518924
+cone3d,cone1_25,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_25
+scale,0.00744183569656
+vecrot,179.045834732,0,0,0,-0.340565845259,0.940086120614,0.0159056867515,default
+move,0.597582312718,0.604388166219,7.8988768985
+cylinder3d,cylinder1_26,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_26
+scale,0.0077069549467
+vecrot,50.153158133,0,0,0,0.0356150962446,-0.0229308673932,0.999102467338,default
+move,0.034923021491,0.14426294129,7.6937714073
+cone3d,cone1_26,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_26
+scale,0.00744183569656
+vecrot,178.886293284,0,0,0,-0.42346881496,0.905784903115,0.0150954312446,default
+move,0.504567746518,0.703558351558,7.9019583391
+cylinder3d,cylinder1_27,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_27
+scale,0.0077069549467
+vecrot,60.4311082443,0,0,0,0.0281423533724,-0.0219227558622,0.999363497794,default
+move,0.0343734445,0.15035528479,7.6939856283
+cone3d,cone1_27,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_27
+scale,0.00744183569656
+vecrot,178.735716997,0,0,0,-0.502964842335,0.86419081167,0.0141636295089,default
+move,0.395332283538,0.784539798583,7.9043140412
+cylinder3d,cylinder1_28,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_28
+scale,0.0077069549467
+vecrot,70.7111372237,0,0,0,0.0226679538152,-0.0211835764738,0.999518594103,default
+move,0.032744209772,0.15625183931,7.6941876707
+cone3d,cone1_28,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_28
+scale,0.00744183569656
+vecrot,178.59531834,0,0,0,-0.578413779215,0.815638047223,0.0131177718022,default
+move,0.273386828899,0.84472970183,7.905868291
+cylinder3d,cylinder1_29,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_29
+scale,0.0077069549467
+vecrot,80.9924450966,0,0,0,0.0184250614962,-0.0206103003844,0.999617793272,default
+move,0.030087682595,0.16176308361,7.6943710405
+cone3d,cone1_29,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_29
+scale,0.00744183569656
+vecrot,178.466227996,0,0,0,-0.64920786175,0.760516903601,0.0119662683751,default
+move,0.142650833295,0.882193496748,7.906571133
+cylinder3d,cylinder1_30,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_30
+scale,0.0077069549467
+vecrot,91.2745930135,0,0,0,0.0149906989844,-0.0201460250039,0.99968465859,default
+move,0.026489245812,0.16671188236,7.6945298441
+cone3d,cone1_30,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_30
+scale,0.00744183569656
+vecrot,178.349485657,0,0,0,-0.714776667803,0.699270642495,0.0107183818154,default
+move,0.007326247646,0.89572707309,7.9063999776
+cylinder3d,cylinder1_31,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_31
+scale,0.0077069549467
+vecrot,101.557318839,0,0,0,0.0121117141087,-0.0197566607941,0.999731454309,default
+move,0.022064555677,0.17093917749,7.694658977
+cone3d,cone1_31,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_31
+scale,0.00744183569656
+vecrot,178.246031675,0,0,0,-0.774591716942,0.632391974734,0.00938415349421,default
+move,-0.128237497811,0.884895448379,7.9053603256
+cylinder3d,cylinder1_32,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_32
+scale,0.0077069549467
+vecrot,111.840452726,0,0,0,0.00962657755991,-0.0194204390399,0.999765060178,default
+move,0.016955826222,0.17430909941,7.6947542895
+cone3d,cone1_32,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_32
+scale,0.00744183569656
+vecrot,178.156699485,0,0,0,-0.828170751002,0.560419144347,0.00797432345171,default
+move,-0.259683246697,0.850046762029,7.9034855927
+cylinder3d,cylinder1_33,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_33
+scale,0.0077069549467
+vecrot,122.123882748,0,0,0,0.00742659282019,-0.0191227012535,0.999789561866,default
+move,0.011327255811,0.17671333653,7.6948127177
+cone3d,cone1_33,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_33
+scale,0.00744183569656
+vecrot,178.0822088,0,0,0,-0.875081698735,0.483931573031,0.00650024335749,default
+move,-0.382786237958,0.792301079558,7.9008360342
+cylinder3d,cylinder1_34,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_34
+scale,0.0077069549467
+vecrot,132.407529281,0,0,0,0.00543510451471,-0.0188531035934,0.999807491532,default
+move,0.005359751318,0.1780746147,7.6948323837
+cone3d,cone1_34,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_34
+scale,0.00744183569656
+vecrot,178.023159826,0,0,0,-0.914946180543,0.403545224438,0.00497378561041,default
+move,-0.493589840408,0.713514394594,7.897496809
+cylinder3d,cylinder1_35,white,yellow,95.539,0.267,0,96.202513,-19.129603,0,24,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_35
+scale,0.0077069549467
+vecrot,142.691334644,0,0,0,0.00359561137548,-0.0186040172626,0.999820464944,default
+move,-0.000754887359,0.17834918128,7.6948126555
+cone3d,cone1_35,white,yellow,0,0,0,0,-20,0,25,0,0,-1
+pov,studio:Tinted glass,0.07
+group,untagged/face/g1_35
+scale,0.00744183569656
+vecrot,177.98002838,0,0,0,-0.947442612913,0.319907620889,0.00340724715812,default
+move,-0.588532743629,0.616218965668,7.8935752422
+mesh3d,sphere1_2,white,yellow
+mesh,sphere1_2_slice_20261028-164538.stl
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,152.975251619,0,0,0,0.00186457371173,-0.0183695599038,0.999829526786,default
+move,1.20061550671,2.66923766028,6.3761403037
+sphere3d,sphere1_4,white,yellow,0,0,0,3
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0661567128967
+vecrot,152.975251619,0,0,0,0.00186457371173,-0.0183695599038,0.999829526786,default
+move,0.504702389771,-0.63139596026,7.3865765414
+sphere3d,sphere1_3,white,yellow,0,0,0,3
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0760955986573
+vecrot,152.975251619,0,0,0,0.00186457371172,-0.0183695599038,0.999829526786,default
+move,-0.21095400219,-0.72163346803,7.3305348208
+curvedcylinder3d,bend1,white,yellow,0,0,0,5,0,0,1,90,0,0,1
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.112405000908
+vecrot,-118.540167907,0,0,0,-0.0129884264851,-0.0163555489989,0.999781874608,default
+move,0.056350147007,-0.09988646405,6.7926761149
+sphere3d,sphere1_5,white,yellow,0,0,0,3
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,152.975251619,0,0,0,0.00186457371172,-0.0183695599038,0.999829526786,default
+move,-0.261818891302,-0.9023397927,7.2915348281
+sphere3d,sphere1_6,white,yellow,0,0,0,3
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,152.975251619,0,0,0,0.00186457371172,-0.0183695599038,0.999829526786,default
+move,0.601350018721,-0.77346669555,7.3496636055
+cone3d,cone1_36,white,yellow,1,1,1,4,1,1,5
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0768697462124
+vecrot,28.7668947189,0,0,0,-0.205893779279,0.851684354042,0.481914424701,default
+move,0.104238026783,-0.84321440271,7.0472777099
+truncatedprism3d,truncprism1,white,yellow,0,0,129.531,18.698106,0.325929,129.531,0,0,98.362755,16,0.5
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0318822614401
+vecrot,-172.019519204,0,0,0,6.57579158218e-15,-0.0699259800601,0.997552182752,default
+move,-0.032534700343,0.815431656903,2.4237089071
+ellipsoid3d,ellipsoid1,white,yellow,0,0,0,-5.483436,3.813586,60.050232,-44.451072,5.449526,-4.405093,-4.428794,-34.672104,1.797496
+pov,studio:Chrome,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,-171.993205085,0,0,0,-0.0286763026425,-0.036935772058,0.998906110908,default
+move,-0.034976521233,0.470903256342,4.30116112863
+cylinder3d,cylinder1_36,white,yellow,123.4,20.106,51.421,136.778135,20.106,51.421,100,0,-1,0
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,124.74067401,0,0,0,0.774040576842,0.581425127251,-0.250611266314,default
+move,-2.79439098257,-0.04768255699,8.7211251869
+cylinder3d,cylinder1_37,white,yellow,123.4,20.106,51.421,136.778135,20.106,51.421,100,0,-1,0
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,124.74067401,0,0,0,0.774040576842,0.581425127251,-0.250611266314,default
+move,-2.85273130404,-0.04266684549,8.7224003292
+cylinder3d,cylinder1_112,white,yellow,72.380992,181.232084,128.465732,66.709963,169.172243,127.293481,100,0.014548,-0.103511,0.994522
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,-166.42132756,0,0,0,-0.88216436938,-0.443982296637,-0.157053321102,default
+move,-6.15460847348,2.27043654051,4.32381273081
+cylinder3d,cylinder1_113,white,yellow,72.380992,181.232084,128.465732,66.709963,169.172243,127.293481,100,0.014548,-0.103511,0.994522
+pov,studio:Tinted glass,0.07
+group,untagged/face
+scale,0.0292847078537
+vecrot,171.489733056,0,0,0,-0.863513171136,-0.465195936582,0.194776137814,default
+move,-4.11515908586,2.0744260555,8.3943381283
+sphericalcap3d,spherecap1,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4
+scale,0.7,point,0,-6,2.3
+move,0,-1,-1.166
+sphericalcap3d,spherecap1_2,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4
+scale,0.7,point,0,-6,2.3
+move,0,-1,-1.166
+sphericalcap3d,spherecap1_3,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_2
+move,0,0,1.6
+scale,0.7,point,0,-6,2.3
+move,-0.4,-7.6,0
+move,0.4,3,0
+move,0,3.6,0
+move,0,0,-1.166
+mesh3d,spherecap1_4,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_2
+move,0,0,-1.166
+sphericalcap3d,spherecap1_5,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_3
+scale,0.7
+vecrot,20,0,0,0,0,0,1,default
+move,0.957656401312,-2.6311393382,-0.476
+sphericalcap3d,spherecap1_6,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_3
+scale,0.7
+vecrot,20,0,0,0,0,0,1,default
+move,0.957656401312,-2.6311393382,-0.476
+sphericalcap3d,spherecap1_7,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_3/g4_4
+scale,0.7
+vecrot,20,0,0,0,0,0,1,default
+move,0.957656401312,-2.6311393382,0.644
+mesh3d,spherecap1_8,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_3/g4_4
+zrot,20,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_9,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_5
+scale,0.7
+vecrot,40,0,0,0,0,0,1,default
+move,1.79980530712,-2.14492444073,-0.476
+sphericalcap3d,spherecap1_10,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_5
+scale,0.7
+vecrot,40,0,0,0,0,0,1,default
+move,1.79980530712,-2.14492444073,-0.476
+sphericalcap3d,spherecap1_11,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_5/g4_6
+scale,0.7
+vecrot,40,0,0,0,0,0,1,default
+move,1.79980530712,-2.14492444073,0.644
+mesh3d,spherecap1_12,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_5/g4_6
+zrot,40,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_13,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_7
+scale,0.7
+vecrot,60,0,0,0,0,0,1,default
+move,2.4248711306,-1.4,-0.476
+sphericalcap3d,spherecap1_14,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_7
+scale,0.7
+vecrot,60,0,0,0,0,0,1,default
+move,2.4248711306,-1.4,-0.476
+sphericalcap3d,spherecap1_15,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_7/g4_8
+scale,0.7
+vecrot,60,0,0,0,0,0,1,default
+move,2.4248711306,-1.4,0.644
+mesh3d,spherecap1_16,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_7/g4_8
+zrot,60,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_17,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_9
+scale,0.7
+vecrot,80,0,0,0,0,0,1,default
+move,2.75746170843,-0.486214897467,-0.476
+sphericalcap3d,spherecap1_18,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_9
+scale,0.7
+vecrot,80,0,0,0,0,0,1,default
+move,2.75746170843,-0.486214897467,-0.476
+sphericalcap3d,spherecap1_19,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_9/g4_10
+scale,0.7
+vecrot,80,0,0,0,0,0,1,default
+move,2.75746170843,-0.486214897467,0.644
+mesh3d,spherecap1_20,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_9/g4_10
+zrot,80,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_21,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_11
+scale,0.7
+vecrot,100,0,0,0,0,0,1,default
+move,2.75746170843,0.486214897467,-0.476
+sphericalcap3d,spherecap1_22,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_11
+scale,0.7
+vecrot,100,0,0,0,0,0,1,default
+move,2.75746170843,0.486214897467,-0.476
+sphericalcap3d,spherecap1_23,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_11/g4_12
+scale,0.7
+vecrot,100,0,0,0,0,0,1,default
+move,2.75746170843,0.486214897467,0.644
+mesh3d,spherecap1_24,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_11/g4_12
+zrot,100,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_25,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_13
+scale,0.7
+vecrot,120,0,0,0,0,0,1,default
+move,2.4248711306,1.4,-0.476
+sphericalcap3d,spherecap1_26,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_13
+scale,0.7
+vecrot,120,0,0,0,0,0,1,default
+move,2.4248711306,1.4,-0.476
+sphericalcap3d,spherecap1_27,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_13/g4_14
+scale,0.7
+vecrot,120,0,0,0,0,0,1,default
+move,2.4248711306,1.4,0.644
+mesh3d,spherecap1_28,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_13/g4_14
+zrot,120,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_29,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_15
+scale,0.7
+vecrot,140,0,0,0,0,0,1,default
+move,1.79980530712,2.14492444073,-0.476
+sphericalcap3d,spherecap1_30,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_15
+scale,0.7
+vecrot,140,0,0,0,0,0,1,default
+move,1.79980530712,2.14492444073,-0.476
+sphericalcap3d,spherecap1_31,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_15/g4_16
+scale,0.7
+vecrot,140,0,0,0,0,0,1,default
+move,1.79980530712,2.14492444073,0.644
+mesh3d,spherecap1_32,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_15/g4_16
+zrot,140,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_33,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_17
+scale,0.7
+vecrot,160,0,0,0,0,0,1,default
+move,0.957656401312,2.6311393382,-0.476
+sphericalcap3d,spherecap1_34,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_17
+scale,0.7
+vecrot,160,0,0,0,0,0,1,default
+move,0.957656401312,2.6311393382,-0.476
+sphericalcap3d,spherecap1_35,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_17/g4_18
+scale,0.7
+vecrot,160,0,0,0,0,0,1,default
+move,0.957656401312,2.6311393382,0.644
+mesh3d,spherecap1_36,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_17/g4_18
+zrot,160,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_37,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_19
+scale,0.7
+vecrot,180,0,0,0,0,0,1,default
+move,3.42901103761e-16,2.8,-0.476
+sphericalcap3d,spherecap1_38,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_19
+scale,0.7
+vecrot,180,0,0,0,0,0,1,default
+move,3.42901103761e-16,2.8,-0.476
+sphericalcap3d,spherecap1_39,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_19/g4_20
+scale,0.7
+vecrot,180,0,0,0,0,0,1,default
+move,3.42901103761e-16,2.8,0.644
+mesh3d,spherecap1_40,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_19/g4_20
+zrot,180,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_41,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_21
+scale,0.7
+vecrot,-160,0,0,0,0,0,1,default
+move,-0.957656401312,2.6311393382,-0.476
+sphericalcap3d,spherecap1_42,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_21
+scale,0.7
+vecrot,-160,0,0,0,0,0,1,default
+move,-0.957656401312,2.6311393382,-0.476
+sphericalcap3d,spherecap1_43,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_21/g4_22
+scale,0.7
+vecrot,-160,0,0,0,0,0,1,default
+move,-0.957656401312,2.6311393382,0.644
+mesh3d,spherecap1_44,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_21/g4_22
+zrot,200,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_45,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_23
+scale,0.7
+vecrot,-140,0,0,0,0,0,1,default
+move,-1.79980530712,2.14492444073,-0.476
+sphericalcap3d,spherecap1_46,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_23
+scale,0.7
+vecrot,-140,0,0,0,0,0,1,default
+move,-1.79980530712,2.14492444073,-0.476
+sphericalcap3d,spherecap1_47,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_23/g4_24
+scale,0.7
+vecrot,-140,0,0,0,0,0,1,default
+move,-1.79980530712,2.14492444073,0.644
+mesh3d,spherecap1_48,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_23/g4_24
+zrot,220,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_49,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_25
+scale,0.7
+vecrot,-120,0,0,0,0,0,1,default
+move,-2.4248711306,1.4,-0.476
+sphericalcap3d,spherecap1_50,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_25
+scale,0.7
+vecrot,-120,0,0,0,0,0,1,default
+move,-2.4248711306,1.4,-0.476
+sphericalcap3d,spherecap1_51,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_25/g4_26
+scale,0.7
+vecrot,-120,0,0,0,0,0,1,default
+move,-2.4248711306,1.4,0.644
+mesh3d,spherecap1_52,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_25/g4_26
+zrot,240,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_53,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_27
+scale,0.7
+vecrot,-100,0,0,0,0,0,1,default
+move,-2.75746170843,0.486214897467,-0.476
+sphericalcap3d,spherecap1_54,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_27
+scale,0.7
+vecrot,-100,0,0,0,0,0,1,default
+move,-2.75746170843,0.486214897467,-0.476
+sphericalcap3d,spherecap1_55,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_27/g4_28
+scale,0.7
+vecrot,-100,0,0,0,0,0,1,default
+move,-2.75746170843,0.486214897467,0.644
+mesh3d,spherecap1_56,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_27/g4_28
+zrot,260,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_57,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_29
+scale,0.7
+vecrot,-80,0,0,0,0,0,1,default
+move,-2.75746170843,-0.486214897467,-0.476
+sphericalcap3d,spherecap1_58,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_29
+scale,0.7
+vecrot,-80,0,0,0,0,0,1,default
+move,-2.75746170843,-0.486214897467,-0.476
+sphericalcap3d,spherecap1_59,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_29/g4_30
+scale,0.7
+vecrot,-80,0,0,0,0,0,1,default
+move,-2.75746170843,-0.486214897467,0.644
+mesh3d,spherecap1_60,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_29/g4_30
+zrot,280,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_61,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_31
+scale,0.7
+vecrot,-60,0,0,0,0,0,1,default
+move,-2.4248711306,-1.4,-0.476
+sphericalcap3d,spherecap1_62,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_31
+scale,0.7
+vecrot,-60,0,0,0,0,0,1,default
+move,-2.4248711306,-1.4,-0.476
+sphericalcap3d,spherecap1_63,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_31/g4_32
+scale,0.7
+vecrot,-60,0,0,0,0,0,1,default
+move,-2.4248711306,-1.4,0.644
+mesh3d,spherecap1_64,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_31/g4_32
+zrot,300,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_65,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_33
+scale,0.7
+vecrot,-40,0,0,0,0,0,1,default
+move,-1.79980530712,-2.14492444073,-0.476
+sphericalcap3d,spherecap1_66,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_33
+scale,0.7
+vecrot,-40,0,0,0,0,0,1,default
+move,-1.79980530712,-2.14492444073,-0.476
+sphericalcap3d,spherecap1_67,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_33/g4_34
+scale,0.7
+vecrot,-40,0,0,0,0,0,1,default
+move,-1.79980530712,-2.14492444073,0.644
+mesh3d,spherecap1_68,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_33/g4_34
+zrot,320,point,0,0,0
+move,0,0,-1.166
+sphericalcap3d,spherecap1_69,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_35
+scale,0.7
+vecrot,-20,0,0,0,0,0,1,default
+move,-0.957656401312,-2.6311393382,-0.476
+sphericalcap3d,spherecap1_70,white,skyblue,0,-6,3,0,-6,1.32,1
+pov,studio:Chrome,1
+group,g4/g4_35
+scale,0.7
+vecrot,-20,0,0,0,0,0,1,default
+move,-0.957656401312,-2.6311393382,-0.476
+sphericalcap3d,spherecap1_71,white,skyblue,0,-6,0,0,-6,1.68,1
+pov,studio:Chrome,1
+group,g4/g4_35/g4_36
+scale,0.7
+vecrot,-20,0,0,0,0,0,1,default
+move,-0.957656401312,-2.6311393382,0.644
+mesh3d,spherecap1_72,white,skyblue
+mesh,spherecap1_4_slice_20261101-054520.stl
+pov,studio:Chrome,1
+group,g4/g4_35/g4_36
+zrot,340,point,0,0,0
+move,0,0,-1.166

@@ -1,8 +1,23 @@
-async function loadPostWithAuthor(postId) {
-  const post = await fetchPost(postId);
-  const author = await fetchAuthor(post.authorId);
-  return { post, author };
+/*
+function  formatPrice(amount, includeSymbol) {
+    if  (includeSymbol) {
+            return `"$" + ${amount}`;
+    } else (
+            return amount;
+    }
 }
-loadPostWithAuthor(1).then(result => {
-  console.log(result);
-} );
+
+console.log(formatPrice('100', True));
+*/
+
+function doubleIt(x: Number, incSymb: boolean) {
+    const x = a * 2;
+    if (incSymb) {
+        return ("$", x);
+    } else {
+        return x;
+    }
+}
+
+const x = 5
+console.log(doubleIt(x, true));
