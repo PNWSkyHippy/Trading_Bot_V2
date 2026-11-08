@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JavaScript &amp; TypeScript Reference (FE101)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 24px 32px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    h1 {
+      color: #569cd6;
+      border-bottom: 2px solid #569cd6;
+      padding-bottom: 8px;
+      margin-bottom: 4px;
+      font-size: 1.5em;
+    }
+    .intro {
+      color: #808080;
+      font-size: 0.85em;
+      margin-bottom: 28px;
+    }
+    h2 {
+      color: #4ec9b0;
+      margin: 28px 0 8px 0;
+      border-left: 4px solid #4ec9b0;
+      padding-left: 10px;
+      font-size: 1.05em;
+      letter-spacing: 0.03em;
+    }
+    details {
+      margin: 3px 0;
+    }
+    summary {
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 3px;
+      list-style: none;
+      display: flex;
+      align-items: baseline;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: '+';
+      color: #569cd6;
+      font-weight: bold;
+      margin-right: 8px;
+      min-width: 10px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    details[open] > summary::before { content: '\2212'; }
+    summary:hover { background: #2a2a2a; }
+    .one { color: #ce9178; }
+    .cm  { color: #6a9955; }
+    .detail-body {
+      margin: 5px 0 9px 22px;
+      border-left: 2px solid #3c3c3c;
+      padding-left: 14px;
+    }
+    .opt {
+      margin: 5px 0;
+      color: #9cdcfe;
+    }
+    .opt::before { content: '\2022  '; color: #569cd6; }
+    .sub {
+      margin: 4px 0 4px 18px;
+      color: #9cdcfe;
+    }
+    .sub::before { content: '\25e6  '; color: #569cd6; }
+    code { color: #ce9178; font-family: inherit; }
+    pre {
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      padding: 9px 14px;
+      margin: 8px 0 4px 0;
+      overflow-x: auto;
+      font-size: 0.92em;
+      color: #d4d4d4;
+      tab-size: 4;
+    }
+    .kw  { color: #569cd6; }
+    .fn  { color: #dcdcaa; }
+    .st  { color: #ce9178; }
+    .co  { color: #6a9955; }
+    .nu  { color: #b5cea8; }
+    .warn {
+      color: #f14c4c;
+      font-size: 0.88em;
+      margin: 5px 0;
+    }
+    .warn::before { content: '\26a0  '; }
+  
+    /* Navigation Bar, Quick Filter & Section Jump Chips */
+    .controls-panel {
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 6px;
+    }
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    #quick-search {
+      flex: 1;
+      padding: 7px 12px;
+      background: #1e1e1e;
+      border: 1px solid #4ec9b0;
+      border-radius: 4px;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.95em;
+      outline: none;
+    }
+    #quick-search:focus {
+      border-color: #569cd6;
+      box-shadow: 0 0 6px rgba(86, 156, 214, 0.4);
+    }
+    .ctrl-btn {
+      background: #333333;
+      color: #d4d4d4;
+      border: 1px solid #474747;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85em;
+      transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: #444444; color: #ffffff; }
+    .nav-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .nav-label {
+      color: #808080;
+      font-size: 0.82em;
+      margin-right: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .nav-link {
+      color: #9cdcfe;
+      text-decoration: none;
+      font-size: 0.82em;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .nav-link:hover {
+      background: #094771;
+      color: #ffffff;
+      border-color: #569cd6;
+    }
+    .nav-link.oop {
+      background: #193327;
+      color: #4ec9b0;
+      border-color: #2e7d62;
+      font-weight: bold;
+    }
+    .nav-link.oop:hover {
+      background: #135d46;
+      color: #ffffff;
+      border-color: #4ec9b0;
+    }
+    .nav-link.oop-traps {
+      background: #3d1a1a;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+      font-weight: bold;
+    }
+    .nav-link.oop-traps:hover {
+      background: #7f1d1d;
+      color: #ffffff;
+    }
+    .back-top {
+      display: inline-block;
+      margin-top: 14px;
+      font-size: 0.8em;
+      color: #569cd6;
+      text-decoration: none;
+    }
+    .back-top:hover { text-decoration: underline; }
+
+  
+    h1 { color: #f7df1e; border-bottom-color: #f7df1e; }
+    table.xlat { border-collapse: collapse; margin: 6px 0; width: 100%; max-width: 760px; }
+    table.xlat th { text-align: left; color: #4ec9b0; border-bottom: 1px solid #3c3c3c; padding: 4px 10px; }
+    table.xlat td { padding: 3px 10px; border-bottom: 1px solid #2d2d2d; }
+    table.xlat th:first-child, table.xlat td:first-child { border-right: 1px solid #3c3c3c; }
+    .tag-extra { background:#3a3320; color:#e5c07b; border:1px solid #6b5a2a; border-radius:3px; padding:0 5px; font-size:0.78em; margin-right:6px; }
+    a.ref { color:#9cdcfe; }
+  </style>
+</head>
+<body>
+
+<h1>&#x1F7E8; JavaScript &amp; TypeScript Master Reference Guide &#8212; FE101</h1>
+<p class="intro">Click <span style="color:#569cd6;font-weight:bold">+</span> on any entry to expand options, descriptions, and examples &nbsp;|&nbsp; Built from FE101 class notes + my own <span class="tag-extra">extra</span> examples &amp; references, written for a Python programmer &nbsp;|&nbsp; <b>All 4 weeks complete</b> (Unit 1: From Python to JavaScript &bull; Unit 2: Data &amp; Logic &bull; Unit 3: Going async &bull; Unit 4: A taste of TypeScript) &nbsp;|&nbsp; Started October 2026</p>
+
+<div class="controls-panel">
+  <div class="search-row">
+    <input type="text" id="quick-search" placeholder="🔍 Quick Search Reference (e.g. const, ===, null, falsy, template, push, typeof)..." oninput="filterDetails(this.value)">
+    <button class="ctrl-btn" onclick="toggleAll(true)">➕ Expand All</button>
+    <button class="ctrl-btn" onclick="toggleAll(false)">➖ Collapse All</button>
+  </div>
+  <div class="nav-chips">
+    <span class="nav-label">Week 1:</span>
+    <a href="#sec-why" class="nav-link">Why JS</a>
+    <a href="#sec-hello" class="nav-link">console.log &amp; ;</a>
+    <a href="#sec-vars" class="nav-link">Variables</a>
+    <a href="#sec-types" class="nav-link">Types</a>
+    <a href="#sec-cond" class="nav-link">Conditions</a>
+    <a href="#sec-template" class="nav-link">Template Literals</a>
+    <a href="#sec-equality" class="nav-link">Equality &amp; Missing Values</a>
+    <a href="#sec-arrays" class="nav-link">Arrays</a>
+    <a href="#sec-cheat" class="nav-link">Python &#8596; JS</a>
+    <a href="#sec-refs" class="nav-link">Links</a>
+    <a href="#sec-traps" class="nav-link oop-traps">&#9888;&#65039; Traps</a>
+  </div>
+  <div class="nav-chips" style="margin-top: 8px;">
+    <span class="nav-label">Week 2:</span>
+    <a href="#sec-objects" class="nav-link">Objects</a>
+    <a href="#sec-loops" class="nav-link">Loops</a>
+    <a href="#sec-destruct" class="nav-link">Destructuring &amp; Spread</a>
+    <a href="#sec-funcs" class="nav-link">Functions</a>
+    <a href="#sec-firstclass" class="nav-link">Callbacks, Anonymous &amp; Arrow</a>
+    <a href="#sec-traps2" class="nav-link oop-traps">&#9888;&#65039; Week 2 Traps</a>
+  </div>
+  <div class="nav-chips" style="margin-top: 8px;">
+    <span class="nav-label">Week 3:</span>
+    <a href="#sec-foreach" class="nav-link">forEach</a>
+    <a href="#sec-mapfilter" class="nav-link">map &amp; filter</a>
+    <a href="#sec-api" class="nav-link">APIs</a>
+    <a href="#sec-sync" class="nav-link">Sync vs Async</a>
+    <a href="#sec-fetch" class="nav-link">fetch &amp; Promises</a>
+    <a href="#sec-asyncawait" class="nav-link">async / await</a>
+    <a href="#sec-dependent" class="nav-link">Dependent Requests</a>
+    <a href="#sec-traps3" class="nav-link oop-traps">&#9888;&#65039; Week 3 Traps</a>
+  </div>
+  <div class="nav-chips" style="margin-top: 8px;">
+    <span class="nav-label">Week 4:</span>
+    <a href="#sec-whyts" class="nav-link">Why TypeScript</a>
+    <a href="#sec-tsvars" class="nav-link">Types &amp; Inference</a>
+    <a href="#sec-tsfuncs" class="nav-link">Typing Functions</a>
+    <a href="#sec-tsreview" class="nav-link">Course Review</a>
+    <a href="#sec-traps4" class="nav-link oop-traps">&#9888;&#65039; Week 4 Traps</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-why">&#x1F310; Why JavaScript &amp; Where It Runs</h2>
+
+<details>
+<summary><span class="one">JavaScript = "the language of the web"</span>&nbsp; <span class="cm"># every browser runs it natively</span></summary>
+<div class="detail-body">
+  <div class="opt">Browsers on every device (Windows, Mac, Linux, phones, tablets, TVs) all run JS &mdash; users install nothing</div>
+  <div class="opt">Powers the "live" part of pages: clicks, animations, live updates, form checks</div>
+  <div class="opt">Popularity: Python is #1 overall (took the lead ~2019&ndash;2020); JavaScript is #2 and still dominates the web</div>
+  <div class="opt">Write once, run anywhere &mdash; vs C, which needs porting to every platform</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Browser JS vs Server JS</span>&nbsp; <span class="cm"># the key difference is WHERE the code runs</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Browser</b>: sent with the HTML/CSS, runs on the user's device &mdash; "in the page, reacting to you" (button colour, cart count, slide-out panels)</div>
+  <div class="opt"><b>Server</b>: runs on a remote machine in the cloud, like Python on a backend &mdash; receives requests, decides what data/HTML to send back (saved cart, charging a card)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">"Modern JavaScript"</span>&nbsp; <span class="cm"># today's standards, tools, and style (not 1999 JS)</span></summary>
+<div class="detail-body">
+  <div class="opt">Newer language features, current best practices, current tools/build setups</div>
+  <div class="opt">Avoids old clunky patterns, outdated browser hacks, and tangled pre-improvement code</div>
+  <div class="opt">Result: cleaner, safer, more efficient code that fits how the web works now</div>
+  <div class="opt">Course arc: Python &rarr; JS &rarr; data &amp; logic &rarr; async &rarr; TypeScript</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-hello">&#x1F4E4; console.log &amp; Statements</h2>
+
+<details>
+<summary><span class="one">console.log(value);</span>&nbsp; <span class="cm"># JavaScript's print()</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>print("Hello")</code> &rarr; JS <code>console.log("Hello");</code></div>
+  <div class="opt">Multiple args are separated by spaces, like <code>print</code>: <code>console.log("Playlist now:", playlist)</code></div>
+  <div class="opt">Mindset: same programming logic, different "accent" &mdash; mostly syntax changes, not ideas</div>
+  <pre>console.log("Hello, JavaScript!");
+console.log("Line 1");   // runs top to bottom
+console.log("Line 2");</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">; semicolon</span>&nbsp; <span class="cm"># ends a statement, same as in C</span></summary>
+<div class="detail-body">
+  <div class="opt">A <b>statement</b> is a single instruction; <code>;</code> marks its end like a period</div>
+  <div class="opt">Mostly optional (the engine inserts them automatically), but the course and many style guides say <b>always include them</b> for consistency and to avoid rare edge cases</div>
+  <div class="opt">Code executes top to bottom</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">// comment &nbsp; /* block comment */</span>&nbsp; <span class="cm"># Python's # becomes //</span></summary>
+<div class="detail-body">
+  <pre>// single-line comment
+let x = 5;   // trailing comment
+/* multi-line
+   comment */</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Trading-bot style logging</span>&nbsp; <span class="cm"># my example: Python print habits in JS</span></summary>
+<div class="detail-body">
+  <div class="opt">Same habits you use in the bot, translated</div>
+  <pre>const symbol = "AAPL";
+const price = 187.42;
+console.log("Symbol:", symbol, "Price:", price);   // like print("Symbol:", symbol, ...)
+console.log(`${symbol} @ ${price}`);               // like print(f"{symbol} @ {price}")
+console.error("Order rejected");                   // goes to the error stream
+console.table([{ s: "AAPL", p: 187.42 }, { s: "JPM", p: 201.1 }]);  // table view in browser devtools</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-vars">&#x1F4E6; Variables: const &amp; let</h2>
+
+<details>
+<summary><span class="one">const name = value;</span>&nbsp; <span class="cm"># cannot be reassigned &mdash; the DEFAULT choice</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>age = 42</code> &rarr; JS <code>const age = 42;</code> (a keyword is required in front)</div>
+  <div class="opt">Use for values that never change: birth year, home city, account creation date</div>
+  <div class="opt">Reassigning throws <code>TypeError: Assignment to constant variable.</code></div>
+  <pre>const birthYear = 1990;
+birthYear = 2000;   // TypeError: Assignment to constant variable.</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">let name = value;</span>&nbsp; <span class="cm"># can be reassigned (counters, scores, steps)</span></summary>
+<div class="detail-body">
+  <div class="opt">Use when you know the value will change</div>
+  <div class="opt">Reassign later WITHOUT the keyword: <code>count = 2;</code></div>
+  <pre>let count = 1;
+count = 2;              // fine
+let steps = 3;
+steps = steps - 1;      // 2
+console.log(steps);</pre>
+  <div class="opt">Rule: <b>const by default</b>, <code>let</code> only when you plan to reassign</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">count = 1; &nbsp;(no keyword)</span>&nbsp; <span class="cm"># must declare before assigning</span></summary>
+<div class="detail-body">
+  <div class="opt">Python lets you just write <code>count = 1</code>; JS requires <code>let</code> or <code>const</code> first</div>
+  <div class="opt">Using an undeclared name gives <code>ReferenceError: count is not defined</code></div>
+  <div class="warn">Typo trap from class: <code>count - 1;</code> (minus) instead of <code>count = 1;</code> also gives "count is not defined" &mdash; the subtraction reads an undeclared variable</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">camelCase naming</span>&nbsp; <span class="cm"># JS style; Python uses snake_case</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>favorite_color</code> &rarr; JS <code>favoriteColor</code>; <code>home_city</code> &rarr; <code>homeCity</code></div>
+  <div class="opt">Second and later words are capitalized; no underscores</div>
+  <div class="opt">Names are case-sensitive: <code>"fail"</code> vs <code>"Fail"</code> are different strings</div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">const + let in a realistic mini-script</span>&nbsp; <span class="cm"># my example: position tracking</span></summary>
+<div class="detail-body">
+  <pre>const maxRisk = 0.02;        // never changes -> const
+const symbol = "NVDA";       // never changes -> const
+let shares = 0;              // changes as we buy -> let
+let avgPrice = 0;
+
+shares = shares + 10;        // or: shares += 10;
+avgPrice = 120.5;
+shares += 5;                 // compound assignment, same as Python
+shares++;                    // increment by 1 (Python has no ++; use += 1)
+console.log(shares);         // 16</pre>
+  <div class="opt"><code>+=  -=  *=  /=</code> all work as in Python; <code>++</code> / <code>--</code> are JS/C extras</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-types">&#x1F9EC; Basic Types &amp; typeof</h2>
+
+<details>
+<summary><span class="one">string &nbsp; number &nbsp; boolean</span>&nbsp; <span class="cm"># the three primitives from Week 1</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>str</code> &rarr; JS string &nbsp;|&nbsp; Python <code>int</code> + <code>float</code> &rarr; JS <b>one</b> type: number &nbsp;|&nbsp; Python <code>bool</code> &rarr; JS boolean</div>
+  <div class="opt"><code>5</code> and <code>5.5</code> are the SAME type &mdash; there is no int/float split</div>
+  <div class="opt">Booleans are lowercase: <code>true</code> / <code>false</code> (Python: <code>True</code> / <code>False</code>)</div>
+  <pre>let myName = "Ron";        // string
+let myAge = 59;            // number
+let likesCoding = true;    // boolean</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">typeof value</span>&nbsp; <span class="cm"># JS's version of Python's type()</span></summary>
+<div class="detail-body">
+  <div class="opt">Returns the type as a lowercase string</div>
+  <pre>console.log(typeof 5);       // "number"
+console.log(typeof 5.5);     // "number"
+console.log(typeof "hi");    // "string"
+console.log(typeof true);    // "boolean"</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">"5" + 1 &nbsp;&rarr;&nbsp; "51"</span>&nbsp; <span class="cm"># JS converts instead of erroring</span></summary>
+<div class="detail-body">
+  <div class="opt">Python: <code>"5" + 1</code> raises <code>TypeError</code></div>
+  <div class="opt">JS: if one side is a string, <code>+</code> means "glue as text" &mdash; the number becomes a string</div>
+  <pre>let result = "5" + 1;
+console.log(result);          // 51
+console.log(typeof result);   // "string"</pre>
+  <div class="warn">No error = silent bug. Be deliberate about string vs number before using +</div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Number gotchas to know early</span>&nbsp; <span class="cm"># my example: floating point and NaN</span></summary>
+<div class="detail-body">
+  <pre>console.log(0.1 + 0.2);          // 0.30000000000000004 (same float issue as Python)
+console.log(10 / 3);              // 3.3333333333333335 (no // floor division operator)
+console.log(Math.floor(10 / 3));  // 3   (JS replacement for Python //)
+console.log(10 % 3);              // 1   (modulo works like Python)
+console.log(2 ** 8);              // 256 (same ** power operator)
+console.log(Number("42"));        // 42   (like int("42"))
+console.log(Number("abc"));       // NaN  (Python would raise ValueError)
+console.log(typeof NaN);          // "number" (odd but true)
+console.log(typeof null);         // "object" (famous historical bug)</pre>
+  <div class="warn">No floor-division operator in JS: use <code>Math.floor(a / b)</code></div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-cond">&#x1F500; Conditions &amp; Curly Braces</h2>
+
+<details>
+<summary><span class="one">if (cond) { } else if (cond) { } else { }</span>&nbsp; <span class="cm"># parentheses + braces</span></summary>
+<div class="detail-body">
+  <div class="opt">Condition goes in <b>parentheses</b>; the block goes in <b>curly braces</b> instead of indentation</div>
+  <div class="opt">Python <code>elif</code> &rarr; JS <code>else if</code>; no colon</div>
+  <div class="opt">Indentation is only for humans in JS &mdash; the <code>{}</code> define the block</div>
+  <pre>let score = 85;
+if (score &gt;= 90) {
+  console.log("A");
+} else if (score &gt;= 80) {
+  console.log("B");
+} else {
+  console.log("Keep going");
+}</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">{ } curly braces</span>&nbsp; <span class="cm"># mark where a block starts and ends</span></summary>
+<div class="detail-body">
+  <div class="opt">Group lines in the same local scope &mdash; the job Python's indentation does</div>
+  <div class="opt">A <code>let</code>/<code>const</code> declared inside a block is scoped to that block</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">&amp;&amp; &nbsp; || &nbsp; !</span>&nbsp; <span class="cm"># and / or / not</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>and</code> &rarr; <code>&amp;&amp;</code></div>
+  <div class="opt">Python <code>or</code> &rarr; <code>||</code></div>
+  <div class="opt">Python <code>not</code> &rarr; <code>!</code></div>
+  <pre>let temperature = 72;
+if (temperature &gt;= 68 &amp;&amp; temperature &lt;= 75) {
+  console.log("Comfortable");
+} else {
+  console.log("Not comfortable");
+}
+
+let day = "Saturday";
+if (day === "Saturday" || day === "Sunday") {
+  console.log("Weekend");
+}</pre>
+  <div class="warn">Repeat the full comparison on both sides: <code>day === "Sat" || day === "Sun"</code>, not <code>day === "Sat" || "Sun"</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Ternary operator (one-line if/else)</span>&nbsp; <span class="cm"># my example: compact conditional</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>"Pass" if score &gt;= 70 else "Fail"</code> &rarr; JS <code>score &gt;= 70 ? "Pass" : "Fail"</code></div>
+  <pre>const score = 80;
+const result = score &gt;= 70 ? "Pass" : "Fail";
+console.log(result);   // Pass</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-template">&#x1F4DD; Template Literals (JS f-strings)</h2>
+
+<details>
+<summary><span class="one">`Hello, ${name}`</span>&nbsp; <span class="cm"># backticks + ${} = Python's f"Hello, {name}"</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>f"Hi {name}"</code> &rarr; JS <code>`Hi ${name}`</code> &mdash; backticks (key above Tab), no <code>f</code> prefix</div>
+  <div class="opt">Anything inside <code>${ }</code> is evaluated: variables and expressions</div>
+  <pre>const name = "Ron";
+const age = 59;
+const info = `Name: ${name}, Age: ${age}`;
+const next = `Next year, ${name} will be ${age + 1} years old.`;
+console.log(info);
+console.log(next);</pre>
+  <div class="warn">Normal quotes do NOT interpolate: <code>"Hello ${name}"</code> prints the literal text <code>Hello ${name}</code> (like leaving off the <code>f</code> in Python)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">multi-line strings</span>&nbsp; <span class="cm"># just press Enter inside the backticks &mdash; no \n, no +</span></summary>
+<div class="detail-body">
+  <div class="opt">Python equivalent: triple-quoted f-string</div>
+  <div class="opt">Line breaks in the code become line breaks in the string</div>
+  <pre>const profile = `Profile for ${name}
+Name: ${name}
+Age: ${age}`;
+console.log(profile);
+
+// old way (avoid):
+const old = "Profile for Ron\n" + "Name: Ron\n" + "Age: 59";</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Formatting numbers inside templates</span>&nbsp; <span class="cm"># my example: like f"{x:.2f}"</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>f"{price:.2f}"</code> &rarr; JS <code>${price.toFixed(2)}</code> (returns a string)</div>
+  <pre>const price = 187.4;
+console.log(`Price: $${price.toFixed(2)}`);   // Price: $187.40
+console.log(`Total: ${(price * 3).toFixed(2)}`);
+console.log(`Sum: ${1 + 2}`);                 // expressions allowed</pre>
+  <div class="opt">Write a literal dollar sign before <code>${}</code> as <code>$${...}</code></div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-equality">&#x2696;&#xFE0F; Equality &amp; Missing Values</h2>
+
+<details>
+<summary><span class="one">=== &nbsp; !== &nbsp; (strict) &nbsp;vs&nbsp; == &nbsp; != &nbsp; (loose)</span>&nbsp; <span class="cm"># ALWAYS use ===</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>==</code> loose: converts types first &rarr; <code>"5" == 5</code> is <code>true</code></div>
+  <div class="opt"><code>===</code> strict: compares value AND type, no conversion &rarr; <code>"5" === 5</code> is <code>false</code></div>
+  <div class="opt">Three different symbols: <code>=</code> assigns, <code>===</code> compares</div>
+  <pre>console.log("5" == 5);    // true
+console.log("5" === 5);   // false
+console.log(0 == "0");    // true  (avoid)
+console.log(0 === "0");   // false</pre>
+  <div class="warn">Use === and !== in all new code (class correction: a stray <code>day == "Sunday"</code> was flagged)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">null &nbsp; vs &nbsp; undefined</span>&nbsp; <span class="cm"># two kinds of "no value"</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>null</code> &mdash; deliberately empty: "I know about this value and it is empty now" (closest to Python's <code>None</code>). Examples: no nickname, "no selection" in a dropdown</div>
+  <div class="opt"><code>undefined</code> &mdash; nothing assigned yet: a declared variable with no value, a field to be filled by input or a file read</div>
+  <pre>let middleName;               // undefined
+let nickname = null;          // intentionally empty
+console.log("middleName is:", middleName);   // undefined
+console.log("nickname is:", nickname);       // null
+
+if (middleName === undefined) { console.log("not set yet"); }
+if (nickname === null) { console.log("no nickname, on purpose"); }</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">falsy &nbsp;vs&nbsp; truthy</span>&nbsp; <span class="cm"># what counts as false inside if (...)</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Falsy:</b> <code>false</code>, <code>0</code>, <code>""</code> (empty string), <code>null</code>, <code>undefined</code>, <code>NaN</code></div>
+  <div class="opt"><b>Truthy:</b> everything else &mdash; e.g. any non-empty string like <code>"hello"</code></div>
+  <pre>if (false)   { console.log("no"); }
+if (0)       { console.log("no"); }
+if ("")      { console.log("no"); }
+if ("hello") { console.log("runs!"); }   // only this one prints
+
+let userName = "";
+if (userName === "") { console.log("username is empty"); }
+if (!userName)       { console.log("also empty (falsy check)"); }</pre>
+  <div class="warn">Extra (not from class notes): unlike Python, empty arrays <code>[]</code> and empty objects <code>{}</code> are TRUTHY in JS</div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Safe "is it missing?" checks</span>&nbsp; <span class="cm"># my example: null/undefined helpers</span></summary>
+<div class="detail-body">
+  <pre>let value;                          // undefined
+console.log(value === undefined);   // true
+console.log(value === null);        // false  (strict says they differ)
+console.log(value == null);         // true   (the one common exception: matches null OR undefined)
+console.log(value ?? "default");    // "default" (nullish coalescing: fallback only for null/undefined)
+console.log(0 || "fallback");       // "fallback" (|| also replaces 0 and "")
+console.log(0 ?? "fallback");       // 0 (?? keeps 0, "" and false)</pre>
+  <div class="opt"><code>??</code> is usually the safer default-value operator than <code>||</code></div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-arrays">&#x1F4DA; Arrays (JS Lists)</h2>
+
+<details>
+<summary><span class="one">let colors = ["red", "green", "blue"];</span>&nbsp; <span class="cm"># Python list &rarr; JS array</span></summary>
+<div class="detail-body">
+  <div class="opt">Square brackets, commas, ordered &mdash; looks the same as a Python list</div>
+  <div class="opt">Zero-based indexing: <code>colors[0]</code> is <code>"red"</code></div>
+  <pre>let playlist = ["Intro", "Verse", "Chorus"];
+console.log(playlist[0]);   // Intro
+console.log(playlist[2]);   // Chorus</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">array.length</span>&nbsp; <span class="cm"># property, NOT a function &mdash; Python's len(list)</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>fruits.length</code> &rarr; number of items (no parentheses!)</div>
+  <div class="opt">Last valid index is <code>length - 1</code></div>
+  <pre>let fruits = ["apple", "banana", "cherry", "date"];
+console.log(fruits.length);                 // 4
+console.log(fruits[fruits.length - 1]);     // "date"  (last item)</pre>
+  <div class="warn"><code>fruits.length - 1</code> is the last INDEX (3); you still need <code>fruits[...]</code> around it to get the item</div>
+  <div class="warn">Negative indexes like Python's <code>list[-1]</code> do NOT work this way in JS &mdash; use <code>length - 1</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">array.push(item)</span>&nbsp; <span class="cm"># add to the END &mdash; Python's list.append()</span></summary>
+<div class="detail-body">
+  <div class="opt">Changes the array in place, so <code>.length</code> grows too</div>
+  <pre>let playlist = ["Intro", "Verse"];
+playlist.push("Chorus");
+console.log(playlist);          // [ 'Intro', 'Verse', 'Chorus' ]
+console.log(playlist.length);   // 3</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">array.pop()</span>&nbsp; <span class="cm"># remove AND return the last item &mdash; same name as Python</span></summary>
+<div class="detail-body">
+  <pre>let playlist = ["Intro", "Verse", "Chorus"];
+let lastTrack = playlist.pop();
+console.log("Playlist now:", playlist);       // [ 'Intro', 'Verse' ]
+console.log("Last track was:", lastTrack);    // Chorus
+console.log("Length now:", playlist.length);  // 2</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">More array operations to preview</span>&nbsp; <span class="cm"># my example: a few beyond Week 1</span></summary>
+<div class="detail-body">
+  <pre>const prices = [10, 20, 30];
+prices.unshift(5);            // add to FRONT      -> [5, 10, 20, 30]
+const first = prices.shift(); // remove FROM FRONT -> first = 5
+console.log(prices.includes(20));       // true  (Python: 20 in prices)
+console.log(prices.indexOf(30));        // 2     (-1 if not found)
+console.log(prices.slice(0, 2));        // [10, 20] (like prices[0:2])
+console.log(prices.join(" | "));        // "10 | 20 | 30"
+for (const p of prices) {               // like: for p in prices:
+  console.log(p);
+}</pre>
+  <div class="warn">push/pop/shift/unshift CHANGE the array; <code>const</code> only blocks reassigning the variable, not changing its contents</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-objects">&#x1F5C3;&#xFE0F; Objects (JS Dicts)</h2>
+
+<details>
+<summary><span class="one">const person = { name: "Ron", age: 59 };</span>&nbsp; <span class="cm"># Python dict &rarr; JS object</span></summary>
+<div class="detail-body">
+  <div class="opt">Curly braces, <code>key: value</code> pairs, commas between. Keys are normally written <b>without quotes</b> (Python dict keys are quoted strings)</div>
+  <div class="opt">Read with <b>dot</b> notation: <code>person.name</code> (Python: <code>person["name"]</code>)</div>
+  <pre>const person = { name: "Ron", age: 59, likesCoding: true };
+console.log(person.name);    // "Ron"
+console.log(person.age);     // 59
+console.log(person.email);   // undefined  (missing key = undefined, NOT an error like Python's KeyError)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">person["name"] &nbsp;vs&nbsp; person[key]</span>&nbsp; <span class="cm"># bracket notation = dynamic keys</span></summary>
+<div class="detail-body">
+  <div class="opt">Dot needs the literal key name. Brackets accept any <b>expression</b> &mdash; use them when the key is in a variable or has spaces</div>
+  <pre>const key = "age";
+console.log(person[key]);        // 59   (variable holds the key name)
+console.log(person.key);         // undefined (looks for a key literally named "key")
+person["favorite color"] = "blue";   // awkward key name needs brackets</pre>
+  <div class="warn"><code>person.key</code> is NOT the same as <code>person[key]</code> &mdash; the classic dynamic-key mistake</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">add / change / delete properties</span>&nbsp; <span class="cm"># objects are mutable, even when declared const</span></summary>
+<div class="detail-body">
+  <pre>const car = { make: "Ford" };
+car.year = 2020;        // add
+car.make = "Toyota";    // change
+delete car.year;        // remove  (Python: del car["year"])
+console.log(car);       // { make: 'Toyota' }</pre>
+  <div class="opt"><code>const</code> only stops re-pointing the variable; the contents can still change (same as arrays)</div>
+  <div class="opt">Check a key exists: <code>"make" in car</code> &rarr; <code>true</code> (Python: <code>"make" in car</code>)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Methods &amp; nested objects</span>&nbsp; <span class="cm"># functions and objects inside objects</span></summary>
+<div class="detail-body">
+  <pre>const account = {
+  owner: "Ron",
+  address: { city: "Tampa", zip: "33601" },   // nested object
+  tags: ["trader", "student"],                // array inside
+  greet: function () { console.log("Hi " + this.owner); }   // method
+};
+console.log(account.address.city);   // "Tampa"
+console.log(account.tags[0]);        // "trader"
+account.greet();                     // Hi Ron</pre>
+  <div class="opt">Handy lookups: <code>Object.keys(obj)</code>, <code>Object.values(obj)</code>, <code>Object.entries(obj)</code> (Python: <code>.keys() .values() .items()</code>)</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-loops">&#x1F501; Loops: while, for, for...of</h2>
+
+<details>
+<summary><span class="one">while (condition) { }</span>&nbsp; <span class="cm"># repeat while true &mdash; same idea as Python while</span></summary>
+<div class="detail-body">
+  <div class="opt">Parentheses around the condition, braces around the body. Make sure something inside changes the condition or it never ends</div>
+  <pre>let count = 3;
+while (count &gt; 0) {
+  console.log(count);
+  count--;              // without this: infinite loop
+}
+console.log("Liftoff");</pre>
+  <div class="opt"><code>break</code> exits the loop; <code>continue</code> skips to the next pass (same as Python)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">for (let i = 0; i &lt; n; i++) { }</span>&nbsp; <span class="cm"># classic for: start; keep-going test; step</span></summary>
+<div class="detail-body">
+  <div class="opt">Three parts in the parentheses, separated by <code>;</code>: <b>init</b> (<code>let i = 0</code>), <b>condition</b> (<code>i &lt; n</code>), <b>update</b> (<code>i++</code>)</div>
+  <div class="opt">Python <code>for i in range(5):</code> &rarr; JS <code>for (let i = 0; i &lt; 5; i++)</code></div>
+  <pre>for (let i = 0; i &lt; 5; i++) {
+  console.log(i);              // 0 1 2 3 4
+}
+
+const fruits = ["apple", "banana", "cherry"];
+for (let i = 0; i &lt; fruits.length; i++) {
+  console.log(i, fruits[i]);   // index AND item (Python: enumerate)
+}</pre>
+  <div class="opt">Count down: <code>for (let i = 10; i &gt; 0; i--)</code> &nbsp;|&nbsp; step by 2: <code>i += 2</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">for (const item of array) { }</span>&nbsp; <span class="cm"># Python's for item in list: &mdash; use this to loop over values</span></summary>
+<div class="detail-body">
+  <pre>for (const fruit of fruits) {
+  console.log(fruit);          // apple, banana, cherry
+}
+for (const ch of "hey") { console.log(ch); }   // works on strings too</pre>
+  <div class="opt">Use <code>const</code> here: a fresh variable is made each pass</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">for...in &nbsp;vs&nbsp; for...of</span>&nbsp; <span class="cm"># the gotcha: Python's "in" is JS's "of"</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>for...of</code> gives the <b>VALUES</b> (what Python's <code>for x in list</code> does)</div>
+  <div class="opt"><code>for...in</code> gives the <b>KEYS</b> &mdash; array <b>indexes</b> (as strings!) or object property names</div>
+  <pre>const colors = ["red", "green"];
+for (const c of colors) console.log(c);   // red, green
+for (const i in colors) console.log(i);   // "0", "1"   (indexes, not items!)
+
+const person = { name: "Ron", age: 59 };
+for (const key in person) {
+  console.log(key, person[key]);          // name Ron / age 59  (Python: for k in d)
+}
+// for (const x of person) -> TypeError: person is not iterable  (plain objects can't use of)</pre>
+  <div class="warn">Rule of thumb: arrays &rarr; <code>of</code>; objects &rarr; <code>in</code> (or <code>Object.entries</code>). Writing <code>in</code> on an array gives indexes, not items</div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Looping over an object with entries</span>&nbsp; <span class="cm"># my example: closest to Python's .items()</span></summary>
+<div class="detail-body">
+  <pre>const prices = { AAPL: 187.4, JPM: 201.1 };
+for (const [symbol, price] of Object.entries(prices)) {   // destructuring in the loop
+  console.log(`${symbol}: ${price}`);
+}</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-destruct">&#x1F4E5; Destructuring &amp; Spread</h2>
+
+<details>
+<summary><span class="one">const [a, b] = array;</span>&nbsp; <span class="cm"># array destructuring &mdash; unpack BY POSITION</span></summary>
+<div class="detail-body">
+  <div class="opt">Python tuple unpacking: <code>a, b = [1, 2]</code> &rarr; JS <code>const [a, b] = [1, 2];</code></div>
+  <pre>const colors = ["red", "green", "blue"];
+const [first, second] = colors;       // first="red", second="green"
+const [, , third] = colors;           // skip with empty slots -> "blue"
+const [x, y, z, w] = colors;          // w is undefined (not enough items)
+let p = 1, q = 2;
+[p, q] = [q, p];                      // swap (Python: p, q = q, p)</pre>
+  <div class="opt">Names are yours to choose &mdash; position decides what goes where</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">const { name, age } = object;</span>&nbsp; <span class="cm"># object destructuring &mdash; unpack BY NAME</span></summary>
+<div class="detail-body">
+  <div class="opt">Variable names must match the property names; order doesn't matter</div>
+  <pre>const person = { name: "Ron", age: 59, city: "Tampa" };
+const { name, age } = person;               // name="Ron", age=59
+const { city: homeCity } = person;          // rename: homeCity = "Tampa"
+const { email } = person;                   // undefined (missing key)
+const { zip = "00000" } = person;           // default if undefined</pre>
+  <div class="opt">Also works in function parameters: <code>function show({ name, age }) { ... }</code></div>
+  <div class="warn">Array = by position (<code>[ ]</code>), object = by name (<code>{ }</code>). Mixing the brackets up is the usual slip</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Mutability &amp; reference aliasing</span>&nbsp; <span class="cm"># two names, ONE object</span></summary>
+<div class="detail-body">
+  <div class="opt">Arrays and objects are <b>references</b>: assigning copies the pointer, not the data (same as Python lists/dicts)</div>
+  <pre>const a = { score: 1 };
+const b = a;            // b points at the SAME object
+b.score = 99;
+console.log(a.score);   // 99  -- a changed too!
+
+console.log({ x: 1 } === { x: 1 });   // false: different objects, even if equal contents</pre>
+  <div class="opt">Strings, numbers, booleans are copied by value &mdash; changing one never affects the other</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">...spread &nbsp; (copy &amp; merge)</span>&nbsp; <span class="cm"># three dots spread items out</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>[*a, *b]</code> / <code>{**a, **b}</code> &rarr; JS <code>[...a, ...b]</code> / <code>{...a, ...b}</code></div>
+  <pre>const nums = [1, 2, 3];
+const copy = [...nums];             // new array, independent
+const more = [...nums, 4, 5];       // [1,2,3,4,5]
+
+const base = { name: "Ron", age: 59 };
+const updated = { ...base, age: 60 };    // copy + override -> { name:'Ron', age:60 }
+const merged = { ...base, city: "Tampa" };</pre>
+  <div class="warn">Spread is a <b>shallow</b> copy: nested arrays/objects inside are still shared with the original</div>
+  <div class="opt">Later keys win when names collide, so put overrides last</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-funcs">&#x1F527; Functions</h2>
+
+<details>
+<summary><span class="one">function name(params) { return value; }</span>&nbsp; <span class="cm"># Python's def</span></summary>
+<div class="detail-body">
+  <div class="opt">Python <code>def add(a, b):</code> &rarr; JS <code>function add(a, b) { }</code> &mdash; braces, no colon, camelCase names</div>
+  <div class="opt">Define it, then <b>call</b> it with <code>()</code>. No <code>return</code> = the call gives <code>undefined</code> (Python: <code>None</code>)</div>
+  <pre>function add(a, b) {
+  return a + b;
+}
+const total = add(2, 3);
+console.log(total);        // 5
+
+function sayHi(name) { console.log("Hi " + name); }   // no return
+console.log(sayHi("Ron"));  // prints Hi Ron, then undefined</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Default params &amp; multiple return values</span>&nbsp; <span class="cm"># same ideas, different shapes</span></summary>
+<div class="detail-body">
+  <pre>function greet(name = "friend") {      // default (same as Python)
+  return `Hello, ${name}`;
+}
+greet();            // "Hello, friend"
+greet("Ron");       // "Hello, Ron"
+
+function minMax(arr) {
+  return [Math.min(...arr), Math.max(...arr)];   // return an array (or object)
+}
+const [lo, hi] = minMax([4, 9, 2]);              // destructure the result</pre>
+  <div class="opt">JS can only return ONE thing &mdash; wrap several in an array (by position) or object (by name). Extra arguments are ignored; missing ones are <code>undefined</code></div>
+  <div class="opt">Code after a <code>return</code> never runs</div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Functions + loops challenge pattern</span>&nbsp; <span class="cm"># my example: loop inside a function, return the result</span></summary>
+<div class="detail-body">
+  <pre>function sumArray(numbers) {
+  let total = 0;
+  for (const n of numbers) {
+    total += n;
+  }
+  return total;               // return AFTER the loop, not inside it
+}
+console.log(sumArray([1, 2, 3, 4]));   // 10
+
+function coinFlip() {
+  return Math.random() &lt; 0.5 ? "Heads" : "Tails";
+}</pre>
+  <div class="warn">Class coin-flip slip: <code>Math.floor(Math.random() * 4) - 2</code> gives -2..1, so "result === 1" is only 1-in-4. Use <code>Math.floor(Math.random() * 2)</code> for 0 or 1</div>
+  <div class="warn"><code>return</code> inside the loop body ends the function on the FIRST pass</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-firstclass">&#x1F9E9; Functions as Values, Callbacks &amp; Anonymous Functions</h2>
+
+<details>
+<summary><span class="one">const greet = function sayHello(name) { };</span>&nbsp; <span class="cm"># function expression: a function stored in a variable</span></summary>
+<div class="detail-body">
+  <div class="opt">Python: <code>say_hello = greet</code> &mdash; functions are values you can put in variables. JS does the same</div>
+  <div class="opt">The variable is the "box"; <code>()</code> uses the tool inside it</div>
+  <pre>const action = function doSomething() {
+  console.log("Doing something...");
+};
+action();      // calls it
+action;        // just the function itself (not run)</pre>
+  <div class="warn"><b>greet</b> = the function (a value) &nbsp;|&nbsp; <b>greet()</b> = CALL it now. Missing or extra <code>()</code> is the #1 mix-up</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Callbacks: passing a function in</span>&nbsp; <span class="cm"># "first-class functions"</span></summary>
+<div class="detail-body">
+  <div class="opt">A function can be an argument. The one passed in is a <b>callback</b>; the receiver decides when to call it</div>
+  <pre>function greet() { console.log("Hello from greet"); }
+
+function runTask(task) {
+  console.log("About to run the task...");
+  task();                          // call the function we were given
+  console.log("Finished.");
+}
+runTask(greet);       // pass the function itself: NO parentheses
+// runTask(greet());  // WRONG: calls greet now, passes its result (undefined)</pre>
+  <div class="opt">Why "functions are values": store them in variables, pass them to functions, call them later</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">function() { ... } &nbsp;(no name)</span>&nbsp; <span class="cm"># anonymous function: just drop the name</span></summary>
+<div class="detail-body">
+  <pre>let greet = function greetFunction() { console.log("Hi"); };  // named expression
+let greet2 = function () { console.log("Hi"); };              // anonymous: same behaviour
+
+let sayOnce = function () { console.log("Runs when called"); };
+sayOnce();</pre>
+  <div class="opt">Recognise the shape <code>function () { ... }</code> sitting inside another call &mdash; that is an anonymous callback</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">setTimeout(function () { }, ms)</span>&nbsp; <span class="cm"># run a callback LATER</span></summary>
+<div class="detail-body">
+  <pre>setTimeout(function () {
+  console.log("This runs after 2 seconds");
+}, 2000);
+console.log("This prints first");   // program keeps going; timer fires later</pre>
+  <div class="opt">The callback does NOT run immediately: JS stores it, finishes the current code, then calls it after the delay (ms: 1000 = 1 second)</div>
+  <div class="opt">Async preview: the program "finishes", then the timer's output appears (full coverage in the Week 3 sync/async section)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">(params) =&gt; { }</span>&nbsp; <span class="cm"># arrow function: shorter anonymous function</span></summary>
+<div class="detail-body">
+  <div class="opt">Drop the word <code>function</code>, add <code>=&gt;</code> after the parameters. Similar to Python's <code>lambda</code>, but can hold full code blocks</div>
+  <div class="opt">One expression and no braces = <b>implicit return</b> (the value is returned automatically)</div>
+  <pre>const add = function (a, b) { return a + b; };   // old way
+const add2 = (a, b) =&gt; { return a + b; };          // arrow, braces: needs return
+const add3 = (a, b) =&gt; a + b;                      // arrow, implicit return
+
+const double = n =&gt; n * 2;                         // one param: () optional
+const hello = () =&gt; console.log("Hi");             // no params: () required
+
+setTimeout(() =&gt; console.log("after 1s"), 1000);   // arrow as callback
+[1, 2, 3].forEach(n =&gt; console.log(n));</pre>
+  <div class="warn">With braces <code>{ }</code> you MUST write <code>return</code>; without braces the value returns itself. Returning an object literal: wrap in parens <code>() =&gt; ({ a: 1 })</code></div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- WEEK 3 — Unit 3: Going async -->
+<h2 id="sec-foreach">&#x1F501; forEach() &mdash; Run a Function on Every Item</h2>
+
+<details>
+<summary><span class="one">arr.forEach(function (item, index) { })</span>&nbsp; <span class="cm"># do something for each element, in order</span></summary>
+<div class="detail-body">
+  <div class="opt">Python: <code>for color in colors: print(color)</code> &mdash; JS lets the array call YOUR function once per item (a callback)</div>
+  <div class="opt">1st parameter = the value (name is your choice: <code>food</code>, <code>item</code>&hellip;). 2nd parameter = the index, starting at 0</div>
+  <pre>const foods = ["scallops", "steak", "crabs"];
+
+foods.forEach(function (food, index) {
+  console.log(index, food);
+});
+// 0 scallops
+// 1 steak
+// 2 crabs</pre>
+  <div class="opt">Python equivalent of the index version: <code>for index, food in enumerate(foods)</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">forEach returns undefined</span>&nbsp; <span class="cm"># it's for side effects, not for building a new array</span></summary>
+<div class="detail-body">
+  <pre>const result = foods.forEach(function (food) { console.log(food); });
+console.log(result);          // undefined</pre>
+  <div class="opt">Side effect = logging, or updating a variable that lives OUTSIDE the callback (accumulator pattern)</div>
+  <pre>const scores = [5, 15, 20, 30];
+let total = 0;                       // lives outside the callback
+scores.forEach((score, index) =&gt; {   // arrow-function callback
+  total = total + score;             // 0 -&gt; 5 -&gt; 20 -&gt; 40 -&gt; 70
+});
+console.log("Total is:", total);     // Total is: 70</pre>
+  <div class="opt">Python: <code>total = 0; for score in scores: total = total + score</code></div>
+  <div class="warn">Want a NEW array back? forEach is the wrong tool &mdash; use <code>map()</code> or <code>filter()</code> (next section)</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-mapfilter">&#x1F501; map() &amp; filter()</h2>
+
+<details>
+<summary><span class="one">const newArr = oldArr.map(callback)</span>&nbsp; <span class="cm"># transform EVERY item &rarr; same-length new array</span></summary>
+<div class="detail-body">
+  <div class="opt">Python: <code>[n * 3 for n in nums]</code> (list comprehension)</div>
+  <div class="opt">Callback's <b>return value</b> = what goes into the new array at that position</div>
+  <pre>const myArray = [1, 2, 3];
+function tripleIt(num) { return num * 3; }
+
+const mappedArray = myArray.map(tripleIt);   // pass the function: NO parentheses
+console.log(myArray);       // [1, 2, 3]   original untouched
+console.log(mappedArray);   // [3, 6, 9]
+
+const percentages = [60, 80, 90].map(n =&gt; n / 100);   // [0.6, 0.8, 0.9]</pre>
+  <div class="opt">Use when: one input &rarr; one output (add tax to each price, turn scores into percentages)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">const newArr = oldArr.filter(callback)</span>&nbsp; <span class="cm"># KEEP only items where the callback is true</span></summary>
+<div class="detail-body">
+  <div class="opt">Python: <code>[n for n in nums if n % 2 == 0]</code></div>
+  <div class="opt">Callback returns true/false: <b>true</b> = keep the original item, <b>false</b> = drop it. Result may be shorter</div>
+  <pre>const numbers = [1, 3, 4, 5, 6, 8, 9];
+function isEven(n) { return n % 2 === 0; }
+
+const even = numbers.filter(isEven);
+console.log(numbers);   // [1, 3, 4, 5, 6, 8, 9]   original untouched
+console.log(even);      // [4, 6, 8]
+
+const high = [60, 70, 80, 85, 90].filter(n =&gt; n &gt;= 80);   // [80, 85, 90]</pre>
+  <div class="opt">The test can be anything: evens, holidays, rainy days, scores above 90&hellip;</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">map vs filter &nbsp;(can't map do a filter?)</span>&nbsp; <span class="cm"># no: map stores the return value, filter uses it as keep/drop</span></summary>
+<div class="detail-body">
+  <pre>const nums = [1, 2, 3, 4];
+const mapped   = nums.map(n =&gt; n % 2 === 0);      // [false, true, false, true]  (booleans, same length)
+const filtered = nums.filter(n =&gt; n % 2 === 0);   // [2, 4]                      (original numbers kept)</pre>
+  <table class="xlat">
+    <tr><th>map()</th><th>filter()</th></tr>
+    <tr><td>"What is the NEW value for this item?"</td><td>"Keep this ORIGINAL item?"</td></tr>
+    <tr><td>Always same length as the original</td><td>Same length or shorter</td></tr>
+    <tr><td>Returns a new array</td><td>Returns a new array</td></tr>
+    <tr><td>Original array never changed</td><td>Original array never changed</td></tr>
+  </table>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Chaining: arr.filter(...).map(...)</span>&nbsp; <span class="cm"># first select, then transform</span></summary>
+<div class="detail-body">
+  <pre>const scores = [60, 70, 80, 85, 90];
+
+const result = scores
+  .filter(score =&gt; score &gt;= 80)   // 1. keep high scores -&gt; [80, 85, 90]
+  .map(score =&gt; score / 100);     // 2. to 0-1 percentages -&gt; [0.8, 0.85, 0.9]
+
+console.log(result);   // [0.8, 0.85, 0.9]   scores is still [60, 70, 80, 85, 90]</pre>
+  <div class="opt">Each step returns a new array, so the next method can be chained straight onto it</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Arrow function + map: braces need return</span>&nbsp; <span class="cm"># the classic [undefined, undefined, undefined] bug</span></summary>
+<div class="detail-body">
+  <pre>const nums = [1, 2, 3];
+const a = nums.map(n =&gt; n * 2);                 // [2, 4, 6]  implicit return (no braces)
+const b = nums.map(n =&gt; { n * 2 });             // [undefined, undefined, undefined]  BROKEN
+const c = nums.map(n =&gt; { return n * 2; });     // [2, 4, 6]  fixed</pre>
+  <div class="warn">Braces <code>{ }</code> = you must write <code>return</code>. No braces = the expression is returned for you</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-api">&#x1F310; APIs, Client &amp; Server (Why Async Exists)</h2>
+
+<details>
+<summary><span class="one">API = the messenger between two systems</span>&nbsp; <span class="cm"># you follow its rules, you don't need its internals</span></summary>
+<div class="detail-body">
+  <div class="opt">Takes a request from one system, delivers it to another, brings back a response in a format the first one understands</div>
+  <div class="opt"><b>Client</b> = the side that asks (browser page / app code near the user). <b>Server</b> = the remote machine that has the data and answers</div>
+  <div class="opt">Why use APIs: reuse another system's data or features (weather, exchange rates, maps) instead of rebuilding them</div>
+  <pre>Client  --request--&gt;  Server
+Client  &lt;--response--  Server   (client then updates the screen)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Why a request takes time</span>&nbsp; <span class="cm"># the "waiting problem"</span></summary>
+<div class="detail-body">
+  <div class="opt">Total delay = request travel + server working + response travel</div>
+  <div class="opt">If the program froze while waiting, the page would lock up (no scrolling, typing, clicking) and users would get annoyed and leave</div>
+  <div class="opt">Python: <code>requests.get(url)</code> normally BLOCKS until the data is back. JS does not wait &mdash; that is the whole point of async</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-sync">&#x23F1;&#xFE0F; Synchronous vs Asynchronous &amp; the Event Loop</h2>
+
+<details>
+<summary><span class="one">Synchronous: one line at a time, in order</span>&nbsp; <span class="cm"># each line finishes before the next starts</span></summary>
+<div class="detail-body">
+  <pre>console.log("A");
+console.log("B");
+console.log("C");   // always A, B, C</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Asynchronous: start it now, finish it later</span>&nbsp; <span class="cm"># setTimeout(callback, ms) does NOT pause the code</span></summary>
+<div class="detail-body">
+  <pre>console.log("Start");
+setTimeout(function () {
+  console.log("Done");
+}, 1000);
+console.log("End");
+// Start
+// End
+// (about 1 second later) Done</pre>
+  <div class="opt"><code>setTimeout</code> schedules the callback "at least this many ms from now" and JS keeps running the next lines</div>
+  <div class="opt">First argument must be a function REFERENCE: <code>setTimeout(myFunction, 1000)</code>. <code>setTimeout(myFunction(), 1000)</code> runs it immediately and passes its result</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Event loop: "main line" and "waiting area"</span>&nbsp; <span class="cm"># simple mental model</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Main line</b>: normal code, top to bottom. <b>Waiting area</b>: delayed tasks (timers, network) sit there until ready</div>
+  <div class="opt">Event loop asks: "Is the main line free? Is any waiting task finished? If yes, run its callback now"</div>
+  <div class="opt">All synchronous lines run FIRST, even with a delay of 0; callbacks run only when the main line is free</div>
+  <pre>console.log("One");
+setTimeout(function () { console.log("Two"); }, 1000);
+console.log("Three");
+setTimeout(function () { console.log("Four"); }, 500);
+console.log("Five");
+// One, Three, Five   (sync first)
+// Four               (500 ms timer finishes first)
+// Two                (1000 ms timer finishes last)</pre>
+  <pre>console.log("First");
+setTimeout(function () { console.log("Second"); }, 0);
+console.log("Third");
+// First, Third, Second   (even 0 ms waits for the main line)</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-fetch">&#x1F4E1; fetch() &amp; Promises</h2>
+
+<details>
+<summary><span class="one">fetch(url)</span>&nbsp; <span class="cm"># starts a request; returns a Promise right away</span></summary>
+<div class="detail-body">
+  <pre>fetch("https://jsonplaceholder.typicode.com/posts/1");   // runs silently, no output
+
+const result = fetch("https://jsonplaceholder.typicode.com/posts/1");
+console.log(result);   // Promise {}  (not the data!)</pre>
+  <div class="opt"><code>Promise {}</code> is not "empty" or "broken": it is the placeholder object for a result that is not ready yet. The console can't show what's inside</div>
+  <div class="opt">My analogy: the ticket you get at the dry cleaners &mdash; you use it later to pick up the right jacket</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Promise states: pending / fulfilled / rejected</span>&nbsp; <span class="cm"># settled = fulfilled or rejected</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>State</th><th>Meaning</th><th>Ride-app picture</th></tr>
+    <tr><td><b>pending</b></td><td>still in progress, result not ready</td><td>driver is on the way / searching</td></tr>
+    <tr><td><b>fulfilled</b></td><td>finished successfully</td><td>picked up and arrived</td></tr>
+    <tr><td><b>rejected</b></td><td>finished with a failure</td><td>"No drivers available"</td></tr>
+    <tr><td><b>settled</b></td><td>no longer pending (fulfilled OR rejected)</td><td>the story is over either way</td></tr>
+  </table>
+  <div class="opt">A Promise is a sealed envelope holding a future result: you can't open it while pending</div>
+  <pre>const promise = fetch("https://httpbin.org/delay/3");   // answers after ~3 seconds
+console.log(promise);   // Promise {}  &lt;- still pending, you only have the envelope</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">promise.then(callback)</span>&nbsp; <span class="cm"># run this when the Promise is FULFILLED</span></summary>
+<div class="detail-body">
+  <pre>console.log("A: starting");
+const result = fetch("https://jsonplaceholder.typicode.com/posts/1");
+result.then(() =&gt; {
+  console.log("C: request finished");
+});
+console.log("B: ending sync code");
+// A: starting
+// B: ending sync code
+// C: request finished     (.then callback is always LATER than the sync lines)</pre>
+  <div class="opt">Usual style: chain it straight on the call &mdash; <code>fetch(url).then((response) =&gt; { ... });</code></div>
+  <div class="opt">The real response only exists inside the <code>.then</code> callback, not on the line after <code>fetch()</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">.catch(callback)</span>&nbsp; <span class="cm"># run this when the Promise is REJECTED</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>.then()</code> = success handler, <code>.catch()</code> = failure handler (Python: <code>except</code>)</div>
+  <pre>console.log("1: before bad fetch");
+fetch("https://this-domain-should-not-exist-12345.com")
+  .then(() =&gt; { console.log("2: this will NOT run on failure"); })
+  .catch(() =&gt; { console.log("3: fetch failed"); });
+console.log("4: after bad fetch call");
+// 1, 4, then 3 later</pre>
+  <div class="opt">An error thrown INSIDE a <code>.then()</code> also rejects the chain, so the next <code>.catch()</code> runs:</div>
+  <pre>console.log("A: start");
+fetch("https://jsonplaceholder.typicode.com/posts/1")
+  .then(() =&gt; {
+    console.log("B: inside then before error");
+    throw new Error("Boom from then");
+  })
+  .catch(() =&gt; { console.log("C: inside catch after error"); });
+console.log("D: end of script");
+// order: A, D, B, C</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Response &rarr; response.json() &rarr; data</span>&nbsp; <span class="cm"># two .then() steps to get usable data</span></summary>
+<div class="detail-body">
+  <div class="opt">The first <code>.then()</code> gets a <b>Response</b> object (the box), NOT the data inside it</div>
+  <div class="opt">JSON = text that looks like a JS object. <code>response.json()</code> turns it into a real object, and it returns <b>another Promise</b></div>
+  <pre>fetch("https://jsonplaceholder.typicode.com/posts/1")
+  .then((response) =&gt; {
+    return response.json();            // Promise of the parsed data
+  })
+  .then((data) =&gt; {
+    console.log("Post title:", data.title);   // data is a normal JS object
+  })
+  .catch((error) =&gt; {
+    console.error("Error:", error);
+  });</pre>
+  <div class="opt">Flow: <code>fetch</code> &rarr; Response &rarr; <code>response.json()</code> &rarr; data object</div>
+  <div class="warn">Forgetting <code>return</code> before <code>response.json()</code> means the next <code>.then</code> gets <code>undefined</code></div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-asyncawait">&#x2728; async / await</h2>
+
+<details>
+<summary><span class="one">async function name() { }</span>&nbsp; <span class="cm"># allows await inside; always returns a Promise</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>async</code> alone does not delay anything &mdash; the function body still runs top to bottom until it reaches an <code>await</code></div>
+  <pre>async function loadPosts() {
+  console.log("loadPosts started");
+}
+console.log("Before calling loadPosts");
+loadPosts();
+console.log("After calling loadPosts");
+// Before calling loadPosts
+// loadPosts started
+// After calling loadPosts</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">const x = await somePromise;</span>&nbsp; <span class="cm"># pause THIS function until the Promise settles</span></summary>
+<div class="detail-body">
+  <div class="opt">Without <code>await</code>: <code>x</code> is the raw Promise (<code>Promise {}</code>). With <code>await</code>: <code>x</code> is the real value</div>
+  <pre>async function loadPosts() {
+  console.log("loadPosts started");
+  const response = await fetch("https://jsonplaceholder.typicode.com/posts/1");
+  const data = await response.json();
+  console.log("Data inside loadPosts:", data);
+}
+console.log("Before calling loadPosts");
+loadPosts();
+console.log("After calling loadPosts");
+// Before calling loadPosts
+// loadPosts started
+// After calling loadPosts          &lt;- runs BEFORE the data line
+// Data inside loadPosts: { userId: 1, id: 1, title: "...", body: "..." }</pre>
+  <div class="opt">Only the async function pauses at <code>await</code>; the rest of the program keeps running (non-blocking)</div>
+  <div class="opt"><code>await</code> only works inside an <code>async</code> function</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">.then() chain vs async/await</span>&nbsp; <span class="cm"># same logic, two styles</span></summary>
+<div class="detail-body">
+  <pre>// then-style: compact, but logic is split across callbacks
+fetch(url)
+  .then(response =&gt; response.json())
+  .then(data =&gt; console.log(data))
+  .catch(error =&gt; console.error(error));
+
+// async/await style: reads top to bottom like normal code
+async function loadPosts() {
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}</pre>
+  <div class="opt">As steps and error handling grow, async/await is easier to read. Python parallel: <code>try / except</code> &harr; <code>try / catch</code></div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-dependent">&#x1F517; Dependent Requests &amp; Error Handling</h2>
+
+<details>
+<summary><span class="one">Request 2 needs data from request 1</span>&nbsp; <span class="cm"># must await the first before building the second URL</span></summary>
+<div class="detail-body">
+  <pre>async function loadPosts() {
+  try {
+    const response = await fetch("https://jsonplaceholder.typicode.com/posts/1");
+    const data = await response.json();
+    console.log(data);
+
+    const userId = data.userId;                                          // only known AFTER the await
+    const userUrl = `https://jsonplaceholder.typicode.com/users/${userId}`;
+
+    const userResponse = await fetch(userUrl);
+    const userData = await userResponse.json();
+    console.log("User Object:", userData);
+  } catch (error) {
+    console.error("Something went wrong:", error);   // ONE place for any step's failure
+  }
+}
+loadPosts();</pre>
+  <div class="opt">Dependent = sequential: you can't build <code>/users/${userId}</code> until the first response gives you <code>userId</code></div>
+  <div class="opt">One <code>try / catch</code> around the whole flow: if step 1 fails, the user fetch is skipped and you get one clear error</div>
+  <div class="opt">Independent requests (you already know the ids) don't depend on each other, so they could be started together (e.g. <code>Promise.all</code>, covered only as a teaser)</div>
+  <div class="warn">Forget <code>await</code> on <code>response.json()</code> and <code>data</code> is a Promise, so <code>data.userId</code> is <code>undefined</code></div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-cheat">&#x1F501; Python &#8596; JavaScript Cheat Table</h2>
+
+<details open>
+<summary><span class="one">Side-by-side translations</span>&nbsp; <span class="cm"># Weeks 1&ndash;4 in one place</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Python</th><th>JavaScript</th></tr>
+    <tr><td><code>print("hi")</code></td><td><code>console.log("hi");</code></td></tr>
+    <tr><td><code>age = 42</code></td><td><code>const age = 42;</code> / <code>let age = 42;</code></td></tr>
+    <tr><td><code>home_city</code> (snake_case)</td><td><code>homeCity</code> (camelCase)</td></tr>
+    <tr><td><code># comment</code></td><td><code>// comment</code></td></tr>
+    <tr><td><code>str / int / float / bool</code></td><td>string / number / number / boolean</td></tr>
+    <tr><td><code>True / False</code></td><td><code>true / false</code></td></tr>
+    <tr><td><code>None</code></td><td><code>null</code> (deliberate) / <code>undefined</code> (unset)</td></tr>
+    <tr><td><code>type(x)</code></td><td><code>typeof x</code></td></tr>
+    <tr><td><code>if x &gt; 1:</code> + indent</td><td><code>if (x &gt; 1) { }</code></td></tr>
+    <tr><td><code>elif</code></td><td><code>else if</code></td></tr>
+    <tr><td><code>and / or / not</code></td><td><code>&amp;&amp; / || / !</code></td></tr>
+    <tr><td><code>==</code></td><td><code>===</code> (always strict)</td></tr>
+    <tr><td><code>f"Hi {name}"</code></td><td><code>`Hi ${name}`</code></td></tr>
+    <tr><td><code>"""multi-line"""</code></td><td>backticks, just press Enter</td></tr>
+    <tr><td><code>[1, 2, 3]</code> list</td><td><code>[1, 2, 3]</code> array</td></tr>
+    <tr><td><code>len(lst)</code></td><td><code>arr.length</code></td></tr>
+    <tr><td><code>lst.append(x)</code></td><td><code>arr.push(x)</code></td></tr>
+    <tr><td><code>lst.pop()</code></td><td><code>arr.pop()</code></td></tr>
+    <tr><td><code>lst[-1]</code></td><td><code>arr[arr.length - 1]</code></td></tr>
+    <tr><td><code>"5" + 1</code> &rarr; TypeError</td><td><code>"5" + 1</code> &rarr; <code>"51"</code></td></tr>
+    <tr><td><code>d = {"a": 1}</code> dict</td><td><code>const d = { a: 1 };</code> object</td></tr>
+    <tr><td><code>d["a"]</code> / KeyError if missing</td><td><code>d.a</code> / <code>d["a"]</code> / <code>undefined</code> if missing</td></tr>
+    <tr><td><code>del d["a"]</code></td><td><code>delete d.a;</code></td></tr>
+    <tr><td><code>for k in d:</code></td><td><code>for (const k in d)</code> (keys)</td></tr>
+    <tr><td><code>for x in lst:</code></td><td><code>for (const x of lst)</code> (values)</td></tr>
+    <tr><td><code>for i in range(5):</code></td><td><code>for (let i = 0; i &lt; 5; i++)</code></td></tr>
+    <tr><td><code>d.items()</code></td><td><code>Object.entries(d)</code></td></tr>
+    <tr><td><code>a, b = lst</code></td><td><code>const [a, b] = lst;</code></td></tr>
+    <tr><td><code>[*a, *b]</code> / <code>{**a, **b}</code></td><td><code>[...a, ...b]</code> / <code>{...a, ...b}</code></td></tr>
+    <tr><td><code>def f(a, b=1):</code></td><td><code>function f(a, b = 1) { }</code></td></tr>
+    <tr><td><code>lambda x: x * 2</code></td><td><code>x =&gt; x * 2</code></td></tr>
+    <tr><td><code>return a, b</code> (tuple)</td><td><code>return [a, b];</code> then destructure</td></tr>
+    <tr><td><code>for x in lst: f(x)</code></td><td><code>lst.forEach(x =&gt; f(x))</code></td></tr>
+    <tr><td><code>[x * 3 for x in lst]</code></td><td><code>lst.map(x =&gt; x * 3)</code></td></tr>
+    <tr><td><code>[x for x in lst if x &gt; 1]</code></td><td><code>lst.filter(x =&gt; x &gt; 1)</code></td></tr>
+    <tr><td><code>requests.get(url)</code> (blocks)</td><td><code>fetch(url)</code> (returns a Promise)</td></tr>
+    <tr><td><code>try / except</code></td><td><code>try / catch</code> &nbsp;or&nbsp; <code>.catch()</code></td></tr>
+    <tr><td><code>async def f():</code> / <code>await x</code></td><td><code>async function f() { }</code> / <code>await x</code></td></tr>
+    <tr><td><code>x: int = 5</code> (hint, not enforced)</td><td><code>let x: number = 5;</code> (TypeScript enforces before run)</td></tr>
+    <tr><td><code>def add(a: int, b: int) -&gt; int:</code></td><td><code>function add(a: number, b: number): number { }</code></td></tr>
+    <tr><td><code>-&gt; None</code></td><td><code>: void</code></td></tr>
+  </table>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-traps">&#x26A0;&#xFE0F; Week 1 Traps &amp; Gotchas</h2>
+
+<details>
+<summary><span class="one">Mistakes seen in class &amp; common Python-brain slips</span>&nbsp; <span class="cm"># check this list when something misbehaves</span></summary>
+<div class="detail-body">
+  <div class="warn">Forgetting <code>let</code>/<code>const</code> &rarr; <code>ReferenceError: x is not defined</code></div>
+  <div class="warn">Reassigning a <code>const</code> &rarr; <code>TypeError: Assignment to constant variable.</code></div>
+  <div class="warn">Using <code>-</code> instead of <code>=</code> (<code>count - 1;</code>) silently reads an undeclared variable</div>
+  <div class="warn"><code>==</code> instead of <code>===</code> &rarr; surprise type conversion</div>
+  <div class="warn">Double quotes with <code>${}</code> &rarr; no interpolation; you need backticks</div>
+  <div class="warn">Backtick placement: a stray <code>;</code> or <code>`</code> inside the template becomes part of the text (e.g. <code>`Profile for ${name};</code> prints the semicolon)</div>
+  <div class="warn"><code>arr.length()</code> &rarr; error; it's a property: <code>arr.length</code></div>
+  <div class="warn">Capital <code>True</code>/<code>False</code> don't exist in JS &mdash; use <code>true</code>/<code>false</code></div>
+  <div class="warn">String content typos (<code>"fail"</code> vs <code>"Fail"</code>) are different strings if you compare later</div>
+  <div class="warn">Missing parentheses around an <code>if</code> condition or missing <code>{ }</code></div>
+</div>
+</details>
+
+<h2 id="sec-traps2">&#x26A0;&#xFE0F; Week 2 Traps &amp; Gotchas</h2>
+
+<details>
+<summary><span class="one">Objects, loops, functions slips</span>&nbsp; <span class="cm"># check this list when Week 2 code misbehaves</span></summary>
+<div class="detail-body">
+  <div class="warn"><code>obj.key</code> vs <code>obj[key]</code>: dot looks for a key literally named "key"; brackets use the variable's value</div>
+  <div class="warn">Missing key gives <code>undefined</code>, not an error &mdash; the bug shows up later</div>
+  <div class="warn"><code>for (x in array)</code> gives INDEXES ("0","1"); use <code>for (x of array)</code> for items</div>
+  <div class="warn"><code>for (x of object)</code> &rarr; TypeError (object not iterable); use <code>for...in</code> or <code>Object.entries()</code></div>
+  <div class="warn"><code>while</code> loop that never changes its condition = infinite loop</div>
+  <div class="warn">Aliasing: <code>const b = a</code> shares ONE object; use <code>{...a}</code> / <code>[...a]</code> for a copy (shallow only)</div>
+  <div class="warn">Destructuring brackets: <code>[ ]</code> for arrays (position), <code>{ }</code> for objects (name)</div>
+  <div class="warn"><code>greet</code> vs <code>greet()</code>: passing a callback with parentheses runs it immediately and passes its result</div>
+  <div class="warn">Function with no <code>return</code> gives <code>undefined</code>; arrow with <code>{ }</code> needs explicit <code>return</code></div>
+  <div class="warn"><code>setTimeout</code> callback runs AFTER the rest of the program, not at that line</div>
+  <div class="warn">Random range maths: <code>Math.floor(Math.random() * 4) - 2</code> is -2..1, not what a coin flip wants</div>
+</div>
+</details>
+
+<h2 id="sec-traps3">&#x26A0;&#xFE0F; Week 3 Traps &amp; Gotchas</h2>
+
+<details>
+<summary><span class="one">Callbacks, Promises, async slips</span>&nbsp; <span class="cm"># check this list when Week 3 code misbehaves</span></summary>
+<div class="detail-body">
+  <div class="warn"><code>forEach</code> returns <code>undefined</code> &mdash; you can't assign or chain its result; use <code>map</code>/<code>filter</code> for a new array</div>
+  <div class="warn"><code>map(n =&gt; { n * 2 })</code> with braces and no <code>return</code> gives <code>[undefined, ...]</code></div>
+  <div class="warn">map vs filter: map keeps the callback's RETURN value; filter only uses it as true/false and keeps the original item</div>
+  <div class="warn">Pass the function, don't call it: <code>.map(tripleIt)</code> / <code>setTimeout(fn, 1000)</code>, not <code>.map(tripleIt())</code></div>
+  <div class="warn"><code>setTimeout(fn, 0)</code> still runs AFTER all the synchronous code below it</div>
+  <div class="warn">Code after <code>fetch(...)</code> runs before the response arrives; use the data only inside <code>.then</code> or after <code>await</code></div>
+  <div class="warn">Logging a Promise shows <code>Promise {}</code> &mdash; it's the placeholder, not your data</div>
+  <div class="warn">First <code>.then</code> gets a Response, not data; you need <code>response.json()</code> (and <code>return</code> it) plus a second <code>.then</code></div>
+  <div class="warn"><code>response.json()</code> returns a Promise: forget <code>await</code> and <code>data.title</code> is <code>undefined</code></div>
+  <div class="warn"><code>await</code> only works inside an <code>async</code> function</div>
+  <div class="warn">An async function only pauses itself; the code that called it keeps running, so its later logs print first</div>
+  <div class="warn">Handle errors: <code>.catch()</code> at the end of a chain, or <code>try / catch</code> around the awaits &mdash; otherwise a failed request goes unnoticed</div>
+  <div class="warn">Dependent requests must be awaited in order; don't build the second URL from a value you haven't awaited yet</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-refs">&#x1F517; References &amp; Links</h2>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Official docs</span>&nbsp; <span class="cm"># where to look things up</span></summary>
+<div class="detail-body">
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">MDN &mdash; JavaScript</a> (course reference; the Python-docs equivalent)</div>
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/const" target="_blank">MDN &mdash; const</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let" target="_blank">let</a></div>
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals" target="_blank">MDN &mdash; Template literals</a></div>
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Strict_equality" target="_blank">MDN &mdash; Strict equality (===)</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Glossary/Falsy" target="_blank">Falsy</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Glossary/Truthy" target="_blank">Truthy</a></div>
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array" target="_blank">MDN &mdash; Array</a></div>
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach" target="_blank">MDN &mdash; forEach</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map" target="_blank">map</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter" target="_blank">filter</a></div>
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise" target="_blank">MDN &mdash; Promise</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/API/Window/fetch" target="_blank">fetch()</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function" target="_blank">async function</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/await" target="_blank">await</a></div>
+  <div class="opt"><a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/API/Window/setTimeout" target="_blank">MDN &mdash; setTimeout</a> &nbsp;|&nbsp; <a class="ref" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Event_loop" target="_blank">Event loop</a></div>
+  <div class="opt">Practice APIs used in class: <code>jsonplaceholder.typicode.com</code> (posts/users) and <code>httpbin.org/delay/3</code></div>
+  <div class="opt"><a class="ref" href="https://www.typescriptlang.org/docs/" target="_blank">TypeScript Docs</a> (Week 4)</div>
+  <div class="opt">Local: <code>fe11-js-ts-prestudy.md</code> in the FE101 folder (Python &rarr; JS pre-study notes)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Try code instantly</span>&nbsp; <span class="cm"># no installs needed</span></summary>
+<div class="detail-body">
+  <div class="opt">Browser: press <code>F12</code> &rarr; Console tab, type JS and hit Enter</div>
+  <div class="opt">Node.js (if installed): save as <code>test.js</code>, run <code>node test.js</code> in a terminal</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-whyts">&#x1F537; Week 4 &mdash; Why TypeScript?</h2>
+
+<details>
+<summary><span class="one">TypeScript = JavaScript + types</span>&nbsp; <span class="cm"># catches mistakes BEFORE you run the code</span></summary>
+<div class="detail-body">
+  <div class="opt">JavaScript only complains <b>at runtime</b>; TypeScript does <b>static analysis</b> (checks the code before it runs) &mdash; like a spell-checker for your program</div>
+  <div class="opt">Strongly / statically typed: you say what type a variable holds, and assignments must match</div>
+  <div class="opt">Real-world payoff: bugs are caught while coding instead of blowing up in production for the end user</div>
+  <div class="opt">Bonus: types power VS Code &mdash; better autocomplete, hints on allowed values, warnings as you type</div>
+  <pre>// JavaScript / Python: type can change at runtime
+let x = 5;
+x = "hello";      // JS allows it
+
+// TypeScript: type is locked in
+let age: number = 30;
+age = "thirty";   // ERROR: Type 'string' is not assignable to type 'number'.</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Static analysis</span>&nbsp; <span class="cm"># happens BEFORE the program runs</span></summary>
+<div class="detail-body">
+  <div class="opt">The TS checker (and the editor) scans your code and flags type problems without executing it</div>
+  <div class="opt">Compare: a runtime error only appears when that line actually runs (maybe on a user's machine)</div>
+  <div class="opt">TypeScript compiles down to plain JavaScript &mdash; the types exist only for checking</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-tsvars">&#x1F3F7;&#xFE0F; Type Annotations &amp; Inference</h2>
+
+<details>
+<summary><span class="one">let name: type = value;</span>&nbsp; <span class="cm"># explicit type annotation</span></summary>
+<div class="detail-body">
+  <div class="opt">Same three primitives as Week 1: <code>string</code>, <code>number</code>, <code>boolean</code></div>
+  <pre>let username: string  = "ron";
+let score: number     = 100;
+let isLoggedIn: boolean = true;
+
+score = "high score!";   // ERROR: Type 'string' is not assignable to type 'number'.
+isLoggedIn = "yes";      // ERROR: Type 'string' is not assignable to type 'boolean'.</pre>
+  <table class="xlat"><tr><th>Variable</th><th>Type</th><th>Example</th></tr><tr><td>username</td><td><code>string</code></td><td><code>"ron"</code></td></tr><tr><td>score</td><td><code>number</code></td><td><code>100</code></td></tr><tr><td>isLoggedIn</td><td><code>boolean</code></td><td><code>true / false</code></td></tr></table>
+</div>
+</details>
+
+<details>
+<summary><span class="one">let name = value;</span>&nbsp; <span class="cm"># type INFERENCE &mdash; TS guesses the type from the first value</span></summary>
+<div class="detail-body">
+  <div class="opt">Inferred types are <b>exactly as strict</b> as explicit ones &mdash; no difference for type checking</div>
+  <pre>let score: number = 100;   // explicit
+let level = 5;              // inferred: number
+
+score = "high";   // ERROR
+level = "low";    // ERROR (inferred number is still enforced)
+
+let city = "Dallas";      // string
+let temperature = 75;     // number
+let raining = false;      // boolean
+city = 123;               // ERROR
+temperature = "hot";      // ERROR
+raining = "no";           // ERROR</pre>
+  <div class="opt"><code>let points = 10;</code> and <code>let points: number = 10;</code> &rarr; same thing to the checker</div>
+</div>
+</details>
+
+<details>
+<summary><span class="tag-extra">extra</span><span class="one">Name clash in the editor</span>&nbsp; <span class="cm"># seen in class: "Cannot redeclare block-scoped variable 'name'"</span></summary>
+<div class="detail-body">
+  <div class="opt">That error was NOT from the lines being tested &mdash; <code>name</code> was already declared elsewhere in the same scope/environment</div>
+  <div class="opt">Fix used in class: rename it (<code>name2</code>) or start a fresh file. Related message: "Cannot assign to 'name' because it is a constant"</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-tsfuncs">&#x2699;&#xFE0F; Typing Functions</h2>
+
+<details>
+<summary><span class="one">function f(param: type)</span>&nbsp; <span class="cm"># parameter type annotations = a contract for callers</span></summary>
+<div class="detail-body">
+  <pre>function greet(name: string) {
+  console.log("Hello " + name);
+}
+
+greet("Ron");   // ok
+greet(123);     // ERROR: Argument of type 'number' is not assignable to parameter of type 'string'.</pre>
+  <div class="opt">Multiple parameters: each gets its own type</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">function add(a: number, b: number)</span>&nbsp; <span class="cm"># argument TYPE and COUNT are both checked</span></summary>
+<div class="detail-body">
+  <pre>function add(a: number, b: number) {
+  console.log(a + b);
+}
+
+add(5, 7);        // ok
+add(5, "7");      // ERROR: Argument of type 'string' is not assignable to parameter of type 'number'.
+add(3);           // ERROR: Expected 2 arguments, but got 1.
+add(3, 4, 5);     // ERROR: Expected 2 arguments, but got 3.</pre>
+  <pre>function labelUser(name: string, age: number) { }
+labelUser("Ron", 30);   // ok
+labelUser(30, "Ron");   // ERROR: types swapped
+labelUser("Ron");       // ERROR: missing age</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">function f(...): returnType</span>&nbsp; <span class="cm"># return type annotation = the promise about the OUTPUT</span></summary>
+<div class="detail-body">
+  <div class="opt">Goes <b>after the parameter list</b>. Name + parameters + return type read like a sentence (self-documenting)</div>
+  <pre>function add(a: number, b: number): number {
+  return a + b;
+}
+
+function greet(name: string): void {     // void = does something, returns no value
+  console.log("Hello, " + name + "!");
+}
+
+function addAsString(a: number, b: number): number {
+  return "result: " + (a + b);          // ERROR: Type 'string' is not assignable to type 'number'.
+}</pre>
+  <table class="xlat"><tr><th>Return type</th><th>Means</th></tr><tr><td><code>: number</code></td><td>I give you a number back</td></tr><tr><td><code>: string</code></td><td>I give you a string back</td></tr><tr><td><code>: boolean</code></td><td>I give you true/false back (e.g. an <code>isPositive</code> check)</td></tr><tr><td><code>: void</code></td><td>I just do something (log, etc.) &mdash; no value back</td></tr></table>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Return type inference + "all paths must return"</span>&nbsp; <span class="cm"># TS can infer it; a promised type must be returned on EVERY path</span></summary>
+<div class="detail-body">
+  <pre>function add2(a: number, b: number) {
+  return a + b;      // return type inferred: number
+}
+
+function signLabel(n: number): string {
+  if (n > 0) {
+    return "positive";
+  }
+  // n <= 0 falls off the end -> undefined (TS: "Not all code paths return a value" in strict setups)
+}
+
+// fix: every path returns a string
+function signLabel2(n: number): string {
+  if (n > 0) { return "positive"; }
+  else       { return "not positive"; }
+}</pre>
+  <div class="opt">Reading <code>averageScore(totalPoints: number, count: number): number</code> tells you inputs and output without seeing the body</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-tsreview">&#x1F4DA; Course Review (Week 4 wrap-ups)</h2>
+
+<details>
+<summary><span class="one">Wrap-up: JS basics (6 rounds)</span>&nbsp; <span class="cm"># variables &bull; conditionals &bull; template literals &bull; === / falsy &bull; arrays &bull; objects</span></summary>
+<div class="detail-body">
+  <pre>let age = 30; age = 31; console.log(age);
+
+if (temperature < 20) { console.log("It's cold"); } else { console.log("It's warm"); }
+
+console.log(`${name} lives in ${city}.`);
+
+if (message === "") { console.log("Message is empty"); }   // "" is falsy; use ===
+
+const nums = [10, 20, 30];
+console.log(nums.length, nums[nums.length - 1]);   // 3  30
+
+const key = "theme";
+console.log(settings[key]);     // bracket notation uses the variable's VALUE</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Wrap-up: data and logic (6 rounds)</span>&nbsp; <span class="cm"># loops &bull; destructuring &bull; spread &bull; return values &bull; anonymous &amp; arrow functions</span></summary>
+<div class="detail-body">
+  <pre>for (let i = 1; i < 6; i++) { console.log(i); }          // 1..5
+
+const [firstColor, secondColor] = ["red", "green", "blue"];   // array destructuring (position)
+
+const copy = [...nums]; copy.push(4);                        // spread = shallow copy; original unchanged
+
+function getUser() { return { name: "Ron", age: 42 }; }      // ONE return value (an object holding many)
+const { name, age } = getUser();                              // object destructuring (by name)
+
+const greeter = function (name) { console.log("Hello, " + name + "!"); };   // anonymous fn in a variable
+const double = n => n * 2;                                    // arrow fn, implicit return</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Wrap-up: async JS (6 rounds)</span>&nbsp; <span class="cm"># map vs forEach &bull; callback result &bull; timing &bull; .then chain &bull; async/await &bull; dependent calls</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>map</code> builds a new array; <code>forEach</code> returns <code>undefined</code> (callback's return ignored); <code>filter</code> keeps matches</div>
+  <pre>console.log("A");
+fetch(url).then(() => console.log("B"));
+console.log("C");
+// A C B   (the .then callback runs later, after the response)
+
+fetch(url)
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error("Request failed", error));
+
+async function loadPostAndUser() {
+  try {
+    const response = await fetch("https://jsonplaceholder.typicode.com/posts/1");
+    const post = await response.json();
+    const userResponse = await fetch("https://jsonplaceholder.typicode.com/users/" + post.userId);
+    const user = await userResponse.json();
+    console.log("Post title:", post.title);
+    console.log("User name:", user.name);
+  } catch (error) {
+    console.error("Request failed:", error);   // ONE place for any step's failure
+  }
+}</pre>
+  <div class="opt">Why order matters: <code>response</code> is a sealed envelope until <code>await response.json()</code>; only then does <code>post.userId</code> exist for the second request</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-traps4">&#x26A0;&#xFE0F; Week 4 Traps &amp; Gotchas</h2>
+
+<details>
+<summary><span class="one">TypeScript slips</span>&nbsp; <span class="cm"># check this list when the checker complains</span></summary>
+<div class="detail-body">
+  <div class="warn"><code>Type 'string' is not assignable to type 'number'</code> &rarr; you assigned the wrong kind of value to a typed (or inferred) variable</div>
+  <div class="warn">Inferred is just as strict: <code>let level = 5; level = "low";</code> is an error even with no annotation</div>
+  <div class="warn"><code>Argument of type X is not assignable to parameter of type Y</code> &rarr; wrong TYPE in a call; <code>Expected 2 arguments, but got 1</code> / <code>got 3</code> &rarr; wrong COUNT (too few or too many)</div>
+  <div class="warn">Swapped argument order (<code>labelUser(30, "Ron")</code>) is a type error when the types differ</div>
+  <div class="warn">Return type promises must hold: returning a string from a <code>: number</code> function is an error; a missing <code>else</code> return leaves <code>undefined</code> on that path</div>
+  <div class="warn"><code>void</code> = no value returned; don't use the result of a void function</div>
+  <div class="warn">"Cannot redeclare block-scoped variable" can come from other code in the same file/environment (e.g. an existing <code>name</code>) &mdash; rename or use a fresh file</div>
+  <div class="warn">Annotation order: <code>name: type</code> (colon after the name); the return type goes after the closing <code>)</code></div>
+</div>
+</details>
+
+<a href="#" class="back-top">&uarr; Back to top</a>
+
+<script>
+  function toggleAll(openState) {
+    document.querySelectorAll('details').forEach(d => { d.open = openState; });
+  }
+  function filterDetails(query) {
+    const q = query.trim().toLowerCase();
+    document.querySelectorAll('details').forEach(d => {
+      if (!q) { d.style.display = ''; return; }
+      const match = d.innerText.toLowerCase().includes(q);
+      d.style.display = match ? '' : 'none';
+      if (match) d.open = true;
+    });
+  }
+  // syntax-highlight every <pre> (JavaScript)
+  (function () {
+    const KW = /^(const|let|var|if|else|for|while|function|return|true|false|null|undefined|typeof|new|of|in|NaN|delete|break|continue|this)$/;
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(`[^`]*`|"[^"\n]*"|'[^'\n]*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)(\s*\()?/g;
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    document.querySelectorAll('pre').forEach(pre => {
+      const t = pre.textContent;
+      let out = '', last = 0, m;
+      re.lastIndex = 0;
+      while ((m = re.exec(t))) {
+        out += esc(t.slice(last, m.index));
+        if (m[1]) out += '<span class="co">' + esc(m[1]) + '</span>';
+        else if (m[2]) out += '<span class="st">' + esc(m[2]) + '</span>';
+        else if (m[3]) out += '<span class="nu">' + m[3] + '</span>';
+        else if (KW.test(m[4])) out += '<span class="kw">' + m[4] + '</span>' + esc(m[5] || '');
+        else if (m[5]) out += '<span class="fn">' + m[4] + '</span>' + esc(m[5]);
+        else out += esc(m[4]);
+        last = re.lastIndex;
+      }
+      pre.innerHTML = out + esc(t.slice(last));
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MySQL Reference</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 24px 32px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    h1 {
+      color: #569cd6;
+      border-bottom: 2px solid #569cd6;
+      padding-bottom: 8px;
+      margin-bottom: 4px;
+      font-size: 1.5em;
+    }
+    .intro {
+      color: #808080;
+      font-size: 0.85em;
+      margin-bottom: 28px;
+    }
+    h2 {
+      color: #4ec9b0;
+      margin: 28px 0 8px 0;
+      border-left: 4px solid #4ec9b0;
+      padding-left: 10px;
+      font-size: 1.05em;
+      letter-spacing: 0.03em;
+    }
+    details {
+      margin: 3px 0;
+    }
+    summary {
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 3px;
+      list-style: none;
+      display: flex;
+      align-items: baseline;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: '+';
+      color: #569cd6;
+      font-weight: bold;
+      margin-right: 8px;
+      min-width: 10px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    details[open] > summary::before { content: '\2212'; }
+    summary:hover { background: #2a2a2a; }
+    .one { color: #ce9178; }
+    .cm  { color: #6a9955; }
+    .detail-body {
+      margin: 5px 0 9px 22px;
+      border-left: 2px solid #3c3c3c;
+      padding-left: 14px;
+    }
+    .opt {
+      margin: 5px 0;
+      color: #9cdcfe;
+    }
+    .opt::before { content: '\2022  '; color: #569cd6; }
+    .sub {
+      margin: 4px 0 4px 18px;
+      color: #9cdcfe;
+    }
+    .sub::before { content: '\25e6  '; color: #569cd6; }
+    code { color: #ce9178; font-family: inherit; }
+    pre {
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      padding: 9px 14px;
+      margin: 8px 0 4px 0;
+      overflow-x: auto;
+      font-size: 0.92em;
+      color: #d4d4d4;
+      tab-size: 4;
+    }
+    .kw  { color: #569cd6; }
+    .fn  { color: #dcdcaa; }
+    .st  { color: #ce9178; }
+    .co  { color: #6a9955; }
+    .nu  { color: #b5cea8; }
+    .warn {
+      color: #f14c4c;
+      font-size: 0.88em;
+      margin: 5px 0;
+    }
+    .warn::before { content: '\26a0  '; }
+  
+    /* Navigation Bar, Quick Filter & Section Jump Chips */
+    .controls-panel {
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 6px;
+    }
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    #quick-search {
+      flex: 1;
+      padding: 7px 12px;
+      background: #1e1e1e;
+      border: 1px solid #4ec9b0;
+      border-radius: 4px;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.95em;
+      outline: none;
+    }
+    #quick-search:focus {
+      border-color: #569cd6;
+      box-shadow: 0 0 6px rgba(86, 156, 214, 0.4);
+    }
+    .ctrl-btn {
+      background: #333333;
+      color: #d4d4d4;
+      border: 1px solid #474747;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85em;
+      transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: #444444; color: #ffffff; }
+    .nav-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .nav-label {
+      color: #808080;
+      font-size: 0.82em;
+      margin-right: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .nav-link {
+      color: #9cdcfe;
+      text-decoration: none;
+      font-size: 0.82em;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .nav-link:hover {
+      background: #094771;
+      color: #ffffff;
+      border-color: #569cd6;
+    }
+    .nav-link.oop {
+      background: #193327;
+      color: #4ec9b0;
+      border-color: #2e7d62;
+      font-weight: bold;
+    }
+    .nav-link.oop:hover {
+      background: #135d46;
+      color: #ffffff;
+      border-color: #4ec9b0;
+    }
+    .nav-link.oop-traps {
+      background: #3d1a1a;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+      font-weight: bold;
+    }
+    .nav-link.oop-traps:hover {
+      background: #7f1d1d;
+      color: #ffffff;
+    }
+    .back-top {
+      display: inline-block;
+      margin-top: 14px;
+      font-size: 0.8em;
+      color: #569cd6;
+      text-decoration: none;
+    }
+    .back-top:hover { text-decoration: underline; }
+
+  
+    h1 { color: #5b9bd5; border-bottom-color: #5b9bd5; }
+    table.xlat { border-collapse: collapse; margin: 6px 0; width: 100%; max-width: 900px; }
+    table.xlat th { text-align: left; color: #4ec9b0; border-bottom: 1px solid #3c3c3c; padding: 4px 10px; }
+    table.xlat td { padding: 3px 10px; border-bottom: 1px solid #2d2d2d; vertical-align: top; }
+    table.xlat th:first-child, table.xlat td:first-child { border-right: 1px solid #3c3c3c; }
+    a.ref { color:#9cdcfe; }
+    .back-top { display:inline-block; margin:20px 0; color:#569cd6; }
+  </style>
+</head>
+<body>
+
+<h1>&#x1F535; MySQL Reference &#8212; SQL Refresher</h1>
+<p class="intro">Click <span style="color:#569cd6;font-weight:bold">+</span> on any entry to expand options, descriptions, and examples &nbsp;|&nbsp; Built from the W3Schools MySQL tutorial (67 pages) &nbsp;|&nbsp; Corrected to real MySQL syntax where the tutorial uses SQL Server style &nbsp;|&nbsp; Includes SQL &#8596; Python &#8596; JavaScript translations &nbsp;|&nbsp; Started November 2026</p>
+
+<div class="controls-panel">
+  <div class="search-row">
+    <input type="text" id="quick-search" placeholder="🔍 Quick Search Reference (e.g. join, group by, like, limit, constraint, date)..." oninput="filterDetails(this.value)">
+    <button class="ctrl-btn" onclick="toggleAll(true)">➕ Expand All</button>
+    <button class="ctrl-btn" onclick="toggleAll(false)">➖ Collapse All</button>
+  </div>
+  <div class="nav-chips">
+    <span class="nav-label">SQL:</span>
+    <a href="#sec-basics" class="nav-link">Basics</a>
+    <a href="#sec-query" class="nav-link">Querying</a>
+    <a href="#sec-agg" class="nav-link">Aggregates</a>
+    <a href="#sec-joins" class="nav-link">Joins</a>
+    <a href="#sec-sub" class="nav-link">Subqueries</a>
+    <a href="#sec-dml" class="nav-link">Modify data</a>
+    <a href="#sec-ddl" class="nav-link">Tables</a>
+    <a href="#sec-cons" class="nav-link">Constraints</a>
+    <a href="#sec-proc" class="nav-link">Procedures</a>
+    <a href="#sec-types" class="nav-link">Data types</a>
+    <a href="#sec-funcs" class="nav-link">Functions</a>
+    <a href="#sec-ops" class="nav-link">Operators</a>
+    <a href="#sec-sec" class="nav-link">Security</a>
+  </div>
+  <div class="nav-chips" style="margin-top: 8px;">
+    <span class="nav-label" style="color:#4ec9b0;">Extras:</span>
+    <a href="#sec-cmp" class="nav-link oop">SQL &#8596; Python &#8596; JS</a>
+    <a href="#sec-traps" class="nav-link oop-traps">&#9888;&#65039; Traps</a>
+    <a href="#sec-refs" class="nav-link">Links</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-basics">&#x1F44B; Basics &mdash; SQL, MySQL, RDBMS</h2>
+
+<details>
+<summary><span class="one">SQL &nbsp;MySQL &nbsp;RDBMS</span>&nbsp; <span class="cm"># what you are talking to</span></summary>
+<div class="detail-body">
+  <div class="opt">SQL is the standard language for relational databases: insert, search, update and delete records</div>
+  <div class="opt">MySQL is a free, open-source RDBMS (first released 1995, owned by Oracle). Runs WordPress, Facebook, Uber, GitHub, YouTube, etc.</div>
+  <div class="opt">Data lives in **tables**: a *column* (field) is vertical and has a type; a *row* (record) is one entry</div>
+  <div class="opt">Tables are linked by shared columns (a key in one table points at a key in another) & that is the "relational" part</div>
+  <pre>SELECT * FROM Customers;      -- the shape of nearly every query</pre>
+  <div class="opt">A web site showing DB data needs: an RDBMS (MySQL) + a server language (PHP, Python, Node) + SQL + HTML/CSS</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">statement rules</span>&nbsp; <span class="cm"># case, semicolons, whitespace</span></summary>
+<div class="detail-body">
+  <div class="opt">SQL keywords are NOT case sensitive: <code>select</code> = <code>SELECT</code> (convention: keywords in UPPER case)</div>
+  <div class="opt">A semicolon ends a statement; required when sending more than one statement in one call</div>
+  <div class="opt">Whitespace and newlines are free & break long queries over several lines</div>
+  <div class="opt">Text/date values go in single quotes <code>'Germany'</code>; numbers do not <code>WHERE ID = 1</code></div>
+  <div class="opt">Table/column name case: on Linux/Mac table names ARE case sensitive; on Windows they are not</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">the main commands</span>&nbsp; <span class="cm"># cheat list of the verbs</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Command</th><th>Does</th></tr>
+    <tr><td><code>SELECT</code></td><td>extracts data from a database</td></tr>
+    <tr><td><code>INSERT INTO</code></td><td>inserts new rows</td></tr>
+    <tr><td><code>UPDATE</code></td><td>modifies existing rows</td></tr>
+    <tr><td><code>DELETE</code></td><td>deletes rows</td></tr>
+    <tr><td><code>CREATE DATABASE</code> / <code>DROP DATABASE</code></td><td>creates / deletes a database</td></tr>
+    <tr><td><code>CREATE TABLE</code> / <code>ALTER TABLE</code> / <code>DROP TABLE</code></td><td>creates / modifies / deletes a table</td></tr>
+    <tr><td><code>CREATE INDEX</code> / <code>DROP INDEX</code></td><td>creates / deletes an index (search key)</td></tr>
+  </table>
+</div>
+</details>
+
+<details>
+<summary><span class="one">-- comment &nbsp;/* comment */</span>&nbsp; <span class="cm"># comments</span></summary>
+<div class="detail-body">
+  <div class="opt">Single line: <code>-- </code> & **a space is required after the two dashes** in MySQL (<code>#</code> also works in MySQL)</div>
+  <div class="opt">Multi line: <code>/* ... */</code>; can also hide just part of a statement</div>
+  <pre>-- Selects all German customers
+SELECT * FROM Customers
+WHERE Country = 'Germany';
+
+SELECT * FROM Customers -- WHERE City='Berlin';   (rest of line ignored)
+
+/* Selects all German customers
+   from Berlin */
+SELECT CustomerName, /*City,*/ Country FROM Customers;   -- hide one column</pre>
+  <div class="warn"><code>--City</code> with no space is NOT a comment in MySQL (it parses as minus minus)</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-query">&#x1F50D; Querying Data</h2>
+
+<details open>
+<summary><span class="one">SELECT &nbsp;FROM</span>&nbsp; <span class="cm"># pick columns from a table</span></summary>
+<div class="detail-body">
+  <div class="opt">Result of a query is a **result-set** (a temporary table)</div>
+  <pre>SELECT column1, column2, ...
+FROM table_name;
+
+SELECT CustomerName, City, Country FROM Customers;
+SELECT * FROM Customers;            -- ALL columns</pre>
+  <div class="warn"><code>SELECT *</code> is handy for poking around; name the columns you need in real code</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">SELECT DISTINCT</span>&nbsp; <span class="cm"># unique values only</span></summary>
+<div class="detail-body">
+  <pre>SELECT DISTINCT Country FROM Customers;
+SELECT COUNT(DISTINCT Country) FROM Customers;   -- how many unique countries</pre>
+  <div class="opt"><code>DISTINCT</code> with several columns de-duplicates the *combination*</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">WHERE</span>&nbsp; <span class="cm"># filter rows</span></summary>
+<div class="detail-body">
+  <pre>SELECT column1, column2
+FROM table_name
+WHERE condition;
+
+SELECT * FROM Customers WHERE Country = 'Mexico';   -- text in quotes
+SELECT * FROM Customers WHERE CustomerID = 1;       -- numbers without
+SELECT * FROM Customers WHERE CustomerID &gt; 80;</pre>
+  <div class="opt"><code>WHERE</code> is also used by <code>UPDATE</code> and <code>DELETE</code></div>
+  <table class="xlat">
+    <tr><th>Operator</th><th>Meaning</th></tr>
+    <tr><td><code>=</code></td><td>equal</td></tr>
+    <tr><td><code>&gt;</code>  <code>&lt;</code></td><td>greater / less than</td></tr>
+    <tr><td><code>&gt;=</code>  <code>&lt;=</code></td><td>greater / less than or equal</td></tr>
+    <tr><td><code>&lt;&gt;</code></td><td>not equal (<code>!=</code> also works in MySQL)</td></tr>
+    <tr><td><code>BETWEEN</code></td><td>within a range</td></tr>
+    <tr><td><code>LIKE</code></td><td>pattern search</td></tr>
+    <tr><td><code>IN</code></td><td>one of several values</td></tr>
+  </table>
+</div>
+</details>
+
+<details>
+<summary><span class="one">AND &nbsp;OR &nbsp;NOT</span>&nbsp; <span class="cm"># combine conditions</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>AND</code> & all conditions must be TRUE; <code>OR</code> & any condition TRUE; <code>NOT</code> & reverses a condition</div>
+  <pre>SELECT * FROM Customers WHERE Country = 'Germany' AND City = 'Berlin';
+SELECT * FROM Customers WHERE City = 'Berlin' OR City = 'Stuttgart';
+SELECT * FROM Customers WHERE NOT Country = 'Germany';
+
+-- combine: use parentheses
+SELECT * FROM Customers
+WHERE Country = 'Germany' AND (City = 'Berlin' OR City = 'Stuttgart');
+
+SELECT * FROM Customers
+WHERE NOT Country = 'Germany' AND NOT Country = 'USA';</pre>
+  <div class="opt"><code>NOT</code> pairs with other operators: <code>NOT LIKE</code>, <code>NOT BETWEEN</code>, <code>NOT IN</code>, <code>IS NOT NULL</code>, <code>NOT EXISTS</code></div>
+  <pre>SELECT * FROM Customers WHERE CustomerName NOT LIKE 'A%';
+SELECT * FROM Customers WHERE CustomerID NOT BETWEEN 10 AND 60;
+SELECT * FROM Customers WHERE City NOT IN ('Paris', 'London');
+SELECT * FROM Customers WHERE NOT CustomerID &gt; 50;     -- same as &lt;= 50</pre>
+  <div class="warn"><code>AND</code> binds tighter than <code>OR</code> & always parenthesize mixed conditions</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">ORDER BY &nbsp;ASC &nbsp;DESC</span>&nbsp; <span class="cm"># sort the result</span></summary>
+<div class="detail-body">
+  <div class="opt">Ascending (<code>ASC</code>) is the default</div>
+  <pre>SELECT * FROM Products ORDER BY Price;               -- low to high
+SELECT * FROM Products ORDER BY Price DESC;          -- high to low
+SELECT * FROM Customers ORDER BY Country, CustomerName;          -- tie-break by 2nd column
+SELECT * FROM Customers ORDER BY Country ASC, CustomerName DESC;</pre>
+  <div class="opt"><code>ORDER BY</code> goes after <code>WHERE</code>/<code>GROUP BY</code>/<code>HAVING</code>, and before <code>LIMIT</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">LIMIT &nbsp;OFFSET</span>&nbsp; <span class="cm"># only the first N rows (paging)</span></summary>
+<div class="detail-body">
+  <div class="opt">Useful on big tables & returning thousands of rows hurts performance</div>
+  <pre>SELECT * FROM Customers LIMIT 3;                    -- first 3
+SELECT * FROM Customers LIMIT 3 OFFSET 3;           -- rows 4-6 (skip 3)
+SELECT * FROM Customers WHERE Country='Germany' LIMIT 3;
+SELECT * FROM Customers ORDER BY Country LIMIT 3;   -- sort first, then cut
+
+-- top 5 most expensive products
+SELECT ProductName, Price FROM Products
+ORDER BY Price DESC, ProductID
+LIMIT 5;</pre>
+  <div class="opt">Short form: <code>LIMIT offset, count</code> & <code>LIMIT 3, 3</code> is the same as <code>LIMIT 3 OFFSET 3</code></div>
+  <div class="warn">MySQL uses <code>LIMIT</code>; SQL Server uses <code>SELECT TOP</code>, Oracle uses <code>FETCH FIRST</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">IS NULL &nbsp;IS NOT NULL</span>&nbsp; <span class="cm"># testing for missing data</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>NULL</code> = unknown / missing / inapplicable. It is **not** <code>0</code> and **not** <code>''</code></div>
+  <div class="opt">Comparison operators (<code>=</code>, <code>&lt;</code>, <code>&lt;&gt;</code>) can NOT test for NULL & use <code>IS NULL</code> / <code>IS NOT NULL</code></div>
+  <pre>SELECT CustomerName, ContactName, Address
+FROM Customers
+WHERE Address IS NULL;
+
+SELECT CustomerName, ContactName, Address
+FROM Customers
+WHERE Address IS NOT NULL;</pre>
+  <div class="warn"><code>WHERE Address = NULL</code> never matches anything</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">LIKE &nbsp;% &nbsp;_</span>&nbsp; <span class="cm"># pattern matching with wildcards</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>%</code> & zero, one or many characters;  <code>_</code> & exactly one character</div>
+  <table class="xlat">
+    <tr><th>Pattern</th><th>Finds</th></tr>
+    <tr><td><code>LIKE 'a%'</code></td><td>starts with a</td></tr>
+    <tr><td><code>LIKE '%a'</code></td><td>ends with a</td></tr>
+    <tr><td><code>LIKE '%or%'</code></td><td>contains "or" anywhere</td></tr>
+    <tr><td><code>LIKE '_r%'</code></td><td>r in the second position</td></tr>
+    <tr><td><code>LIKE 'a_%'</code></td><td>starts with a, at least 2 chars</td></tr>
+    <tr><td><code>LIKE 'a__%'</code></td><td>starts with a, at least 3 chars</td></tr>
+    <tr><td><code>LIKE 'a%o'</code></td><td>starts with a, ends with o</td></tr>
+    <tr><td><code>LIKE 'bl%'</code></td><td>bl, black, blue, blob</td></tr>
+    <tr><td><code>LIKE 'h_t'</code></td><td>hot, hat, hit</td></tr>
+  </table>
+  <pre>SELECT * FROM Customers WHERE CustomerName LIKE 'a%';
+SELECT * FROM Customers WHERE City LIKE '%es%';
+SELECT * FROM Customers WHERE City LIKE '_ondon';       -- London, Condon...
+SELECT * FROM Customers WHERE City LIKE 'L_n_on';
+SELECT * FROM Customers WHERE CustomerName NOT LIKE 'a%';</pre>
+  <div class="opt">MySQL <code>LIKE</code> is case-insensitive with the default collation</div>
+  <div class="warn">Leading <code>%</code> (<code>'%abc'</code>) cannot use an index & slow on big tables</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">IN &nbsp;NOT IN</span>&nbsp; <span class="cm"># match any value in a list</span></summary>
+<div class="detail-body">
+  <div class="opt">Shorthand for several <code>OR</code>s</div>
+  <pre>SELECT * FROM Customers WHERE Country IN ('Germany', 'France', 'UK');
+SELECT * FROM Customers WHERE Country NOT IN ('Germany', 'France', 'UK');
+
+-- with a subquery
+SELECT * FROM Customers
+WHERE CustomerID IN (SELECT CustomerID FROM Orders);        -- customers with orders
+SELECT * FROM Customers
+WHERE CustomerID NOT IN (SELECT CustomerID FROM Orders);    -- customers with none</pre>
+  <div class="warn"><code>NOT IN</code> returns nothing if the list/subquery contains a NULL & prefer <code>NOT EXISTS</code> then</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">BETWEEN &nbsp;AND</span>&nbsp; <span class="cm"># inclusive range</span></summary>
+<div class="detail-body">
+  <div class="opt">Works with numbers, text and dates; both ends are **included**</div>
+  <pre>SELECT * FROM Products WHERE Price BETWEEN 10 AND 20;
+SELECT * FROM Products WHERE Price NOT BETWEEN 10 AND 20;
+SELECT * FROM Products
+WHERE ProductName BETWEEN 'Carnarvon Tigers' AND 'Mozzarella di Giovanni'
+ORDER BY ProductName;
+SELECT * FROM Orders WHERE OrderDate BETWEEN '1996-07-01' AND '1996-07-31';</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">AS &nbsp;(aliases)</span>&nbsp; <span class="cm"># temporary names for columns and tables</span></summary>
+<div class="detail-body">
+  <div class="opt">Alias lives only for the duration of the query; makes names shorter or more readable</div>
+  <pre>SELECT CustomerID AS ID, CustomerName AS Customer FROM Customers;
+
+-- quotes needed when the alias has spaces
+SELECT CustomerName AS "My Great Customers" FROM Customers;
+
+-- combine columns
+SELECT CustomerName, CONCAT_WS(', ', Address, PostalCode, City, Country) AS Address
+FROM Customers;
+
+-- table aliases (shorter joins)
+SELECT o.OrderID, c.CustomerName
+FROM Customers AS c, Orders AS o
+WHERE c.CustomerName = 'Around the Horn' AND c.CustomerID = o.CustomerID;</pre>
+  <div class="opt"><code>AS</code> is optional but clearer; an alias is NOT usable in <code>WHERE</code> (it is in <code>ORDER BY</code> / <code>HAVING</code>)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CASE &nbsp;WHEN</span>&nbsp; <span class="cm"># if / else inside a query</span></summary>
+<div class="detail-body">
+  <div class="opt">Goes through conditions in order and returns the value of the first one that is true; otherwise the <code>ELSE</code> value (or NULL)</div>
+  <pre>SELECT OrderID, Quantity,
+CASE
+    WHEN Quantity &gt; 30 THEN 'The quantity is greater than 30'
+    WHEN Quantity = 30 THEN 'The quantity is 30'
+    ELSE 'The quantity is under 30'
+END AS QuantityText
+FROM OrderDetails;
+
+-- in ORDER BY
+SELECT CustomerName, City, Country FROM Customers
+ORDER BY (CASE WHEN City IS NULL THEN Country ELSE City END);</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">IFNULL &nbsp;COALESCE</span>&nbsp; <span class="cm"># replace NULLs</span></summary>
+<div class="detail-body">
+  <div class="opt">Math with NULL gives NULL: <code>Price * (InStock + InOrder)</code> is NULL if <code>InOrder</code> is NULL</div>
+  <pre>COALESCE(val1, val2, ..., val_n)    -- first non-NULL value (the standard way)
+IFNULL(expr, alt)                    -- MySQL-only two-argument version
+
+SELECT ProductName, Price * (InStock + COALESCE(InOrder, 0)) FROM Products;
+SELECT ProductName, Price * (InStock + IFNULL(InOrder, 0))   FROM Products;</pre>
+  <div class="opt">Also: <code>NULLIF(a, b)</code> returns NULL if equal; <code>IF(cond, yes, no)</code>; <code>ISNULL(x)</code> returns 1/0</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-agg">&#x1F4CA; Aggregates &amp; Grouping</h2>
+
+<details>
+<summary><span class="one">COUNT()</span>&nbsp; <span class="cm"># number of rows</span></summary>
+<div class="detail-body">
+  <pre>SELECT COUNT(*) FROM Products;                      -- all rows
+SELECT COUNT(ProductName) FROM Products;            -- rows where the column is not NULL
+SELECT COUNT(DISTINCT Country) FROM Customers;      -- unique values
+SELECT COUNT(*) FROM Products WHERE Price &gt; 20;</pre>
+  <div class="opt"><code>COUNT(col)</code> skips NULLs; <code>COUNT(*)</code> counts every row</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">SUM()</span>&nbsp; <span class="cm"># total of a numeric column</span></summary>
+<div class="detail-body">
+  <pre>SELECT SUM(Quantity) FROM OrderDetails;
+SELECT SUM(Quantity) FROM OrderDetails WHERE ProductId = 11;
+SELECT SUM(Price * Quantity) AS Total FROM OrderDetails od
+JOIN Products p ON od.ProductID = p.ProductID;</pre>
+  <div class="opt">NULLs are ignored</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">AVG()</span>&nbsp; <span class="cm"># average of a numeric column</span></summary>
+<div class="detail-body">
+  <pre>SELECT AVG(Price) FROM Products;
+SELECT * FROM Products WHERE Price &gt; (SELECT AVG(Price) FROM Products);   -- above average</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">MIN() &nbsp;MAX()</span>&nbsp; <span class="cm"># smallest / largest</span></summary>
+<div class="detail-body">
+  <div class="opt">Work with numbers, strings and dates</div>
+  <pre>SELECT MIN(Price) AS SmallestPrice FROM Products;
+SELECT MAX(Price) AS LargestPrice  FROM Products;
+SELECT MIN(BirthDate) AS EarliestBirthdate FROM Employees;
+SELECT MAX(BirthDate) AS LatestBirthdate   FROM Employees;</pre>
+  <div class="opt">Result column has no name unless you add <code>AS</code></div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">GROUP BY</span>&nbsp; <span class="cm"># one summary row per group</span></summary>
+<div class="detail-body">
+  <div class="opt">Almost always paired with <code>COUNT / SUM / AVG / MIN / MAX</code></div>
+  <pre>SELECT Country, COUNT(CustomerID) AS "Number of Customers"
+FROM Customers
+GROUP BY Country;
+
+-- sorted high to low
+SELECT Country, COUNT(CustomerID) AS "Number of Customers"
+FROM Customers
+GROUP BY Country
+ORDER BY COUNT(CustomerID) DESC;
+
+-- with a join
+SELECT Shippers.ShipperName, COUNT(Orders.OrderID) AS "Number of Orders"
+FROM Orders
+LEFT JOIN Shippers ON Orders.ShipperID = Shippers.ShipperID
+GROUP BY ShipperName;</pre>
+  <div class="warn">Every non-aggregated column in <code>SELECT</code> must be in <code>GROUP BY</code> (MySQL's <code>ONLY_FULL_GROUP_BY</code> mode enforces this)</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">HAVING</span>&nbsp; <span class="cm"># filter the groups</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>WHERE</code> filters rows **before** grouping; <code>HAVING</code> filters groups **after** aggregation</div>
+  <pre>SELECT Country, COUNT(CustomerID) AS "Number of Customers"
+FROM Customers
+GROUP BY Country
+HAVING COUNT(CustomerID) &gt; 5
+ORDER BY COUNT(CustomerID) DESC;
+
+SELECT Employees.LastName, COUNT(Orders.OrderID) AS NumberOfOrders
+FROM Orders
+INNER JOIN Employees ON Orders.EmployeeID = Employees.EmployeeID
+WHERE LastName = 'Davolio' OR LastName = 'Fuller'
+GROUP BY LastName
+HAVING COUNT(Orders.OrderID) &gt; 25;</pre>
+  <div class="opt">Clause order: <code>SELECT</code> & <code>FROM</code> & <code>WHERE</code> & <code>GROUP BY</code> & <code>HAVING</code> & <code>ORDER BY</code> & <code>LIMIT</code></div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-joins">&#x1F517; Joins &amp; Set Operations</h2>
+
+<details open>
+<summary><span class="one">JOIN overview</span>&nbsp; <span class="cm"># combine rows from tables on a related column</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Join</th><th>Returns</th></tr>
+    <tr><td><code>INNER JOIN</code></td><td>only rows that match in BOTH tables</td></tr>
+    <tr><td><code>LEFT JOIN</code></td><td>all rows from the left table + matches from the right (NULL if none)</td></tr>
+    <tr><td><code>RIGHT JOIN</code></td><td>all rows from the right table + matches from the left (NULL if none)</td></tr>
+    <tr><td><code>CROSS JOIN</code></td><td>every row of A paired with every row of B (Cartesian product)</td></tr>
+  </table>
+  <div class="opt">Typical link: a foreign key in one table equals the primary key of another (<code>Orders.CustomerID = Customers.CustomerID</code>)</div>
+  <div class="opt"><code>JOIN</code> alone means <code>INNER JOIN</code> in MySQL</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">INNER JOIN</span>&nbsp; <span class="cm"># matches in both</span></summary>
+<div class="detail-body">
+  <pre>SELECT table1.column1, table2.column1
+FROM table1
+INNER JOIN table2
+ON table1.condition_column = table2.condition_column;
+
+SELECT Products.ProductID, Products.ProductName, Categories.CategoryName
+FROM Products
+INNER JOIN Categories ON Products.CategoryID = Categories.CategoryID;
+
+-- more than two tables: chain the joins
+SELECT Orders.OrderID, Customers.CustomerName, Shippers.ShipperName
+FROM Orders
+INNER JOIN Customers ON Orders.CustomerID = Customers.CustomerID
+INNER JOIN Shippers  ON Orders.ShipperID  = Shippers.ShipperID;</pre>
+  <div class="warn">A product with no (or an unknown) CategoryID simply disappears from an inner join</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">LEFT JOIN</span>&nbsp; <span class="cm"># all of the left table</span></summary>
+<div class="detail-body">
+  <pre>SELECT Customers.CustomerName, Orders.OrderID
+FROM Customers
+LEFT JOIN Orders ON Customers.CustomerID = Orders.CustomerID
+ORDER BY Customers.CustomerName;
+
+-- customers who have NOT ordered: filter for the NULL side
+SELECT Customers.CustomerName, Orders.OrderID
+FROM Customers
+LEFT JOIN Orders ON Customers.CustomerID = Orders.CustomerID
+WHERE Orders.CustomerID IS NULL;</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">RIGHT JOIN</span>&nbsp; <span class="cm"># all of the right table</span></summary>
+<div class="detail-body">
+  <pre>SELECT Orders.OrderID, Employees.LastName, Employees.FirstName
+FROM Orders
+RIGHT JOIN Employees ON Orders.EmployeeID = Employees.EmployeeID
+ORDER BY Orders.OrderID;          -- every employee, even with no orders</pre>
+  <div class="opt">A <code>RIGHT JOIN</code> is just a <code>LEFT JOIN</code> with the tables swapped; most people only use <code>LEFT</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CROSS JOIN</span>&nbsp; <span class="cm"># every combination</span></summary>
+<div class="detail-body">
+  <pre>SELECT Customers.CustomerName, Orders.OrderID
+FROM Customers
+CROSS JOIN Orders;</pre>
+  <div class="warn">rows = rows(A) & rows(B) & can explode. Adding a <code>WHERE</code> makes it behave like an inner join</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Self Join</span>&nbsp; <span class="cm"># a table joined with itself</span></summary>
+<div class="detail-body">
+  <div class="opt">Give the same table two different aliases</div>
+  <pre>SELECT A.CustomerName AS CustomerName1, B.CustomerName AS CustomerName2, A.City
+FROM Customers A, Customers B
+WHERE A.CustomerID &lt;&gt; B.CustomerID
+AND A.City = B.City
+ORDER BY A.City;                  -- customers from the same city</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">UNION &nbsp;UNION ALL</span>&nbsp; <span class="cm"># stack the results of several SELECTs</span></summary>
+<div class="detail-body">
+  <div class="opt">Each <code>SELECT</code> needs the same number of columns, similar types, same order</div>
+  <div class="opt">Column names come from the first <code>SELECT</code></div>
+  <div class="opt"><code>UNION</code> removes duplicate rows; <code>UNION ALL</code> keeps them (and is faster)</div>
+  <pre>SELECT City FROM Customers
+UNION
+SELECT City FROM Suppliers
+ORDER BY City;                    -- distinct cities from both
+
+SELECT City FROM Customers
+UNION ALL
+SELECT City FROM Suppliers
+ORDER BY City;                    -- duplicates kept
+
+SELECT City, Country FROM Customers WHERE Country='Germany'
+UNION
+SELECT City, Country FROM Suppliers WHERE Country='Germany'
+ORDER BY City;
+
+-- tag where each row came from
+SELECT 'Customer' AS Type, ContactName, City, Country FROM Customers
+UNION
+SELECT 'Supplier', ContactName, City, Country FROM Suppliers;</pre>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-sub">&#x1F9E9; Subqueries &amp; Quantifiers</h2>
+
+<details>
+<summary><span class="one">subquery in WHERE</span>&nbsp; <span class="cm"># a SELECT inside a SELECT</span></summary>
+<div class="detail-body">
+  <pre>SELECT * FROM Products
+WHERE Price &gt; (SELECT AVG(Price) FROM Products);
+
+SELECT * FROM Customers
+WHERE CustomerID IN (SELECT CustomerID FROM Orders);</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">EXISTS &nbsp;NOT EXISTS</span>&nbsp; <span class="cm"># is the subquery non-empty?</span></summary>
+<div class="detail-body">
+  <div class="opt">TRUE if the subquery returns at least one row</div>
+  <pre>SELECT SupplierName FROM Suppliers
+WHERE EXISTS (
+    SELECT ProductName FROM Products
+    WHERE Products.SupplierID = Suppliers.SupplierID AND Price &lt; 20
+);                                -- suppliers with a product under 20</pre>
+  <div class="opt">The subquery refers to the outer table (a *correlated* subquery)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">ANY &nbsp;ALL &nbsp;SOME</span>&nbsp; <span class="cm"># compare to a set of subquery values</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>ANY</code> (= <code>SOME</code>) & TRUE if the comparison is true for at least one value</div>
+  <div class="opt"><code>ALL</code> & TRUE only if it is true for every value</div>
+  <pre>SELECT column_name(s) FROM table_name
+WHERE column_name operator ANY (SELECT column_name FROM table_name WHERE condition);
+
+SELECT ProductName FROM Products
+WHERE ProductID = ANY (SELECT ProductID FROM OrderDetails WHERE Quantity = 10);
+
+SELECT ProductName FROM Products
+WHERE ProductID = ALL (SELECT ProductID FROM OrderDetails WHERE Quantity = 10);
+
+SELECT ProductName FROM Products
+WHERE Price &gt; ALL (SELECT Price FROM Products WHERE CategoryID = 2);</pre>
+  <div class="opt"><code>operator</code> is one of <code>= &lt;&gt; != &gt; &gt;= &lt; &lt;=</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">INSERT INTO ... SELECT</span>&nbsp; <span class="cm"># copy rows between tables</span></summary>
+<div class="detail-body">
+  <div class="opt">Source and target column types must match; existing rows in the target are untouched</div>
+  <pre>INSERT INTO Customers (CustomerName, City, Country)
+SELECT SupplierName, City, Country FROM Suppliers;
+
+INSERT INTO Customers (CustomerName, City, Country)
+SELECT SupplierName, City, Country FROM Suppliers
+WHERE Country = 'Germany';</pre>
+  <div class="warn">Omitting the column list needs the same number and order of columns in both tables</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CREATE TABLE ... AS SELECT</span>&nbsp; <span class="cm"># make a new table from a query</span></summary>
+<div class="detail-body">
+  <pre>CREATE TABLE TestTable AS
+SELECT CustomerName, ContactName
+FROM Customers;</pre>
+  <div class="opt">New table gets the selected columns' names/types and the rows; constraints and indexes are not copied</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-dml">&#x270F;&#xFE0F; Changing Data (INSERT / UPDATE / DELETE)</h2>
+
+<details open>
+<summary><span class="one">INSERT INTO</span>&nbsp; <span class="cm"># add rows</span></summary>
+<div class="detail-body">
+  <pre>-- 1. name the columns (preferred)
+INSERT INTO Customers (CustomerName, City, Country)
+VALUES ('Cardinal', 'Stavanger', 'Norway');
+
+-- 2. all columns, in table order
+INSERT INTO Customers
+VALUES (DEFAULT, 'Cardinal', 'Tom B. Erichsen', 'Skagen 21', 'Stavanger', '4006', 'Norway');
+
+-- several rows at once
+INSERT INTO Customers (CustomerName, ContactName, Address, City, PostalCode, Country)
+VALUES
+('Cardinal', 'Tom B. Erichsen', 'Skagen 21', 'Stavanger', '4006', 'Norway'),
+('Greasy Burger', 'Per Olsen', 'Gateveien 15', 'Sandnes', '4306', 'Norway'),
+('Tasty Tee', 'Finn Egan', 'Streetroad 19B', 'Liverpool', 'L1 0AA', 'UK');</pre>
+  <div class="opt">Columns you skip get their <code>DEFAULT</code> / <code>AUTO_INCREMENT</code> value, or NULL</div>
+  <div class="opt"><code>LAST_INSERT_ID()</code> returns the auto-increment id just created</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">UPDATE &nbsp;SET</span>&nbsp; <span class="cm"># change rows</span></summary>
+<div class="detail-body">
+  <pre>UPDATE Customers
+SET ContactName = 'Alfred Schmidt', City = 'Frankfurt'
+WHERE CustomerID = 1;
+
+UPDATE Customers SET PostalCode = '00000' WHERE Country = 'Mexico';   -- many rows</pre>
+  <div class="warn">No <code>WHERE</code> = EVERY row is updated</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">DELETE</span>&nbsp; <span class="cm"># remove rows</span></summary>
+<div class="detail-body">
+  <pre>DELETE FROM Customers WHERE CustomerName = 'Alfreds Futterkiste';
+DELETE FROM Customers;            -- ALL rows (table, columns, indexes stay)</pre>
+  <div class="warn">No <code>WHERE</code> = EVERY row is deleted. Tip: run it as a <code>SELECT ... WHERE</code> first to see what would go</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">TRUNCATE TABLE</span>&nbsp; <span class="cm"># empty a table fast</span></summary>
+<div class="detail-body">
+  <pre>TRUNCATE TABLE table_name;</pre>
+  <div class="opt">Deletes all rows but keeps the structure, columns and constraints; resets <code>AUTO_INCREMENT</code></div>
+  <div class="opt">Faster than <code>DELETE FROM t</code> but cannot be rolled back and takes no <code>WHERE</code></div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-ddl">&#x1F3D7;&#xFE0F; Databases &amp; Tables (DDL)</h2>
+
+<details>
+<summary><span class="one">CREATE DATABASE &nbsp;SHOW DATABASES</span>&nbsp; <span class="cm"># make / list databases</span></summary>
+<div class="detail-body">
+  <pre>CREATE DATABASE testDB;
+SHOW DATABASES;                   -- list them
+USE testDB;                       -- make it current</pre>
+  <div class="opt">Needs admin privileges; the name must be unique on the server</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">DROP DATABASE</span>&nbsp; <span class="cm"># delete a database</span></summary>
+<div class="detail-body">
+  <pre>DROP DATABASE testDB;</pre>
+  <div class="warn">Permanent: deletes the database and ALL its tables, views, procedures and data</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">CREATE TABLE</span>&nbsp; <span class="cm"># define columns and types</span></summary>
+<div class="detail-body">
+  <pre>CREATE TABLE table_name (
+    column1 datatype,
+    column2 datatype,
+    column3 datatype
+);
+
+CREATE TABLE Persons (
+    PersonID int,
+    LastName varchar(255),
+    FirstName varchar(255),
+    Address varchar(255),
+    City varchar(255)
+);</pre>
+  <div class="opt">Constraints can go right after each column type (see Constraints section)</div>
+  <div class="opt"><code>DESCRIBE Persons;</code> / <code>SHOW COLUMNS FROM Persons;</code> / <code>SHOW TABLES;</code> show what exists</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">ALTER TABLE</span>&nbsp; <span class="cm"># change an existing table</span></summary>
+<div class="detail-body">
+  <pre>ALTER TABLE Customers ADD Email varchar(255);               -- add column
+ALTER TABLE Customers DROP COLUMN Email;                    -- remove column
+ALTER TABLE Customers RENAME COLUMN old_name TO new_name;   -- rename column
+ALTER TABLE Persons MODIFY COLUMN DateOfBirth year;         -- change data type
+ALTER TABLE Customers RENAME TO Clients;                    -- rename table
+ALTER TABLE Persons ADD CONSTRAINT ... ;                    -- see Constraints</pre>
+  <div class="opt"><code>MODIFY</code> restates the whole column definition (include <code>NOT NULL</code>, <code>DEFAULT</code>, etc. or they are lost)</div>
+  <div class="warn">Changing to a smaller type can truncate or fail on existing data</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">DROP TABLE &nbsp;IF EXISTS</span>&nbsp; <span class="cm"># delete a table</span></summary>
+<div class="detail-body">
+  <pre>DROP TABLE Shippers;
+DROP TABLE IF EXISTS Shippers;    -- no error if it is already gone</pre>
+  <div class="warn">Deletes the table and all its data. Cannot drop a table another table references with a FOREIGN KEY & drop the constraint or the child table first</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">AUTO_INCREMENT</span>&nbsp; <span class="cm"># automatic numeric IDs</span></summary>
+<div class="detail-body">
+  <pre>CREATE TABLE Persons (
+    Personid int NOT NULL AUTO_INCREMENT,
+    LastName varchar(255) NOT NULL,
+    FirstName varchar(255),
+    Age int,
+    PRIMARY KEY (Personid)
+);
+
+ALTER TABLE Persons AUTO_INCREMENT = 100;     -- next id will be 100
+
+INSERT INTO Persons (FirstName, LastName) VALUES ('Lars', 'Monsen');   -- id omitted</pre>
+  <div class="opt">Starts at 1 and adds 1 for each new row; the column must be a key (usually the <code>PRIMARY KEY</code>)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CREATE INDEX</span>&nbsp; <span class="cm"># speed up searches</span></summary>
+<div class="detail-body">
+  <pre>CREATE INDEX idx_lastname ON Persons (LastName);
+CREATE INDEX idx_pname ON Persons (LastName, FirstName);   -- multi-column
+CREATE UNIQUE INDEX uidx_pid ON Persons (PersonID);        -- no duplicate values
+
+ALTER TABLE Persons DROP INDEX idx_pname;                  -- MySQL's way to remove one</pre>
+  <div class="opt">Indexes make <code>SELECT ... WHERE</code> faster but slow down <code>INSERT/UPDATE/DELETE</code> (the index must be maintained)</div>
+  <div class="opt">Only index columns you search/join/sort on often</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CREATE VIEW</span>&nbsp; <span class="cm"># a saved query that acts like a table</span></summary>
+<div class="detail-body">
+  <pre>CREATE VIEW [Brazil Customers] AS
+SELECT CustomerName, ContactName
+FROM Customers
+WHERE Country = 'Brazil';
+
+SELECT * FROM [Brazil Customers];             -- use it like a table
+
+CREATE OR REPLACE VIEW [Brazil Customers] AS  -- change it later
+SELECT CustomerName, ContactName, City
+FROM Customers
+WHERE Country = 'Brazil';
+
+DROP VIEW [Brazil Customers];</pre>
+  <div class="warn">MySQL's own quoting for names with spaces is backticks (<code></code> <code>Brazil Customers</code> <code></code>); square brackets are SQL Server style. Safest: a name without spaces, e.g. <code>Brazil_Customers</code></div>
+  <div class="opt">A view stores no data & it runs the query each time</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-cons">&#x1F512; Constraints</h2>
+
+<details open>
+<summary><span class="one">constraints overview</span>&nbsp; <span class="cm"># rules that keep data valid</span></summary>
+<div class="detail-body">
+  <div class="opt">If an action violates a constraint, the action is aborted</div>
+  <div class="opt">Set when the table is created (<code>CREATE TABLE</code>) or later (<code>ALTER TABLE</code>)</div>
+  <table class="xlat">
+    <tr><th>Constraint</th><th>Ensures</th></tr>
+    <tr><td><code>NOT NULL</code></td><td>column cannot be NULL</td></tr>
+    <tr><td><code>UNIQUE</code></td><td>all values in the column are different</td></tr>
+    <tr><td><code>PRIMARY KEY</code></td><td>unique row identifier (= NOT NULL + UNIQUE)</td></tr>
+    <tr><td><code>FOREIGN KEY</code></td><td>link to another table; blocks changes that would break the link</td></tr>
+    <tr><td><code>CHECK</code></td><td>values satisfy a condition</td></tr>
+    <tr><td><code>DEFAULT</code></td><td>value used when none is supplied</td></tr>
+    <tr><td><code>CREATE INDEX</code></td><td>faster data retrieval</td></tr>
+  </table>
+</div>
+</details>
+
+<details>
+<summary><span class="one">NOT NULL</span>&nbsp; <span class="cm"># value required</span></summary>
+<div class="detail-body">
+  <pre>CREATE TABLE Persons (
+    ID int NOT NULL,
+    LastName varchar(255) NOT NULL,
+    FirstName varchar(255) NOT NULL,
+    Age int
+);
+
+ALTER TABLE Persons MODIFY Age int NOT NULL;     -- add
+ALTER TABLE Persons MODIFY Age int NULL;         -- remove</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">UNIQUE</span>&nbsp; <span class="cm"># no duplicates (many allowed per table)</span></summary>
+<div class="detail-body">
+  <pre>CREATE TABLE Persons (
+    ID int NOT NULL,
+    LastName varchar(255) NOT NULL,
+    UNIQUE (ID)
+);
+
+-- named, multi-column
+CREATE TABLE Persons (
+    ID int NOT NULL,
+    LastName varchar(255) NOT NULL,
+    CONSTRAINT UC_Person UNIQUE (ID, LastName)
+);
+
+ALTER TABLE Persons ADD UNIQUE (ID);
+ALTER TABLE Persons ADD CONSTRAINT UC_Person UNIQUE (ID, LastName);
+ALTER TABLE Persons DROP INDEX UC_Person;        -- MySQL drops it as an index</pre>
+  <div class="opt">Many <code>UNIQUE</code> constraints per table, but only ONE <code>PRIMARY KEY</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">PRIMARY KEY</span>&nbsp; <span class="cm"># identifies each row</span></summary>
+<div class="detail-body">
+  <div class="opt">Unique + not NULL; one per table; may span several columns</div>
+  <pre>CREATE TABLE Persons (
+    ID int PRIMARY KEY,
+    LastName varchar(255) NOT NULL,
+    FirstName varchar(255),
+    Age int
+);
+
+-- multi-column, named
+CREATE TABLE Persons (
+    ID int,
+    LastName varchar(255),
+    FirstName varchar(255),
+    CONSTRAINT PK_Person PRIMARY KEY (ID, LastName)
+);
+
+ALTER TABLE Persons ADD PRIMARY KEY (ID);
+ALTER TABLE Persons ADD CONSTRAINT PK_Person PRIMARY KEY (ID, LastName);
+ALTER TABLE Persons DROP PRIMARY KEY;</pre>
+  <div class="warn">With <code>ALTER TABLE ... ADD PRIMARY KEY</code> the column(s) must already be <code>NOT NULL</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">FOREIGN KEY</span>&nbsp; <span class="cm"># link a child table to a parent</span></summary>
+<div class="detail-body">
+  <div class="opt">A column in the **child** table that refers to the <code>PRIMARY KEY</code> of the **parent** table</div>
+  <div class="opt">Blocks inserting a child value that does not exist in the parent, and deleting a parent row that still has children</div>
+  <pre>CREATE TABLE Orders (
+    OrderID int PRIMARY KEY,
+    OrderNumber int NOT NULL,
+    PersonID int,
+    CONSTRAINT fk_Person
+        FOREIGN KEY (PersonID)
+        REFERENCES Persons(PersonID)
+);
+
+ALTER TABLE Orders
+ADD CONSTRAINT fk_Person
+FOREIGN KEY (PersonID) REFERENCES Persons(PersonID);
+
+ALTER TABLE Orders DROP FOREIGN KEY fk_Person;</pre>
+  <div class="opt">Optional: <code>ON DELETE CASCADE</code> / <code>ON UPDATE CASCADE</code> / <code>ON DELETE SET NULL</code> after <code>REFERENCES</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CHECK</span>&nbsp; <span class="cm"># a condition every row must meet</span></summary>
+<div class="detail-body">
+  <pre>CREATE TABLE Persons (
+    ID int NOT NULL,
+    Age int,
+    City varchar(255),
+    CHECK (Age &gt;= 18)
+);
+
+-- named, multi-column
+CREATE TABLE Persons (
+    ID int NOT NULL,
+    Age int,
+    City varchar(255),
+    CONSTRAINT CHK_Person CHECK (Age &gt;= 18 AND City = 'Sandnes')
+);
+
+ALTER TABLE Persons ADD CHECK (Age &gt;= 18);
+ALTER TABLE Persons ADD CONSTRAINT CHK_PersonAge CHECK (Age &gt;= 18 AND City = 'Sandnes');
+ALTER TABLE Persons DROP CHECK CHK_PersonAge;</pre>
+  <div class="opt">Enforced from MySQL 8.0.16 on (older versions parsed and silently ignored <code>CHECK</code>)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">DEFAULT</span>&nbsp; <span class="cm"># fallback value</span></summary>
+<div class="detail-body">
+  <pre>CREATE TABLE Persons (
+    ID int PRIMARY KEY,
+    LastName varchar(255) NOT NULL,
+    City varchar(255) DEFAULT 'Sandnes'
+);
+
+CREATE TABLE Orders (
+    ID int PRIMARY KEY,
+    OrderNumber int NOT NULL,
+    OrderDate date DEFAULT CURRENT_DATE()          -- system value
+);
+
+ALTER TABLE Persons ALTER City SET DEFAULT 'Sandnes';
+ALTER TABLE Persons ALTER City DROP DEFAULT;</pre>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-proc">&#x2699;&#xFE0F; Stored Procedures</h2>
+
+<details open>
+<summary><span class="one">CREATE PROCEDURE &nbsp;CALL</span>&nbsp; <span class="cm"># saved, reusable SQL with parameters</span></summary>
+<div class="detail-body">
+  <div class="opt">Benefits: reuse from many apps, precompiled, permissions can be granted per procedure, update in one place</div>
+  <div class="opt"><code>DELIMITER //</code> temporarily changes the statement terminator so the <code>;</code> inside the body does not end <code>CREATE</code></div>
+  <pre>DELIMITER //
+CREATE PROCEDURE GetCustomersByCity(IN city_name VARCHAR(50))
+BEGIN
+    SELECT * FROM Customers
+    WHERE City = city_name;
+END //
+DELIMITER ;
+
+CALL GetCustomersByCity('London');
+
+-- several parameters
+DELIMITER //
+CREATE PROCEDURE GetCustomersByCityAndZip(IN city_name VARCHAR(50), IN zip VARCHAR(10))
+BEGIN
+    SELECT * FROM Customers
+    WHERE City = city_name AND PostalCode = zip;
+END //
+DELIMITER ;
+
+CALL GetCustomersByCityAndZip('London', 'WA1 1DP');
+
+DROP PROCEDURE GetCustomersByCity;
+DROP PROCEDURE IF EXISTS GetCustomersByCity;</pre>
+  <div class="warn">The W3Schools page writes parameters as <code>@City VARCHAR(50)</code> with no parentheses (SQL Server style) & real MySQL wants <code>(IN name TYPE, ...)</code> as above; <code>@name</code> in MySQL is a user variable</div>
+  <div class="opt">Parameter modes: <code>IN</code> (default, input), <code>OUT</code> (returned), <code>INOUT</code> (both)</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-types">&#x1F9EC; Data Types (MySQL 8.4)</h2>
+
+<details>
+<summary><span class="one">string types</span>&nbsp; <span class="cm"># text and binary</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Type</th><th>Holds</th></tr>
+    <tr><td><code>CHAR(size)</code></td><td>fixed-length string, 0&255 chars (default 1)</td></tr>
+    <tr><td><code>VARCHAR(size)</code></td><td>variable-length string, up to 65535 chars</td></tr>
+    <tr><td><code>BINARY(size)</code>  <code>VARBINARY(size)</code></td><td>like CHAR / VARCHAR but byte strings</td></tr>
+    <tr><td><code>TINYTEXT</code></td><td>up to 255 chars</td></tr>
+    <tr><td><code>TEXT(size)</code></td><td>up to 65,535 bytes</td></tr>
+    <tr><td><code>MEDIUMTEXT</code></td><td>up to 16,777,215 chars</td></tr>
+    <tr><td><code>LONGTEXT</code></td><td>up to 4,294,967,295 chars (4 GB)</td></tr>
+    <tr><td><code>TINYBLOB</code>  <code>BLOB(size)</code>  <code>MEDIUMBLOB</code>  <code>LONGBLOB</code></td><td>binary objects: 255 B / 65 KB / 16 MB / 4 GB</td></tr>
+    <tr><td><code>ENUM(val1, val2, ...)</code></td><td>exactly one value from a list (up to 65535); invalid insert stores blank</td></tr>
+    <tr><td><code>SET(val1, val2, ...)</code></td><td>zero or more values from a list (up to 64)</td></tr>
+  </table>
+</div>
+</details>
+
+<details>
+<summary><span class="one">numeric types</span>&nbsp; <span class="cm"># integers, decimals, floats</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Type</th><th>Range / meaning</th></tr>
+    <tr><td><code>BIT(size)</code></td><td>bit values, 1&64 bits (default 1)</td></tr>
+    <tr><td><code>BOOL</code> / <code>BOOLEAN</code></td><td>0 = false, non-zero = true (really a <code>TINYINT(1)</code>)</td></tr>
+    <tr><td><code>TINYINT</code></td><td>&128 to 127 (unsigned 0 to 255)</td></tr>
+    <tr><td><code>SMALLINT</code></td><td>&32768 to 32767 (unsigned 0 to 65535)</td></tr>
+    <tr><td><code>MEDIUMINT</code></td><td>&8,388,608 to 8,388,607 (unsigned 0 to 16,777,215)</td></tr>
+    <tr><td><code>INT</code> / <code>INTEGER</code></td><td>&2,147,483,648 to 2,147,483,647 (unsigned 0 to 4,294,967,295)</td></tr>
+    <tr><td><code>BIGINT</code></td><td>&9.22e18 to 9.22e18 (unsigned 0 to 18,446,744,073,709,551,615)</td></tr>
+    <tr><td><code>DECIMAL(size, d)</code> / <code>DEC</code></td><td>EXACT fixed-point: size = total digits (max 65), d = after the point (max 30)</td></tr>
+    <tr><td><code>FLOAT(p)</code></td><td>p 0&24 & FLOAT, 25&53 & DOUBLE</td></tr>
+    <tr><td><code>DOUBLE(size, d)</code> / <code>DOUBLE PRECISION</code></td><td>normal-size floating point</td></tr>
+  </table>
+  <div class="opt">Add <code>UNSIGNED</code> to shift the range to start at 0: <code>Age TINYINT UNSIGNED</code></div>
+  <div class="opt">The <code>(size)</code> on integer types is only a display width, not a storage limit</div>
+  <div class="warn">Money: use <code>DECIMAL(10,2)</code>, never <code>FLOAT</code>/<code>DOUBLE</code> (binary rounding errors)</div>
+  <div class="warn"><code>FLOAT(size, d)</code> is deprecated since MySQL 8.0.17</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">date & time types</span>&nbsp; <span class="cm"># DATE DATETIME TIMESTAMP TIME YEAR</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Type</th><th>Format / range</th></tr>
+    <tr><td><code>DATE</code></td><td>YYYY-MM-DD, 1000-01-01 to 9999-12-31</td></tr>
+    <tr><td><code>DATETIME(fsp)</code></td><td>YYYY-MM-DD hh:mm:ss, 1000-01-01 00:00:00 to 9999-12-31 23:59:59</td></tr>
+    <tr><td><code>TIMESTAMP(fsp)</code></td><td>same format; stored as seconds since the Unix epoch; 1970-01-01 00:00:01 UTC to 2038-01-09 03:14:07 UTC</td></tr>
+    <tr><td><code>TIME(fsp)</code></td><td>hh:mm:ss, &838:59:59 to 838:59:59</td></tr>
+    <tr><td><code>YEAR</code></td><td>four digits, 1901 to 2155, and 0000</td></tr>
+  </table>
+  <pre>CreatedAt  DATETIME  DEFAULT CURRENT_TIMESTAMP,
+UpdatedAt  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</pre>
+  <div class="opt"><code>fsp</code> = fractional seconds precision (0&6)</div>
+  <div class="warn"><code>TIMESTAMP</code> runs out in 2038; use <code>DATETIME</code> for far-future dates</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-funcs">&#x1F6E0;&#xFE0F; Built-in Functions</h2>
+
+<details>
+<summary><span class="one">string functions</span>&nbsp; <span class="cm"># text handling</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Function</th><th>Description</th></tr>
+    <tr><td><code>ASCII(c)</code></td><td>ASCII value of a character</td></tr>
+    <tr><td><code>CHAR_LENGTH(s)  CHARACTER_LENGTH(s)</code></td><td>length in characters</td></tr>
+    <tr><td><code>LENGTH(s)</code></td><td>length in bytes</td></tr>
+    <tr><td><code>CONCAT(a, b, ...)</code></td><td>join strings</td></tr>
+    <tr><td><code>CONCAT_WS(sep, a, b, ...)</code></td><td>join with a separator</td></tr>
+    <tr><td><code>FIELD(v, a, b, ...)</code></td><td>index of v in a list of values</td></tr>
+    <tr><td><code>FIND_IN_SET(s, 'a,b,c')</code></td><td>position of s in a comma-separated list</td></tr>
+    <tr><td><code>FORMAT(n, d)</code></td><td>number like "#,###,###.##" with d decimals</td></tr>
+    <tr><td><code>INSERT(s, pos, len, new)</code></td><td>insert / overwrite inside a string</td></tr>
+    <tr><td><code>INSTR(s, sub)  LOCATE(sub, s)  POSITION(sub IN s)</code></td><td>position of first occurrence of sub</td></tr>
+    <tr><td><code>LCASE(s)  LOWER(s)</code></td><td>to lower case</td></tr>
+    <tr><td><code>UCASE(s)  UPPER(s)</code></td><td>to upper case</td></tr>
+    <tr><td><code>LEFT(s, n)  RIGHT(s, n)</code></td><td>first / last n characters</td></tr>
+    <tr><td><code>LPAD(s, len, pad)  RPAD(s, len, pad)</code></td><td>pad on the left / right to a length</td></tr>
+    <tr><td><code>LTRIM(s)  RTRIM(s)  TRIM(s)</code></td><td>strip spaces (left / right / both)</td></tr>
+    <tr><td><code>MID(s, start, len)  SUBSTR  SUBSTRING</code></td><td>substring from any position (1-based)</td></tr>
+    <tr><td><code>SUBSTRING_INDEX(s, delim, n)</code></td><td>part of s before n-th delimiter</td></tr>
+    <tr><td><code>REPEAT(s, n)</code></td><td>repeat a string n times</td></tr>
+    <tr><td><code>REPLACE(s, from, to)</code></td><td>replace all occurrences</td></tr>
+    <tr><td><code>REVERSE(s)</code></td><td>reverse a string</td></tr>
+    <tr><td><code>SPACE(n)</code></td><td>n spaces</td></tr>
+    <tr><td><code>STRCMP(a, b)</code></td><td>compare: 0 equal, -1 / 1 otherwise</td></tr>
+  </table>
+  <pre>SELECT CONCAT(FirstName, ' ', LastName) AS FullName FROM Employees;
+SELECT UPPER(City), LENGTH(City) FROM Customers;
+SELECT SUBSTRING(PostalCode, 1, 3) FROM Customers;      -- positions start at 1, not 0
+SELECT REPLACE(Phone, '-', '') FROM Suppliers;</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">numeric functions</span>&nbsp; <span class="cm"># math</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Function</th><th>Description</th></tr>
+    <tr><td><code>ABS(x)</code></td><td>absolute value</td></tr>
+    <tr><td><code>CEIL(x)  CEILING(x)</code></td><td>smallest integer &gt;= x</td></tr>
+    <tr><td><code>FLOOR(x)</code></td><td>largest integer &lt;= x</td></tr>
+    <tr><td><code>ROUND(x, d)</code></td><td>round to d decimals</td></tr>
+    <tr><td><code>TRUNCATE(x, d)</code></td><td>cut to d decimals (no rounding)</td></tr>
+    <tr><td><code>MOD(a, b)   a DIV b</code></td><td>remainder / integer division</td></tr>
+    <tr><td><code>POW(x, y)  POWER(x, y)  SQRT(x)  EXP(x)</code></td><td>powers and roots</td></tr>
+    <tr><td><code>LN(x)  LOG(x)  LOG(b, x)  LOG10(x)  LOG2(x)</code></td><td>logarithms</td></tr>
+    <tr><td><code>SIGN(x)</code></td><td>-1, 0 or 1</td></tr>
+    <tr><td><code>PI()  RAND()</code></td><td>pi / random number 0&1</td></tr>
+    <tr><td><code>GREATEST(a, b, ...)  LEAST(a, b, ...)</code></td><td>largest / smallest of the arguments</td></tr>
+    <tr><td><code>SIN COS TAN COT ASIN ACOS ATAN ATAN2</code></td><td>trigonometry (radians)</td></tr>
+    <tr><td><code>DEGREES(x)  RADIANS(x)</code></td><td>convert angle units</td></tr>
+    <tr><td><code>AVG  COUNT  MAX  MIN  SUM</code></td><td>aggregates (see Aggregates)</td></tr>
+  </table>
+  <pre>SELECT ROUND(Price, 1), CEIL(Price), FLOOR(Price) FROM Products;
+SELECT 17 DIV 5, 17 % 5, MOD(17, 5);       -- 3, 2, 2</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">date & time functions</span>&nbsp; <span class="cm"># now, parts, arithmetic, formatting</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Function</th><th>Description</th></tr>
+    <tr><td><code>NOW()  CURRENT_TIMESTAMP  SYSDATE()  LOCALTIME</code></td><td>current date and time</td></tr>
+    <tr><td><code>CURDATE()  CURRENT_DATE</code></td><td>current date</td></tr>
+    <tr><td><code>CURTIME()  CURRENT_TIME</code></td><td>current time</td></tr>
+    <tr><td><code>DATE(x)  TIME(x)</code></td><td>date part / time part of a datetime</td></tr>
+    <tr><td><code>YEAR  MONTH  DAY  HOUR  MINUTE  SECOND  QUARTER</code></td><td>extract one part</td></tr>
+    <tr><td><code>MONTHNAME(d)  DAYNAME(d)</code></td><td>name of month / weekday</td></tr>
+    <tr><td><code>DAYOFWEEK  DAYOFMONTH  DAYOFYEAR  WEEK  WEEKDAY  YEARWEEK</code></td><td>numeric position in week / month / year</td></tr>
+    <tr><td><code>EXTRACT(unit FROM d)</code></td><td>extract a part, e.g. <code>EXTRACT(YEAR FROM d)</code></td></tr>
+    <tr><td><code>DATEDIFF(d1, d2)</code></td><td>days between two dates</td></tr>
+    <tr><td><code>TIMEDIFF(t1, t2)</code></td><td>difference between two times</td></tr>
+    <tr><td><code>DATE_ADD(d, INTERVAL n unit)  ADDDATE</code></td><td>add an interval</td></tr>
+    <tr><td><code>DATE_SUB(d, INTERVAL n unit)  SUBDATE</code></td><td>subtract an interval</td></tr>
+    <tr><td><code>ADDTIME  SUBTIME</code></td><td>add / subtract a time</td></tr>
+    <tr><td><code>DATE_FORMAT(d, fmt)  TIME_FORMAT(t, fmt)</code></td><td>format a date / time</td></tr>
+    <tr><td><code>STR_TO_DATE(s, fmt)</code></td><td>parse a string into a date</td></tr>
+    <tr><td><code>LAST_DAY(d)</code></td><td>last day of d's month</td></tr>
+    <tr><td><code>MAKEDATE(y, n)  MAKETIME(h, m, s)</code></td><td>build a date / time</td></tr>
+    <tr><td><code>FROM_DAYS  TO_DAYS  SEC_TO_TIME  TIME_TO_SEC</code></td><td>convert to / from numbers</td></tr>
+    <tr><td><code>PERIOD_ADD  PERIOD_DIFF</code></td><td>work with YYYYMM periods</td></tr>
+  </table>
+  <pre>SELECT NOW(), CURDATE(), YEAR(OrderDate), MONTHNAME(OrderDate) FROM Orders;
+SELECT DATEDIFF('2026-12-25', CURDATE()) AS DaysToChristmas;
+SELECT DATE_ADD(OrderDate, INTERVAL 7 DAY) AS DueDate FROM Orders;
+SELECT DATE_FORMAT(OrderDate, '%Y-%m-%d %H:%i') FROM Orders;     -- %Y year %m month %d day %H hour %i minute %s second
+SELECT * FROM Orders WHERE OrderDate &gt;= '2026-01-01' AND OrderDate &lt; '2027-01-01';</pre>
+  <div class="opt">Dates compare easily as strings <code>'YYYY-MM-DD'</code> when there is no time part</div>
+  <div class="warn">A <code>DATETIME</code> like <code>2025-11-11 13:23:44</code> does NOT equal <code>'2025-11-11'</code> & <code>WHERE OrderDate='2025-11-11'</code> finds nothing. Use <code>DATE(OrderDate) = '2025-11-11'</code> or a <code>&gt;= ... AND &lt; next day</code> range (the range keeps indexes usable)</div>
+  <div class="opt">Tip: keep time components out of date columns unless you need them</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">advanced functions</span>&nbsp; <span class="cm"># casting, conditionals, session info</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Function</th><th>Description</th></tr>
+    <tr><td><code>CAST(x AS type)</code></td><td>convert a value to a data type</td></tr>
+    <tr><td><code>CONVERT(x, type)</code></td><td>convert type or character set</td></tr>
+    <tr><td><code>BIN(n)  CONV(n, from, to)</code></td><td>binary / change number base</td></tr>
+    <tr><td><code>BINARY(s)</code></td><td>convert to a binary string</td></tr>
+    <tr><td><code>CASE WHEN ... END</code></td><td>conditional value</td></tr>
+    <tr><td><code>IF(cond, yes, no)</code></td><td>inline if</td></tr>
+    <tr><td><code>IFNULL(x, alt)  COALESCE(a, b, ...)  NULLIF(a, b)  ISNULL(x)</code></td><td>NULL handling</td></tr>
+    <tr><td><code>LAST_INSERT_ID()</code></td><td>AUTO_INCREMENT id of the last inserted row</td></tr>
+    <tr><td><code>DATABASE()</code></td><td>current database name</td></tr>
+    <tr><td><code>USER()  CURRENT_USER()  SESSION_USER()  SYSTEM_USER()</code></td><td>current account</td></tr>
+    <tr><td><code>CONNECTION_ID()</code></td><td>id of the current connection</td></tr>
+    <tr><td><code>VERSION()</code></td><td>MySQL server version</td></tr>
+  </table>
+  <pre>SELECT CAST('2026-11-07' AS DATE);
+SELECT CAST(Price AS SIGNED) FROM Products;
+SELECT IF(Price &gt; 20, 'expensive', 'cheap') FROM Products;
+SELECT VERSION(), DATABASE(), USER();</pre>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-ops">&#x2795; Operators</h2>
+
+<details>
+<summary><span class="one">arithmetic &nbsp;comparison</span>&nbsp; <span class="cm"># + - * / %  = &lt;&gt; &gt; &lt; &gt;= &lt;=</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Arithmetic</th><th>Meaning</th></tr>
+    <tr><td><code>+</code></td><td>add</td></tr>
+    <tr><td><code>-</code></td><td>subtract</td></tr>
+    <tr><td><code>*</code></td><td>multiply</td></tr>
+    <tr><td><code>/</code></td><td>divide (gives decimals)</td></tr>
+    <tr><td><code>%</code>  <code>MOD</code></td><td>modulus</td></tr>
+    <tr><td><code>DIV</code></td><td>integer division</td></tr>
+  </table>
+  <table class="xlat">
+    <tr><th>Comparison</th><th>Meaning</th></tr>
+    <tr><td><code>=</code></td><td>equal</td></tr>
+    <tr><td><code>&gt;</code>  <code>&lt;</code></td><td>greater / less</td></tr>
+    <tr><td><code>&gt;=</code>  <code>&lt;=</code></td><td>greater-or-equal / less-or-equal</td></tr>
+    <tr><td><code>&lt;&gt;</code>  <code>!=</code></td><td>not equal</td></tr>
+    <tr><td><code>&lt;=&gt;</code></td><td>NULL-safe equal (MySQL)</td></tr>
+  </table>
+  <pre>SELECT ProductName, Price * 1.25 AS PriceWithTax FROM Products;
+SELECT 7 / 2, 7 DIV 2, 7 % 2;           -- 3.5000, 3, 1</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">bitwise &nbsp;compound</span>&nbsp; <span class="cm"># &amp; | ^   += -= *= ...</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Bitwise</th><th>Meaning</th></tr>
+    <tr><td><code>&amp;</code></td><td>AND</td></tr>
+    <tr><td><code>|</code></td><td>OR</td></tr>
+    <tr><td><code>^</code></td><td>exclusive OR (XOR)</td></tr>
+  </table>
+  <div class="opt">Compound operators (<code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code>, <code>%=</code>, <code>&amp;=</code>, <code>^-=</code>, <code>|*=</code>) are SQL-Server-style shorthands; in MySQL write <code>SET x = x + 1</code> in <code>UPDATE</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">logical operators</span>&nbsp; <span class="cm"># ALL AND ANY BETWEEN EXISTS IN LIKE NOT OR SOME</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Operator</th><th>TRUE if</th></tr>
+    <tr><td><code>ALL</code></td><td>all subquery values meet the condition</td></tr>
+    <tr><td><code>AND</code></td><td>all conditions separated by AND are TRUE</td></tr>
+    <tr><td><code>ANY</code> / <code>SOME</code></td><td>any subquery value meets the condition</td></tr>
+    <tr><td><code>BETWEEN</code></td><td>operand is within the range</td></tr>
+    <tr><td><code>EXISTS</code></td><td>subquery returns one or more rows</td></tr>
+    <tr><td><code>IN</code></td><td>operand equals one of a list of expressions</td></tr>
+    <tr><td><code>LIKE</code></td><td>operand matches a pattern</td></tr>
+    <tr><td><code>NOT</code></td><td>the condition is NOT true</td></tr>
+    <tr><td><code>OR</code></td><td>any condition separated by OR is TRUE</td></tr>
+  </table>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-sec">&#x1F6E1;&#xFE0F; Security &mdash; Injection &amp; Prepared Statements</h2>
+
+<details>
+<summary><span class="one">SQL injection</span>&nbsp; <span class="cm"># user input turned into SQL</span></summary>
+<div class="detail-body">
+  <div class="opt">Attacker types SQL into a form field and your code pastes it into a query string</div>
+  <pre>-- code builds:  "SELECT * FROM Users WHERE UserId = " + txtUserId
+-- user types:   105 OR 1=1
+SELECT * FROM Users WHERE UserId = 105 OR 1=1;          -- 1=1 is always true: every user returned
+
+-- login form:   uName = " or ""="   pass = " or ""="
+SELECT * FROM Users WHERE Name ="" or ""="" AND Pass ="" or ""=""    -- always true
+
+-- batched statements
+-- user types:   105; DROP TABLE Suppliers
+SELECT * FROM Users WHERE UserId = 105; DROP TABLE Suppliers;</pre>
+  <div class="warn">Never build SQL by concatenating user input</div>
+  <div class="opt">Defences: **parameterized queries / prepared statements**, validate input, least-privilege DB account, no multi-statement execution</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">prepared statements</span>&nbsp; <span class="cm"># placeholders keep data separate from code</span></summary>
+<div class="detail-body">
+  <div class="opt">SQL is compiled once with <code>?</code> placeholders; the values are sent separately and can never be run as SQL</div>
+  <pre>// PHP (mysqli)
+$stmt = $conn-&gt;prepare("INSERT INTO MyGuests (firstname, lastname, email) VALUES (?, ?, ?)");
+$stmt-&gt;bind_param("sss", $firstname, $lastname, $email);
+$firstname = "John"; $lastname = "Doe"; $email = "john@example.com";
+$stmt-&gt;execute();</pre>
+  <div class="opt"><code>bind_param</code> type letters: <code>i</code> integer, <code>d</code> double, <code>s</code> string, <code>b</code> blob</div>
+  <pre># Python (mysql-connector) - %s placeholders, never f-strings
+cur.execute("SELECT * FROM Customers WHERE City = %s AND Country = %s", (city, country))</pre>
+  <pre>-- plain MySQL
+PREPARE stmt FROM 'SELECT * FROM Customers WHERE City = ?';
+SET @c = 'London';
+EXECUTE stmt USING @c;
+DEALLOCATE PREPARE stmt;</pre>
+  <div class="warn">Placeholders can stand in for values only & not for table or column names</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-cmp">&#x1F501; SQL &#8596; Python &#8596; JavaScript</h2>
+
+<details open>
+<summary><span class="one">Side-by-side translations</span>&nbsp; <span class="cm"># same idea, three syntaxes (rows = list of dicts / array of objects)</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Idea</th><th>SQL</th><th>Python</th><th>JavaScript</th></tr>
+    <tr><td>Pick columns</td><td><code>SELECT name, city FROM t</code></td><td><code>[(r['name'], r['city']) for r in t]</code></td><td><code>t.map(r =&gt; ({name: r.name, city: r.city}))</code></td></tr>
+    <tr><td>Filter rows</td><td><code>WHERE price &gt; 20</code></td><td><code>[r for r in t if r['price'] &gt; 20]</code></td><td><code>t.filter(r =&gt; r.price &gt; 20)</code></td></tr>
+    <tr><td>And / or / not</td><td><code>AND  OR  NOT</code></td><td><code>and  or  not</code></td><td><code>&amp;&amp;  ||  !</code></td></tr>
+    <tr><td>Not equal</td><td><code>&lt;&gt;</code></td><td><code>!=</code></td><td><code>!==</code></td></tr>
+    <tr><td>Is in list</td><td><code>IN ('a','b')</code></td><td><code>x in ('a','b')</code></td><td><code>['a','b'].includes(x)</code></td></tr>
+    <tr><td>Range</td><td><code>BETWEEN 10 AND 20</code></td><td><code>10 &lt;= x &lt;= 20</code></td><td><code>x &gt;= 10 &amp;&amp; x &lt;= 20</code></td></tr>
+    <tr><td>Starts with</td><td><code>LIKE 'a%'</code></td><td><code>s.startswith('a')</code></td><td><code>s.startsWith('a')</code></td></tr>
+    <tr><td>Contains</td><td><code>LIKE '%or%'</code></td><td><code>'or' in s</code></td><td><code>s.includes('or')</code></td></tr>
+    <tr><td>Is null</td><td><code>IS NULL</code></td><td><code>x is None</code></td><td><code>x == null</code></td></tr>
+    <tr><td>Null fallback</td><td><code>COALESCE(x, 0)</code></td><td><code>x if x is not None else 0</code></td><td><code>x ?? 0</code></td></tr>
+    <tr><td>Sort</td><td><code>ORDER BY price DESC</code></td><td><code>sorted(t, key=lambda r: r['price'], reverse=True)</code></td><td><code>[...t].sort((a, b) =&gt; b.price - a.price)</code></td></tr>
+    <tr><td>First N</td><td><code>LIMIT 5</code></td><td><code>t[:5]</code></td><td><code>t.slice(0, 5)</code></td></tr>
+    <tr><td>Skip + take</td><td><code>LIMIT 3 OFFSET 3</code></td><td><code>t[3:6]</code></td><td><code>t.slice(3, 6)</code></td></tr>
+    <tr><td>Unique</td><td><code>SELECT DISTINCT x</code></td><td><code>set(r['x'] for r in t)</code></td><td><code>[...new Set(t.map(r =&gt; r.x))]</code></td></tr>
+    <tr><td>Count</td><td><code>COUNT(*)</code></td><td><code>len(t)</code></td><td><code>t.length</code></td></tr>
+    <tr><td>Sum</td><td><code>SUM(price)</code></td><td><code>sum(r['price'] for r in t)</code></td><td><code>t.reduce((s, r) =&gt; s + r.price, 0)</code></td></tr>
+    <tr><td>Max / min</td><td><code>MAX(price)</code>  <code>MIN(price)</code></td><td><code>max(...)</code>  <code>min(...)</code></td><td><code>Math.max(...)</code>  <code>Math.min(...)</code></td></tr>
+    <tr><td>Average</td><td><code>AVG(price)</code></td><td><code>sum(p)/len(p)</code>  (<code>statistics.mean</code>)</td><td><code>p.reduce((a,b)=&gt;a+b)/p.length</code></td></tr>
+    <tr><td>Group by</td><td><code>GROUP BY country</code></td><td><code>itertools.groupby</code> / <code>collections.defaultdict(list)</code></td><td><code>Object.groupBy(t, r =&gt; r.country)</code></td></tr>
+    <tr><td>Join</td><td><code>JOIN b ON a.id = b.a_id</code></td><td>dict lookup: <code>{b['a_id']: b for b in B}</code></td><td><code>new Map(B.map(b =&gt; [b.a_id, b]))</code></td></tr>
+    <tr><td>Alias</td><td><code>price AS cost</code></td><td>assign: <code>cost = r['price']</code></td><td>destructure: <code>const {price: cost} = r</code></td></tr>
+    <tr><td>Insert row</td><td><code>INSERT INTO t VALUES (...)</code></td><td><code>t.append(row)</code></td><td><code>t.push(row)</code></td></tr>
+    <tr><td>Update rows</td><td><code>UPDATE t SET x=1 WHERE ...</code></td><td><code>for r in t: if ...: r['x'] = 1</code></td><td><code>t.forEach(r =&gt; { if (...) r.x = 1 })</code></td></tr>
+    <tr><td>Delete rows</td><td><code>DELETE FROM t WHERE ...</code></td><td><code>t = [r for r in t if not (...)]</code></td><td><code>t = t.filter(r =&gt; !(...))</code></td></tr>
+    <tr><td>Concatenate text</td><td><code>CONCAT(a, ' ', b)</code></td><td><code>f"{a} {b}"</code></td><td><code></code> <code>${a} ${b}</code> <code></code></td></tr>
+    <tr><td>Upper case</td><td><code>UPPER(s)</code></td><td><code>s.upper()</code></td><td><code>s.toUpperCase()</code></td></tr>
+    <tr><td>Substring</td><td><code>SUBSTRING(s, 1, 3)</code> (1-based)</td><td><code>s[0:3]</code> (0-based)</td><td><code>s.slice(0, 3)</code> (0-based)</td></tr>
+    <tr><td>Conditional value</td><td><code>CASE WHEN c THEN a ELSE b END</code></td><td><code>a if c else b</code></td><td><code>c ? a : b</code></td></tr>
+    <tr><td>Comment</td><td><code>-- text</code>  <code>/* */</code></td><td><code># text</code></td><td><code>// text</code>  <code>/* */</code></td></tr>
+    <tr><td>String quotes</td><td><code>'single'</code> (double allowed)</td><td>either</td><td>either</td></tr>
+    <tr><td>Statement end</td><td><code>;</code></td><td>newline</td><td><code>;</code> optional</td></tr>
+  </table>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-traps">&#x26A0;&#xFE0F; MySQL Traps &amp; Gotchas</h2>
+
+<details>
+<summary><span class="one">Classic mistakes</span>&nbsp; <span class="cm"># check this list when a query misbehaves</span></summary>
+<div class="detail-body">
+  <div class="warn"><code>UPDATE</code> or <code>DELETE</code> without <code>WHERE</code> hits EVERY row</div>
+  <div class="warn"><code>DROP DATABASE</code> / <code>DROP TABLE</code> / <code>TRUNCATE</code> are permanent & no undo</div>
+  <div class="warn"><code>= NULL</code> never matches; use <code>IS NULL</code> / <code>IS NOT NULL</code></div>
+  <div class="warn">Anything + <code>NULL</code> = <code>NULL</code> (use <code>COALESCE</code>/<code>IFNULL</code>)</div>
+  <div class="warn"><code>COUNT(col)</code> skips NULLs, <code>COUNT(*)</code> does not</div>
+  <div class="warn"><code>NOT IN (subquery)</code> returns nothing if the subquery yields a NULL</div>
+  <div class="warn"><code>WHERE</code> cannot use aggregates (<code>WHERE COUNT(*) &gt; 5</code> & error); use <code>HAVING</code></div>
+  <div class="warn">Selected columns not in <code>GROUP BY</code> or an aggregate & error under <code>ONLY_FULL_GROUP_BY</code></div>
+  <div class="warn"><code>AND</code> is evaluated before <code>OR</code> & add parentheses</div>
+  <div class="warn"><code>--</code> comment needs a space after it: <code>-- </code></div>
+  <div class="warn"><code>DATETIME</code> with a time part never equals a plain date string</div>
+  <div class="warn"><code>BETWEEN</code> includes both ends (and with dates, <code>'...-31'</code> means midnight, losing that day's times)</div>
+  <div class="warn"><code>LIKE '%x'</code> can't use an index; and a stray <code>%</code>/<code>_</code> in user input acts as a wildcard</div>
+  <div class="warn">Double quotes are strings by default in MySQL (identifiers use backticks) & unless <code>ANSI_QUOTES</code> mode is on</div>
+  <div class="warn">Integer division: <code>/</code> gives decimals in MySQL, <code>DIV</code> gives integers</div>
+  <div class="warn"><code>FLOAT</code>/<code>DOUBLE</code> for money & rounding errors; use <code>DECIMAL</code></div>
+  <div class="warn">Building SQL with string concatenation & SQL injection; use prepared statements</div>
+  <div class="warn"><code>ALTER TABLE ... MODIFY</code> replaces the whole column definition & restate <code>NOT NULL</code>, <code>DEFAULT</code>, <code>AUTO_INCREMENT</code></div>
+  <div class="warn">Can't drop a table that a foreign key references; drop the child (or the constraint) first</div>
+  <div class="warn">Table-name case sensitivity differs between Linux/Mac and Windows</div>
+  <div class="warn"><code>SELECT *</code> + joins gives duplicate column names; list columns explicitly</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-refs">&#x1F517; References &amp; Links</h2>
+
+<details>
+<summary><span class="one">Where to look things up</span>&nbsp; <span class="cm"># online docs</span></summary>
+<div class="detail-body">
+  <div class="opt"><a class="ref" href="https://www.w3schools.com/mysql/default.asp" target="_blank">W3Schools &mdash; MySQL tutorial</a> (source of this page)</div>
+  <div class="opt">MySQL 8.4 Reference Manual: dev.mysql.com/doc/refman/8.4/en/</div>
+  <div class="opt">Practice: W3Schools &Try it Yourself& editor and Northwind sample database (Customers, Orders, Products, Suppliers, Employees, Shippers, Categories, OrderDetails)</div>
+  <div class="opt">Local: <code>mysql -u root -p</code> command-line client; <code>HELP SELECT;</code> inside it</div>
+</div>
+</details>
+
+
+
+<a href="#" class="back-top">&uarr; Back to top</a>
+
+<script>
+  function toggleAll(openState) {
+    document.querySelectorAll('details').forEach(d => { d.open = openState; });
+  }
+  function filterDetails(query) {
+    const q = query.trim().toLowerCase();
+    document.querySelectorAll('details').forEach(d => {
+      if (!q) { d.style.display = ''; return; }
+      const match = d.innerText.toLowerCase().includes(q);
+      d.style.display = match ? '' : 'none';
+      if (match) d.open = true;
+    });
+  }
+  // syntax-highlight every <pre> (SQL, plus the odd PHP/Python line)
+  (function () {
+    const KW = new RegExp('^(?:select|from|where|and|or|not|in|is|null|like|between|exists|any|all|some|as|distinct|order|by|group|having|limit|offset|asc|desc|insert|into|values|update|set|delete|create|alter|drop|table|database|index|view|unique|primary|foreign|key|references|check|default|constraint|add|column|modify|rename|to|join|inner|left|right|cross|on|union|case|when|then|else|end|if|call|procedure|begin|delimiter|use|show|describe|truncate|prepare|execute|deallocate|using|int|integer|varchar|char|text|date|datetime|timestamp|time|year|decimal|float|double|bool|boolean|enum|auto_increment|unsigned|true|false|replace|interval|div|mod|in|out|inout|full|outer|temporary|cascade|with|replace)$', 'i');
+    const re = /(--[^\n]*|#[^\n]*|\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(@\w+)|("(?:[^"\\n]|\.)*"|'(?:[^'\\n]|\.|'')*'|`[^`\n]*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][\w]*)(\s*\()?/g;
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    document.querySelectorAll('pre').forEach(pre => {
+      const t = pre.textContent;
+      let out = '', last = 0, m;
+      re.lastIndex = 0;
+      while ((m = re.exec(t))) {
+        out += esc(t.slice(last, m.index));
+        if (m[1]) out += '<span class="co">' + esc(m[1]) + '</span>';
+        else if (m[2]) out += '<span class="nu">' + esc(m[2]) + '</span>';
+        else if (m[3]) out += '<span class="st">' + esc(m[3]) + '</span>';
+        else if (m[4]) out += '<span class="nu">' + m[4] + '</span>';
+        else if (KW.test(m[5])) out += '<span class="kw">' + m[5] + '</span>' + esc(m[6] || '');
+        else if (m[6]) out += '<span class="fn">' + m[5] + '</span>' + esc(m[6]);
+        else out += esc(m[5]);
+        last = re.lastIndex;
+      }
+      pre.innerHTML = out + esc(t.slice(last));
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tkinter Layout Tutorial (grid &bull; pack &bull; frames)</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body { font-family: 'Consolas','Courier New',monospace; background:#1e1e1e; color:#d4d4d4; margin:0; padding:24px 32px; line-height:1.6; font-size:14px; max-width:1100px; }
+h1 { color:#569cd6; border-bottom:2px solid #569cd6; padding-bottom:8px; margin-bottom:4px; font-size:1.5em; }
+.intro { color:#808080; font-size:.85em; margin-bottom:28px; }
+h2 { color:#4ec9b0; margin:34px 0 8px; border-left:4px solid #4ec9b0; padding-left:10px; font-size:1.05em; letter-spacing:.03em; }
+details { margin:6px 0; }
+summary { cursor:pointer; padding:5px 6px; border-radius:3px; list-style:none; display:flex; align-items:baseline; user-select:none; }
+summary::-webkit-details-marker { display:none; }
+summary::before { content:'+'; color:#569cd6; font-weight:bold; margin-right:8px; min-width:10px; display:inline-block; }
+details[open] > summary::before { content:'\2212'; }
+summary:hover { background:#2a2a2a; }
+.one { color:#ce9178; } .cm { color:#6a9955; }
+.detail-body { margin:5px 0 12px 22px; border-left:2px solid #3c3c3c; padding-left:14px; }
+.box { background:#252526; border:1px solid #3c3c3c; border-radius:4px; padding:8px 14px; margin:8px 0; }
+.opt { margin:5px 0; color:#9cdcfe; } .opt::before { content:'\2022  '; color:#569cd6; }
+.sub { margin:4px 0 4px 18px; color:#9cdcfe; }
+.opt-h { color:#dcdcaa; margin-top:10px; }
+code { color:#ce9178; font-family:inherit; }
+pre { background:#252526; border:1px solid #3c3c3c; border-radius:4px; padding:9px 14px; margin:8px 0 4px; overflow-x:auto; font-size:.92em; tab-size:4; }
+.ascii { color:#b5cea8; }
+.kw{color:#569cd6}.st{color:#ce9178}.co{color:#6a9955}.nu{color:#b5cea8}
+.pics { display:flex; flex-wrap:wrap; gap:14px; margin:10px 0; }
+figure { margin:0; background:#111; border:1px solid #3c3c3c; border-radius:4px; padding:6px; }
+figure img { display:block; max-width:100%; height:auto; }
+figcaption { color:#808080; font-size:.8em; margin-top:4px; }
+.run { color:#808080; font-size:.88em; margin:4px 0; }
+ul { margin:4px 0 4px 0; padding-left:22px; color:#d4d4d4; }
+li { margin:3px 0; }
+a { color:#569cd6; }
+</style></head><body>
+<h1>Tkinter Layout Tutorial &mdash; grid &bull; pack &bull; frames &bull; sizing</h1>
+<div class="intro">Python 3.12 &bull; plain tkinter/ttk &bull; works on Windows and Mac &bull; each example is a .py file in this folder &mdash; run it and drag the window around &bull; click a section to open it</div>
+
+<h2>0. THE BIG PICTURE (read this first)</h2>
+<div class="box">
+<div class="opt">Everything in tkinter is a <b>widget</b> (Label, Button, Entry, Frame ...). Every widget has a <b>parent</b> &mdash; the first thing inside the brackets: <code>tk.Label(<b>parent</b>, text="hi")</code>.</div>
+<div class="opt">A widget does not appear until you tell a <b>geometry manager</b> where to put it. There are two you will use: <code>grid</code> (rows &amp; columns, like a spreadsheet) and <code>pack</code> (stack things against the edges, like packing a suitcase).</div>
+<div class="opt"><b>Frame</b> = an empty box. You use frames to cut the window into regions. Each frame is the parent of its own widgets and has its <i>own</i> grid or pack.</div>
+<div class="opt"><b>The one rule:</b> inside any one parent, use <code>grid</code> OR <code>pack</code> &mdash; never both. (Part 2 explains why.)</div>
+<div class="opt"><b>Which one should I use?</b> Use <code>grid</code> for anything that lines up in rows/columns (forms, whole-window layouts). Use <code>pack</code> for a simple row or column of things (a toolbar of buttons). When an AI gives you a mix: check each <i>parent</i> uses only one.</div>
+</div>
+<div class="box">
+<div class="opt"><b>How to use this page:</b> each step has a picture, the full script, and things to try. The picture is a real screenshot of that script. Every script is a separate file in this folder &mdash; run it, drag the window around, and edit it. Coloured frames are used on purpose so you can <i>see</i> the structure; in a real app you would drop the colours.</div>
+<div class="opt">Cheat sheet at the bottom of the page.</div>
+</div>
+<h2>1. GRID &mdash; rows and columns</h2>
+<details open>
+<summary><span class="one">1.1 &mdash; the grid in one picture</span> <span class="cm">&nbsp;&nbsp;ex01_grid_basics.py</span></summary>
+<div class="detail-body">
+<p>Think of the window as a table. <code>rowconfigure</code> / <code>columnconfigure</code> describe the table. <code>.grid(row=, column=)</code> puts a widget into one cell. <code>weight</code> = how much of the <i>extra</i> space a row/column gets when the window grows (0 = none, stays natural size). <code>minsize</code> = never thinner/shorter than this. <code>sticky</code> = which sides of the cell the widget glues to (n, s, e, w &mdash; <code>"nsew"</code> fills the whole cell; no sticky = floats in the middle at its natural size). <code>columnspan</code>/<code>rowspan</code> = cover several cells. <code>padx</code>/<code>pady</code> = empty space around the widget.</p>
+<div class="pics"><figure><img src="images/ex01_grid_basics.png" alt="as opened (520x320)"><figcaption>as opened (520x320)</figcaption></figure><figure><img src="images/ex01_grid_basics_2.png" alt="window dragged bigger"><figcaption>window dragged bigger</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>Look at the 2nd picture (window dragged bigger): the weight-0 column and row stayed put; the weight 1 and 2 columns shared the growth 1 : 2.</li><li>Change <code>sticky="nsew"</code> to <code>sticky="n"</code> on the blue box. It shrinks to its text and sticks to the top.</li><li>Set every weight to 0 and enlarge the window: nothing grows.</li></ul>
+<pre><span class="co"># ex01_grid_basics.py  -  GRID: rows, columns, weight, minsize, span, sticky</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex01 - grid basics&quot;</span>)
+root.geometry(<span class="st">&quot;520x320&quot;</span>)
+
+<span class="co"># 1) Define the PAGE: 3 columns x 3 rows.</span>
+<span class="co">#    weight = how much EXTRA space this row/column gets when the window grows.</span>
+<span class="co">#    weight=0 (default) -&gt; stays its natural size.   minsize = never smaller than this.</span>
+root.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">0</span>, minsize=<span class="nu">120</span>)   <span class="co"># fixed-ish column</span>
+root.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)                <span class="co"># grows</span>
+root.columnconfigure(<span class="nu">2</span>, weight=<span class="nu">2</span>)                <span class="co"># grows twice as fast as column 1</span>
+root.rowconfigure(<span class="nu">0</span>, weight=<span class="nu">0</span>, minsize=<span class="nu">50</span>)       <span class="co"># header row: fixed height</span>
+root.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)                   <span class="co"># middle row: grows</span>
+root.rowconfigure(<span class="nu">2</span>, weight=<span class="nu">0</span>, minsize=<span class="nu">40</span>)       <span class="co"># bottom row: fixed height</span>
+
+
+<span class="kw">def</span> box(text, color):
+    <span class="st">&quot;&quot;</span><span class="st">&quot;Tiny helper: a coloured label so you can SEE each cell.&quot;</span><span class="st">&quot;&quot;</span>
+    <span class="kw">return</span> tk.Label(root, text=text, bg=color, fg=<span class="st">&quot;black&quot;</span>, relief=<span class="st">&quot;solid&quot;</span>, bd=<span class="nu">1</span>)
+
+
+<span class="co"># 2) Put things in cells.  sticky says how a widget fills its cell:</span>
+<span class="co">#    &quot;n s e w&quot; = stretch to touch that side.  &quot;nsew&quot; = fill the whole cell.</span>
+box(<span class="st">&quot;row0 col0&quot;</span>, <span class="st">&quot;#ffd166&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+box(<span class="st">&quot;row0 col1  columnspan=<span class="nu">2</span>&quot;</span>, <span class="st">&quot;#ef476f&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, columnspan=<span class="nu">2</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+box(<span class="st">&quot;row1-<span class="nu">2</span> col0  rowspan=<span class="nu">2</span>&quot;</span>, <span class="st">&quot;#06d6a0&quot;</span>).grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, rowspan=<span class="nu">2</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+box(<span class="st">&quot;row1 col1  sticky=nsew&quot;</span>, <span class="st">&quot;#118ab2&quot;</span>).grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+box(<span class="st">&quot;row1 col2  sticky=nsew&quot;</span>, <span class="st">&quot;#9d8df1&quot;</span>).grid(row=<span class="nu">1</span>, column=<span class="nu">2</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+box(<span class="st">&quot;row2 col1  no sticky (centred, natural size)&quot;</span>, <span class="st">&quot;#f4a261&quot;</span>).grid(row=<span class="nu">2</span>, column=<span class="nu">1</span>)
+box(<span class="st">&quot;row2 col2  sticky=w&quot;</span>, <span class="st">&quot;#e9c46a&quot;</span>).grid(row=<span class="nu">2</span>, column=<span class="nu">2</span>, sticky=<span class="st">&quot;w&quot;</span>)
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex01_grid_basics.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">1.2 &mdash; split the window into frames, then split a frame again</span> <span class="cm">&nbsp;&nbsp;ex02_grid_subframes.py</span></summary>
+<div class="detail-body">
+<p>Level 1: the window has a top bar, a sidebar and a body. Level 2: the <i>body</i> frame gets its own little grid. Notice the sub-frames A, B, C use <code>body</code> as their parent, so their row/column numbers start again at 0. This is the key trick: <b>every frame is its own mini-window with its own grid.</b></p>
+<div class="pics"><figure><img src="images/ex02_grid_subframes.png" alt="as opened"><figcaption>as opened</figcaption></figure><figure><img src="images/ex02_grid_subframes_2.png" alt="stretched: sidebar stays 160 wide"><figcaption>stretched: sidebar stays 160 wide</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>The labels inside use <code>pack</code> &mdash; that's OK, because their parents (<code>top</code>, <code>a</code> ...) contain only pack widgets.</li><li>Change body row weights <code>(1, 2)</code> to <code>(1, 1)</code>. Row C gets shorter.</li><li>Add <code>padx=0, pady=0</code> to A, B, C and see the coloured gaps vanish.</li></ul>
+<pre><span class="co"># ex02_grid_subframes.py  -  GRID: split the window into frames, then split a frame again</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex02 - grid with sub-frames&quot;</span>)
+root.geometry(<span class="st">&quot;640x400&quot;</span>)
+
+<span class="co"># ---- Level 1: the window (root) has 2 rows x 2 columns ----------------</span>
+root.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">0</span>, minsize=<span class="nu">160</span>)   <span class="co"># sidebar: fixed width</span>
+root.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)                <span class="co"># content: takes the rest</span>
+root.rowconfigure(<span class="nu">0</span>, weight=<span class="nu">0</span>)                   <span class="co"># top bar: natural height</span>
+root.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)                   <span class="co"># body: takes the rest</span>
+
+top = tk.Frame(root, bg=<span class="st">&quot;#ef476f&quot;</span>, height=<span class="nu">50</span>)
+side = tk.Frame(root, bg=<span class="st">&quot;#06d6a0&quot;</span>)
+body = tk.Frame(root, bg=<span class="st">&quot;#118ab2&quot;</span>)
+
+top.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">2</span>, sticky=<span class="st">&quot;ew&quot;</span>)     <span class="co"># spans both columns</span>
+side.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;ns&quot;</span>)                  <span class="co"># full height</span>
+body.grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;nsew&quot;</span>)                <span class="co"># fills everything left</span>
+
+<span class="co"># ---- Level 2: split the BODY frame into its own grid -------------------</span>
+<span class="co"># NOTE: these use  body  as the parent, not root.  body has its own rows/columns.</span>
+body.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+body.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)
+body.rowconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+body.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">2</span>)
+
+a = tk.Frame(body, bg=<span class="st">&quot;#ffd166&quot;</span>)
+b = tk.Frame(body, bg=<span class="st">&quot;#f4a261&quot;</span>)
+c = tk.Frame(body, bg=<span class="st">&quot;#e9c46a&quot;</span>)
+a.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">6</span>, pady=<span class="nu">6</span>)
+b.grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">6</span>, pady=<span class="nu">6</span>)
+c.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">2</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">6</span>, pady=<span class="nu">6</span>)
+
+<span class="co"># ---- Labels so you can see what is what --------------------------------</span>
+tk.Label(top, text=<span class="st">&quot;TOP (root row <span class="nu">0</span>, columnspan <span class="nu">2</span>)&quot;</span>, bg=<span class="st">&quot;#ef476f&quot;</span>).pack(pady=<span class="nu">14</span>)
+tk.Label(side, text=<span class="st">&quot;SIDE\n(root row <span class="nu">1</span>, col <span class="nu">0</span>)&quot;</span>, bg=<span class="st">&quot;#06d6a0&quot;</span>).pack(padx=<span class="nu">10</span>, pady=<span class="nu">10</span>)
+tk.Label(a, text=<span class="st">&quot;A  (body <span class="nu">0</span>,<span class="nu">0</span>)&quot;</span>, bg=<span class="st">&quot;#ffd166&quot;</span>).pack(expand=<span class="kw">True</span>)
+tk.Label(b, text=<span class="st">&quot;B  (body <span class="nu">0</span>,<span class="nu">1</span>)&quot;</span>, bg=<span class="st">&quot;#f4a261&quot;</span>).pack(expand=<span class="kw">True</span>)
+tk.Label(c, text=<span class="st">&quot;C  (body row <span class="nu">1</span>, columnspan <span class="nu">2</span>)&quot;</span>, bg=<span class="st">&quot;#e9c46a&quot;</span>).pack(expand=<span class="kw">True</span>)
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex02_grid_subframes.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">1.3 &mdash; real widgets: Label, Entry, Combobox, Button, Listbox, Treeview, Text</span> <span class="cm">&nbsp;&nbsp;ex03_grid_widgets.py</span></summary>
+<div class="detail-body">
+<p>A form frame (labels in column 0 right-aligned with <code>sticky="e"</code>, inputs in the next column stretched with <code>sticky="ew"</code>), a data frame with a Listbox and a Treeview side by side, and a Text box at the bottom. <b>Scrollbars</b> are just another widget placed in the next column with <code>sticky="ns"</code>, wired with <code>command=</code> and <code>yscrollcommand=</code>.</p>
+<div class="pics"><figure><img src="images/ex03_grid_widgets.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>Entries only stretch because their column has <code>weight=1</code> <i>and</i> they are <code>sticky="ew"</code>. You need both.</li><li>Buttons in one row = same <code>row=</code>, different <code>column=</code>. Linear list = same <code>column=</code>, different <code>row=</code>.</li><li>Remove <code>weight=1</code> from <code>form.columnconfigure(1, ...)</code> and the entries stop growing.</li></ul>
+<pre><span class="co"># ex03_grid_widgets.py  -  GRID with real widgets: Label, Entry, Combobox, Button,</span>
+<span class="co">#                          Listbox, Treeview, Text (+ scrollbars)</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+<span class="kw">from</span> tkinter <span class="kw">import</span> ttk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex03 - grid with real widgets&quot;</span>)
+root.geometry(<span class="st">&quot;720x520&quot;</span>)
+root.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+root.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)
+
+<span class="co"># ---------- Frame 1: a FORM (labels left, inputs right) ----------------</span>
+form = tk.LabelFrame(root, text=<span class="st">&quot; form frame &quot;</span>, bg=<span class="st">&quot;#fff3cd&quot;</span>, padx=<span class="nu">8</span>, pady=<span class="nu">8</span>)
+form.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=<span class="nu">8</span>, pady=<span class="nu">8</span>)
+form.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)          <span class="co"># the Entry column stretches</span>
+form.columnconfigure(<span class="nu">3</span>, weight=<span class="nu">1</span>)
+
+ttk.Label(form, text=<span class="st">&quot;Name:&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;e&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+ttk.Entry(form).grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+
+ttk.Label(form, text=<span class="st">&quot;Type:&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">2</span>, sticky=<span class="st">&quot;e&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+combo = ttk.Combobox(form, values=[<span class="st">&quot;Stock&quot;</span>, <span class="st">&quot;Crypto&quot;</span>, <span class="st">&quot;Futures&quot;</span>], state=<span class="st">&quot;readonly&quot;</span>)
+combo.current(<span class="nu">0</span>)
+combo.grid(row=<span class="nu">0</span>, column=<span class="nu">3</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+
+ttk.Label(form, text=<span class="st">&quot;Notes:&quot;</span>).grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;e&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+ttk.Entry(form).grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, columnspan=<span class="nu">3</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+
+<span class="co"># buttons in a row, linear (all row 2, columns 0..)</span>
+ttk.Button(form, text=<span class="st">&quot;Add&quot;</span>).grid(row=<span class="nu">2</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;w&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+ttk.Button(form, text=<span class="st">&quot;Clear&quot;</span>).grid(row=<span class="nu">2</span>, column=<span class="nu">2</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+
+<span class="co"># ---------- Frame 2: three data widgets side by side -------------------</span>
+data = tk.Frame(root, bg=<span class="st">&quot;#d1e7dd&quot;</span>)
+data.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">8</span>, pady=(<span class="nu">0</span>, <span class="nu">8</span>))
+data.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)          <span class="co"># listbox</span>
+data.columnconfigure(<span class="nu">2</span>, weight=<span class="nu">3</span>)          <span class="co"># treeview (3x wider)</span>
+data.rowconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+
+<span class="co"># Listbox + its scrollbar (scrollbar sits in the NEXT column, sticky ns)</span>
+lb = tk.Listbox(data, width=<span class="nu">14</span>)
+<span class="kw">for</span> i <span class="kw">in</span> range(<span class="nu">1</span>, <span class="nu">31</span>):
+    lb.insert(<span class="st">&quot;end&quot;</span>, f<span class="st">&quot;item {i}&quot;</span>)
+lb_sb = ttk.Scrollbar(data, orient=<span class="st">&quot;vertical&quot;</span>, command=lb.yview)
+lb.configure(yscrollcommand=lb_sb.set)
+lb.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+lb_sb.grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ns&quot;</span>)
+
+<span class="co"># Treeview + its scrollbar</span>
+tree = ttk.Treeview(data, columns=(<span class="st">&quot;sym&quot;</span>, <span class="st">&quot;qty&quot;</span>, <span class="st">&quot;px&quot;</span>), show=<span class="st">&quot;headings&quot;</span>, height=<span class="nu">8</span>)
+<span class="kw">for</span> col, w <span class="kw">in</span> ((<span class="st">&quot;sym&quot;</span>, <span class="nu">80</span>), (<span class="st">&quot;qty&quot;</span>, <span class="nu">60</span>), (<span class="st">&quot;px&quot;</span>, <span class="nu">80</span>)):
+    tree.heading(col, text=col.upper())
+    tree.column(col, width=w)
+<span class="kw">for</span> n <span class="kw">in</span> range(<span class="nu">20</span>):
+    tree.insert(<span class="st">&quot;&quot;</span>, <span class="st">&quot;end&quot;</span>, values=(f<span class="st">&quot;SYM{n}&quot;</span>, n * <span class="nu">10</span>, f<span class="st">&quot;{<span class="nu">100</span> + n:.2f}&quot;</span>))
+tr_sb = ttk.Scrollbar(data, orient=<span class="st">&quot;vertical&quot;</span>, command=tree.yview)
+tree.configure(yscrollcommand=tr_sb.set)
+tree.grid(row=<span class="nu">0</span>, column=<span class="nu">2</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=(<span class="nu">8</span>, <span class="nu">0</span>))
+tr_sb.grid(row=<span class="nu">0</span>, column=<span class="nu">3</span>, sticky=<span class="st">&quot;ns&quot;</span>)
+
+<span class="co"># ---------- Frame 3: Text box with scrollbar ---------------------------</span>
+logf = tk.Frame(root, bg=<span class="st">&quot;#cfe2ff&quot;</span>)
+logf.grid(row=<span class="nu">2</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=<span class="nu">8</span>, pady=(<span class="nu">0</span>, <span class="nu">8</span>))
+logf.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+txt = tk.Text(logf, height=<span class="nu">5</span>, wrap=<span class="st">&quot;word&quot;</span>)
+txt.insert(<span class="st">&quot;<span class="nu">1</span>.<span class="nu">0</span>&quot;</span>, <span class="st">&quot;A Text widget: type here.\n&quot;</span> * <span class="nu">8</span>)
+tx_sb = ttk.Scrollbar(logf, orient=<span class="st">&quot;vertical&quot;</span>, command=txt.yview)
+txt.configure(yscrollcommand=tx_sb.set)
+txt.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+tx_sb.grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ns&quot;</span>)
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex03_grid_widgets.py</code></div>
+</div></details><h2>2. PACK &mdash; stack against the edges</h2>
+<details open>
+<summary><span class="one">2.1 &mdash; side, fill, expand, anchor, padx, pady</span> <span class="cm">&nbsp;&nbsp;ex04_pack_basics.py</span></summary>
+<div class="detail-body">
+<p><code>pack</code> has no rows or columns. Each widget takes a slice off one edge of the <i>remaining</i> space, in the order you pack them. <code>side</code> = which edge (top / bottom / left / right). <code>fill</code> = stretch across the slice (x, y or both). <code>expand=True</code> = claim any space nobody else wanted. <code>anchor</code> = where to sit if the slice is bigger than the widget (n, ne, e ... ). <code>padx/pady</code> = space outside; <code>ipadx/ipady</code> = space inside.</p>
+<div class="pics"><figure><img src="images/ex04_pack_basics.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>Order matters. Move the 'side=bottom' line above the first one: the layout changes.</li><li>Remove <code>expand=True</code> from the blue box: it no longer grows when you drag the window bigger.</li><li>Pack the blue box <i>last</i> normally; widgets that need to be 'in the way' (bars, sidebars) go first.</li></ul>
+<pre><span class="co"># ex04_pack_basics.py  -  PACK: side, fill, expand, anchor, padx, pady</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex04 - pack basics&quot;</span>)
+root.geometry(<span class="st">&quot;560x360&quot;</span>)
+
+
+<span class="kw">def</span> box(parent, text, color):
+    <span class="kw">return</span> tk.Label(parent, text=text, bg=color, relief=<span class="st">&quot;solid&quot;</span>, bd=<span class="nu">1</span>)
+
+
+<span class="co"># pack works like stacking: each widget grabs a SLICE off the free space.</span>
+<span class="co"># Order matters!  First packed = first slice.</span>
+
+box(root, <span class="st">&quot;<span class="nu">1</span>) side=top, fill=x   (stretches left-right)&quot;</span>, <span class="st">&quot;#ef476f&quot;</span>).pack(side=<span class="st">&quot;top&quot;</span>, fill=<span class="st">&quot;x&quot;</span>)
+box(root, <span class="st">&quot;<span class="nu">2</span>) side=bottom, fill=x&quot;</span>, <span class="st">&quot;#ffd166&quot;</span>).pack(side=<span class="st">&quot;bottom&quot;</span>, fill=<span class="st">&quot;x&quot;</span>)
+box(root, <span class="st">&quot;<span class="nu">3</span>) side=left, fill=y\n(stretches up-down)&quot;</span>, <span class="st">&quot;#06d6a0&quot;</span>).pack(side=<span class="st">&quot;left&quot;</span>, fill=<span class="st">&quot;y&quot;</span>)
+
+<span class="co"># expand=True : &quot;give me any leftover space&quot;.  fill says how to use it.</span>
+box(root, <span class="st">&quot;<span class="nu">4</span>) side=left, fill=both, expand=<span class="kw">True</span>\n(grabs ALL leftover space)&quot;</span>, <span class="st">&quot;#118ab2&quot;</span>).pack(
+    side=<span class="st">&quot;left&quot;</span>, fill=<span class="st">&quot;both&quot;</span>, expand=<span class="kw">True</span>, padx=<span class="nu">10</span>, pady=<span class="nu">10</span>)   <span class="co"># padx/pady = space OUTSIDE</span>
+
+<span class="co"># anchor : where the widget sits inside a slice that is bigger than it needs.</span>
+box(root, <span class="st">&quot;<span class="nu">5</span>) side=top, anchor=ne&quot;</span>, <span class="st">&quot;#f4a261&quot;</span>).pack(side=<span class="st">&quot;top&quot;</span>, anchor=<span class="st">&quot;ne&quot;</span>)
+box(root, <span class="st">&quot;<span class="nu">6</span>) side=top, anchor=w&quot;</span>, <span class="st">&quot;#e9c46a&quot;</span>).pack(side=<span class="st">&quot;top&quot;</span>, anchor=<span class="st">&quot;w&quot;</span>, ipadx=<span class="nu">20</span>, ipady=<span class="nu">8</span>)  <span class="co"># ipad = padding INSIDE</span>
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex04_pack_basics.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">2.2 &mdash; the same layout as 1.2, done with pack</span> <span class="cm">&nbsp;&nbsp;ex05_pack_layout.py</span></summary>
+<div class="detail-body">
+<p>Same look as the grid version. Compare: with grid you say <i>where</i> (row 1, column 0); with pack you say <i>which edge</i>, in order. To get 'A beside B' you need a helper frame (<code>row</code>) packed <code>side=left</code> for both. Pack is great for simple lines, but grids are easier when things must line up in two directions.</p>
+<div class="pics"><figure><img src="images/ex05_pack_layout.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>A Frame shrinks to fit its contents, so <code>width=160</code> on the side panel is ignored unless you call <code>pack_propagate(False)</code> (see Part 4). Comment that line out and see.</li><li>Make the window smaller: with pack, the widgets packed <i>last</i> get squeezed or clipped first.</li></ul>
+<pre><span class="co"># ex05_pack_layout.py  -  the SAME layout as ex02, built with PACK</span>
+<span class="co">#   top bar across the window, a sidebar on the left, a body filling the rest,</span>
+<span class="co">#   and the body split into 2 frames side by side with one underneath.</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex05 - pack layout&quot;</span>)
+root.geometry(<span class="st">&quot;640x400&quot;</span>)
+
+<span class="co"># Level 1  (order = top first, then left, then the body LAST with expand)</span>
+top = tk.Frame(root, bg=<span class="st">&quot;#ef476f&quot;</span>, height=<span class="nu">50</span>)
+top.pack(side=<span class="st">&quot;top&quot;</span>, fill=<span class="st">&quot;x&quot;</span>)
+
+side = tk.Frame(root, bg=<span class="st">&quot;#06d6a0&quot;</span>, width=<span class="nu">160</span>)
+side.pack(side=<span class="st">&quot;left&quot;</span>, fill=<span class="st">&quot;y&quot;</span>)
+
+body = tk.Frame(root, bg=<span class="st">&quot;#118ab2&quot;</span>)
+body.pack(side=<span class="st">&quot;left&quot;</span>, fill=<span class="st">&quot;both&quot;</span>, expand=<span class="kw">True</span>)
+
+<span class="co"># Level 2 inside body: a &quot;row&quot; frame holding A and B, then C underneath</span>
+row = tk.Frame(body, bg=<span class="st">&quot;#118ab2&quot;</span>)
+row.pack(side=<span class="st">&quot;top&quot;</span>, fill=<span class="st">&quot;both&quot;</span>, expand=<span class="kw">True</span>)
+
+a = tk.Frame(row, bg=<span class="st">&quot;#ffd166&quot;</span>)
+b = tk.Frame(row, bg=<span class="st">&quot;#f4a261&quot;</span>)
+a.pack(side=<span class="st">&quot;left&quot;</span>, fill=<span class="st">&quot;both&quot;</span>, expand=<span class="kw">True</span>, padx=<span class="nu">6</span>, pady=<span class="nu">6</span>)
+b.pack(side=<span class="st">&quot;left&quot;</span>, fill=<span class="st">&quot;both&quot;</span>, expand=<span class="kw">True</span>, padx=<span class="nu">6</span>, pady=<span class="nu">6</span>)
+
+c = tk.Frame(body, bg=<span class="st">&quot;#e9c46a&quot;</span>, height=<span class="nu">120</span>)
+c.pack(side=<span class="st">&quot;top&quot;</span>, fill=<span class="st">&quot;both&quot;</span>, expand=<span class="kw">True</span>, padx=<span class="nu">6</span>, pady=<span class="nu">6</span>)
+
+tk.Label(top, text=<span class="st">&quot;TOP  (pack side=top, fill=x)&quot;</span>, bg=<span class="st">&quot;#ef476f&quot;</span>).pack(pady=<span class="nu">14</span>)
+tk.Label(side, text=<span class="st">&quot;SIDE\n(side=left, fill=y)&quot;</span>, bg=<span class="st">&quot;#06d6a0&quot;</span>).pack(padx=<span class="nu">10</span>, pady=<span class="nu">10</span>)
+tk.Label(a, text=<span class="st">&quot;A&quot;</span>, bg=<span class="st">&quot;#ffd166&quot;</span>).pack(expand=<span class="kw">True</span>)
+tk.Label(b, text=<span class="st">&quot;B&quot;</span>, bg=<span class="st">&quot;#f4a261&quot;</span>).pack(expand=<span class="kw">True</span>)
+tk.Label(c, text=<span class="st">&quot;C  (under A and B)&quot;</span>, bg=<span class="st">&quot;#e9c46a&quot;</span>).pack(expand=<span class="kw">True</span>)
+
+<span class="co"># A pack gotcha: the side panel has width=160 but its Label is small.</span>
+<span class="co"># A Frame SHRINKS to fit its children, so width=160 would be ignored!</span>
+<span class="co"># Fix:  side.pack_propagate(False)   (more on this in ex10)</span>
+side.pack_propagate(<span class="kw">False</span>)
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex05_pack_layout.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">2.3 &mdash; why you can't mix grid and pack in the same parent</span> <span class="cm">&nbsp;&nbsp;ex06_mixing_error.py</span></summary>
+<div class="detail-body">
+<p>Both managers try to decide the size of their parent. If the parent has widgets from <code>grid</code> and from <code>pack</code>, each one resizes the parent to suit itself, which triggers the other, which triggers... forever. So tkinter refuses with the error shown. (In some older cases it just froze the app.) The error message says exactly what's wrong: <i>"cannot use geometry manager pack inside . which already has slaves managed by grid"</i> &mdash; <code>.</code> is the main window.</p>
+<div class="pics"><figure><img src="images/ex06_mixing_error.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>This script catches the error so you can read it. Remove the try/except to see the real crash.</li><li>When you get this error, find the two lines with the same <i>parent</i> but different managers.</li></ul>
+<pre><span class="co"># ex06_mixing_error.py  -  WHAT GOES WRONG when you mix grid and pack in ONE parent</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex06 - mixing grid and pack (the mistake)&quot;</span>)
+root.geometry(<span class="st">&quot;520x220&quot;</span>)
+
+first = tk.Label(root, text=<span class="st">&quot;I used GRID <span class="kw">in</span> root&quot;</span>, bg=<span class="st">&quot;#06d6a0&quot;</span>)
+first.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>)
+
+second = tk.Label(root, text=<span class="st">&quot;I tried PACK <span class="kw">in</span> root&quot;</span>, bg=<span class="st">&quot;#ef476f&quot;</span>)
+msg = <span class="st">&quot;&quot;</span>
+<span class="kw">try</span>:
+    second.pack()          <span class="co"># &lt;-- same parent (root) already uses grid -&gt; ERROR</span>
+<span class="kw">except</span> tk.TclError <span class="kw">as</span> err:
+    msg = str(err)
+
+tk.Label(root, text=<span class="st">&quot;Python said:&quot;</span>, font=(<span class="st">&quot;TkDefaultFont&quot;</span>, <span class="nu">10</span>, <span class="st">&quot;bold&quot;</span>)).grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;w&quot;</span>, pady=(<span class="nu">20</span>, <span class="nu">0</span>))
+tk.Label(root, text=msg, fg=<span class="st">&quot;#b00020&quot;</span>, wraplength=<span class="nu">480</span>, justify=<span class="st">&quot;left&quot;</span>).grid(row=<span class="nu">2</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;w&quot;</span>)
+
+<span class="co"># (If tkinter did NOT raise an error you could get an endless &quot;freeze&quot;:</span>
+<span class="co">#  grid and pack keep resizing the window to please each other. Never mix.)</span>
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex06_mixing_error.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">2.4 &mdash; how to mix them safely: one manager per parent</span> <span class="cm">&nbsp;&nbsp;ex07_mixing_safely.py</span></summary>
+<div class="detail-body">
+<p>Put each group in its own Frame. The window uses <code>pack</code> for two big frames; the toolbar frame uses <code>pack</code> for buttons; the form frame uses <code>grid</code> for the labels and entries. Different parents &rarr; no conflict. You can nest as deep as you like.</p>
+<div class="pics"><figure><img src="images/ex07_mixing_safely.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>To check any widget: read its first argument. <code>ttk.Button(<b>toolbar</b>, ...).pack()</code> &rarr; parent is toolbar &rarr; toolbar's children must all use pack.</li><li>Try changing one toolbar button to <code>.grid(...)</code> and see the error from 2.3 appear.</li></ul>
+<pre><span class="co"># ex07_mixing_safely.py  -  the RIGHT way: each PARENT uses only ONE manager.</span>
+<span class="co">#   root          -&gt; uses pack   (top bar, then the rest)</span>
+<span class="co">#   toolbar frame -&gt; uses pack   (buttons in a row)</span>
+<span class="co">#   form frame    -&gt; uses grid   (labels + entries lined up)</span>
+<span class="co"># A different parent may use a different manager. Only one manager PER PARENT.</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+<span class="kw">from</span> tkinter <span class="kw">import</span> ttk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex07 - mixing safely&quot;</span>)
+root.geometry(<span class="st">&quot;520x300&quot;</span>)
+
+<span class="co"># ---- root: PACK only ----</span>
+toolbar = tk.Frame(root, bg=<span class="st">&quot;#ffd166&quot;</span>)
+toolbar.pack(side=<span class="st">&quot;top&quot;</span>, fill=<span class="st">&quot;x&quot;</span>)
+form = tk.Frame(root, bg=<span class="st">&quot;#d1e7dd&quot;</span>)
+form.pack(side=<span class="st">&quot;top&quot;</span>, fill=<span class="st">&quot;both&quot;</span>, expand=<span class="kw">True</span>)
+
+<span class="co"># ---- toolbar: PACK only (children of toolbar) ----</span>
+<span class="kw">for</span> name <span class="kw">in</span> (<span class="st">&quot;New&quot;</span>, <span class="st">&quot;Open&quot;</span>, <span class="st">&quot;Save&quot;</span>):
+    ttk.Button(toolbar, text=name).pack(side=<span class="st">&quot;left&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+ttk.Button(toolbar, text=<span class="st">&quot;Quit&quot;</span>, command=root.destroy).pack(side=<span class="st">&quot;right&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">4</span>)
+
+<span class="co"># ---- form: GRID only (children of form) ----</span>
+form.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)
+rows = [<span class="st">&quot;First name&quot;</span>, <span class="st">&quot;Last name&quot;</span>, <span class="st">&quot;Email&quot;</span>]
+<span class="kw">for</span> r, label <span class="kw">in</span> enumerate(rows):
+    tk.Label(form, text=label + <span class="st">&quot;:&quot;</span>, bg=<span class="st">&quot;#d1e7dd&quot;</span>).grid(row=r, column=<span class="nu">0</span>, sticky=<span class="st">&quot;e&quot;</span>, padx=<span class="nu">8</span>, pady=<span class="nu">6</span>)
+    ttk.Entry(form).grid(row=r, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=<span class="nu">8</span>, pady=<span class="nu">6</span>)
+
+<span class="co"># Rule of thumb: when you write  X.grid(...)  or  X.pack(...)  look at the FIRST</span>
+<span class="co"># word inside the brackets of X = Widget(PARENT, ...).  Every child of the same</span>
+<span class="co"># PARENT must use the same method.</span>
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex07_mixing_safely.py</code></div>
+</div></details><h2>3. DESIGN ON PAPER FIRST</h2>
+<div class="box">
+<div class="opt"><b>The 5-step method</b></div>
+<div class="sub">1. <b>Sketch</b> the window as boxes. Draw only the big regions first.</div>
+<div class="sub">2. <b>Draw grid lines</b> through the sketch. Count the rows and columns. A box that crosses several lines = <code>columnspan</code> / <code>rowspan</code>.</div>
+<div class="sub">3. <b>Decide what stretches</b>: mark each row and column "fixed" (weight 0) or "grows" (weight 1, 2 ...). The main work area grows; bars and sidebars usually don't.</div>
+<div class="sub">4. <b>Code the skeleton</b>: just coloured empty Frames (ex08). Check it looks like the sketch and stretches properly.</div>
+<div class="sub">5. <b>Fill each frame</b>: for every frame do steps 1&ndash;3 again, inside it (ex09). Frames inside frames, each with its own small grid.</div>
+</div>
+<pre class="ascii">   +--------------------------------------------+
+   |                  TOP BAR                   |   row 0 : columnspan=3
+   +----------+-----------------+---------------+
+   |          |                 |               |
+   |   LEFT   |     MIDDLE      |     RIGHT     |   row 1 : grows
+   |  (1/4)   |     (1/4)       |     (2/4)     |
+   +----------+-----------------+---------------+
+     col 0       col 1             col 2
+     weight 1    weight 1          weight 2      (uniform="cols" makes it exact)</pre>
+
+<details open>
+<summary><span class="one">3.1 &mdash; step 4: the skeleton, frames only</span> <span class="cm">&nbsp;&nbsp;ex08_paper_skeleton.py</span></summary>
+<div class="detail-body">
+<p>The sketch above, as code. The top bar spans all 3 columns (<code>columnspan=3</code>); the three panels sit in row 1. <code>uniform="cols"</code> on the columns makes them share width exactly 1 : 1 : 2 (otherwise weights only split the <i>extra</i> space, so bigger contents make a column wider than you meant).</p>
+<div class="pics"><figure><img src="images/ex08_paper_skeleton.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>Stretch the window: the top bar keeps its height, panels grow, widths stay 1/4, 1/4, 1/2.</li><li>Remove <code>uniform="cols"</code> and compare the widths.</li></ul>
+<pre><span class="co"># ex08_paper_skeleton.py  -  from a PAPER SKETCH to code, step 1: just the frames</span>
+<span class="co">#</span>
+<span class="co">#   +--------------------------------------------+</span>
+<span class="co">#   |                  TOP BAR                   |   row 0, spans all 3 columns</span>
+<span class="co">#   +----------+-----------------+---------------+</span>
+<span class="co">#   |          |                 |               |</span>
+<span class="co">#   |  LEFT    |    MIDDLE       |    RIGHT      |   row 1</span>
+<span class="co">#   |  (1/4)   |    (1/4)        |    (2/4)      |</span>
+<span class="co">#   +----------+-----------------+---------------+</span>
+<span class="co">#</span>
+<span class="co"># Count the rows and columns on your sketch -&gt; that is your grid.</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex08 - paper skeleton&quot;</span>)
+root.geometry(<span class="st">&quot;800x450&quot;</span>)
+
+<span class="co"># uniform=&quot;x&quot; makes columns share space in EXACT proportion to their weights</span>
+<span class="co"># (without it, weight only divides the EXTRA space, so widths can look uneven).</span>
+root.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>, uniform=<span class="st">&quot;cols&quot;</span>)   <span class="co"># 1 part  = 1/4</span>
+root.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>, uniform=<span class="st">&quot;cols&quot;</span>)   <span class="co"># 1 part  = 1/4</span>
+root.columnconfigure(<span class="nu">2</span>, weight=<span class="nu">2</span>, uniform=<span class="st">&quot;cols&quot;</span>)   <span class="co"># 2 parts = 2/4</span>
+root.rowconfigure(<span class="nu">0</span>, weight=<span class="nu">0</span>)                      <span class="co"># top bar keeps its height</span>
+root.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)                      <span class="co"># panels take the rest</span>
+
+topbar = tk.Frame(root, bg=<span class="st">&quot;#ef476f&quot;</span>, height=<span class="nu">60</span>)
+left = tk.Frame(root, bg=<span class="st">&quot;#06d6a0&quot;</span>)
+middle = tk.Frame(root, bg=<span class="st">&quot;#ffd166&quot;</span>)
+right = tk.Frame(root, bg=<span class="st">&quot;#118ab2&quot;</span>)
+
+topbar.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">3</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+left.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+middle.grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+right.grid(row=<span class="nu">1</span>, column=<span class="nu">2</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+
+<span class="kw">for</span> frame, name <span class="kw">in</span> ((topbar, <span class="st">&quot;TOP BAR&quot;</span>), (left, <span class="st">&quot;LEFT <span class="nu">1</span>/<span class="nu">4</span>&quot;</span>), (middle, <span class="st">&quot;MIDDLE <span class="nu">1</span>/<span class="nu">4</span>&quot;</span>), (right, <span class="st">&quot;RIGHT <span class="nu">2</span>/<span class="nu">4</span>&quot;</span>)):
+    tk.Label(frame, text=name, bg=frame[<span class="st">&quot;bg&quot;</span>], font=(<span class="st">&quot;TkDefaultFont&quot;</span>, <span class="nu">12</span>, <span class="st">&quot;bold&quot;</span>)).place(relx=<span class="nu">0</span>.<span class="nu">5</span>, rely=<span class="nu">0</span>.<span class="nu">5</span>, anchor=<span class="st">&quot;center&quot;</span>)
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex08_paper_skeleton.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">3.2 &mdash; step 5: controls in the panels, looking right when stretched</span> <span class="cm">&nbsp;&nbsp;ex09_paper_filled.py</span></summary>
+<div class="detail-body">
+<p>Each panel is its own little grid. Patterns used:<ul><li><b>Top bar</b>: title in column 0, an empty column with <code>weight=1</code> (a spring), buttons in columns 2 and 3 &rarr; buttons stay at the right edge.</li><li><b>Left</b>: one column, <code>weight=1</code>, buttons <code>sticky="ew"</code> &rarr; all the same width.</li><li><b>Middle</b>: labels <code>sticky="e"</code>, entries <code>sticky="ew"</code> &rarr; a tidy form.</li><li><b>Right</b>: the Treeview row has <code>weight=1</code> and the scrollbar sits beside it.</li></ul><b>Padding tip:</b> <code>padx</code>/<code>pady</code> go on <i>widgets</i> and are fixed pixel gaps, so they look the same at any window size. Use an asymmetric pair like <code>padx=(8, 4)</code> (left, right) so gaps between neighbouring panels don't double up.</p>
+<div class="pics"><figure><img src="images/ex09_paper_filled.png" alt="as opened (820x460)"><figcaption>as opened (820x460)</figcaption></figure><figure><img src="images/ex09_paper_filled_2.png" alt="stretched bigger"><figcaption>stretched bigger</figcaption></figure><figure><img src="images/ex09_paper_filled_3.png" alt="shrunk to the minsize"><figcaption>shrunk to the minsize</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>Compare the three pictures: the gaps stay the same, only the table grows.</li><li>Drag the window as small as it will go: <code>root.minsize(600, 320)</code> stops it before things get squashed.</li></ul>
+<pre><span class="co"># ex09_paper_filled.py  -  paper sketch step 2: controls inside each panel, stretch-friendly</span>
+<span class="co">#   Try it: drag the window bigger and smaller.  Notice what grows and what doesn&#x27;t.</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+<span class="kw">from</span> tkinter <span class="kw">import</span> ttk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex09 - paper design, filled <span class="kw">in</span>&quot;</span>)
+root.geometry(<span class="st">&quot;820x460&quot;</span>)
+root.minsize(<span class="nu">600</span>, <span class="nu">320</span>)                        <span class="co"># can&#x27;t shrink below this (see ex12)</span>
+
+root.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>, uniform=<span class="st">&quot;cols&quot;</span>)
+root.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>, uniform=<span class="st">&quot;cols&quot;</span>)
+root.columnconfigure(<span class="nu">2</span>, weight=<span class="nu">2</span>, uniform=<span class="st">&quot;cols&quot;</span>)
+root.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)
+
+<span class="co"># ---------------- the 4 panels ----------------</span>
+topbar = tk.Frame(root, bg=<span class="st">&quot;#ef476f&quot;</span>)
+left = tk.Frame(root, bg=<span class="st">&quot;#d9f7ee&quot;</span>)
+middle = tk.Frame(root, bg=<span class="st">&quot;#fff3cd&quot;</span>)
+right = tk.Frame(root, bg=<span class="st">&quot;#d6ebf5&quot;</span>)
+topbar.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">3</span>, sticky=<span class="st">&quot;ew&quot;</span>)
+left.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=(<span class="nu">8</span>, <span class="nu">4</span>), pady=<span class="nu">8</span>)
+middle.grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">4</span>, pady=<span class="nu">8</span>)
+right.grid(row=<span class="nu">1</span>, column=<span class="nu">2</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=(<span class="nu">4</span>, <span class="nu">8</span>), pady=<span class="nu">8</span>)
+
+<span class="co"># ---------------- TOP BAR: title on the left, buttons on the right ----------------</span>
+topbar.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)           <span class="co"># the empty middle column soaks up the stretch</span>
+tk.Label(topbar, text=<span class="st">&quot;My App&quot;</span>, bg=<span class="st">&quot;#ef476f&quot;</span>, fg=<span class="st">&quot;white&quot;</span>,
+         font=(<span class="st">&quot;TkDefaultFont&quot;</span>, <span class="nu">14</span>, <span class="st">&quot;bold&quot;</span>)).grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, padx=<span class="nu">12</span>, pady=<span class="nu">10</span>)
+ttk.Button(topbar, text=<span class="st">&quot;Help&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">2</span>, padx=<span class="nu">4</span>, pady=<span class="nu">10</span>)
+ttk.Button(topbar, text=<span class="st">&quot;Quit&quot;</span>, command=root.destroy).grid(row=<span class="nu">0</span>, column=<span class="nu">3</span>, padx=(<span class="nu">4</span>, <span class="nu">12</span>), pady=<span class="nu">10</span>)
+
+<span class="co"># ---------------- LEFT: a column of buttons, all the same width ----------------</span>
+left.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)             <span class="co"># one column, buttons fill its width</span>
+tk.Label(left, text=<span class="st">&quot;Actions&quot;</span>, bg=<span class="st">&quot;#d9f7ee&quot;</span>, font=(<span class="st">&quot;TkDefaultFont&quot;</span>, <span class="nu">11</span>, <span class="st">&quot;bold&quot;</span>)).grid(
+    row=<span class="nu">0</span>, column=<span class="nu">0</span>, pady=(<span class="nu">10</span>, <span class="nu">4</span>))
+<span class="kw">for</span> i, name <span class="kw">in</span> enumerate([<span class="st">&quot;Open&quot;</span>, <span class="st">&quot;Save&quot;</span>, <span class="st">&quot;Export&quot;</span>, <span class="st">&quot;Settings&quot;</span>], start=<span class="nu">1</span>):
+    ttk.Button(left, text=name).grid(row=i, column=<span class="nu">0</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=<span class="nu">10</span>, pady=<span class="nu">4</span>)
+
+<span class="co"># ---------------- MIDDLE: a small form (labels + entries) ----------------</span>
+middle.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)
+tk.Label(middle, text=<span class="st">&quot;Details&quot;</span>, bg=<span class="st">&quot;#fff3cd&quot;</span>, font=(<span class="st">&quot;TkDefaultFont&quot;</span>, <span class="nu">11</span>, <span class="st">&quot;bold&quot;</span>)).grid(
+    row=<span class="nu">0</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">2</span>, pady=(<span class="nu">10</span>, <span class="nu">4</span>))
+<span class="kw">for</span> i, name <span class="kw">in</span> enumerate([<span class="st">&quot;Name&quot;</span>, <span class="st">&quot;City&quot;</span>, <span class="st">&quot;Phone&quot;</span>], start=<span class="nu">1</span>):
+    tk.Label(middle, text=name + <span class="st">&quot;:&quot;</span>, bg=<span class="st">&quot;#fff3cd&quot;</span>).grid(row=i, column=<span class="nu">0</span>, sticky=<span class="st">&quot;e&quot;</span>, padx=(<span class="nu">10</span>, <span class="nu">4</span>), pady=<span class="nu">5</span>)
+    ttk.Entry(middle).grid(row=i, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=(<span class="nu">4</span>, <span class="nu">10</span>), pady=<span class="nu">5</span>)
+size = ttk.Combobox(middle, values=[<span class="st">&quot;Small&quot;</span>, <span class="st">&quot;Medium&quot;</span>, <span class="st">&quot;Large&quot;</span>], state=<span class="st">&quot;readonly&quot;</span>)
+size.current(<span class="nu">0</span>)
+size.grid(
+    row=<span class="nu">4</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ew&quot;</span>, padx=(<span class="nu">4</span>, <span class="nu">10</span>), pady=<span class="nu">5</span>)
+tk.Label(middle, text=<span class="st">&quot;Size:&quot;</span>, bg=<span class="st">&quot;#fff3cd&quot;</span>).grid(row=<span class="nu">4</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;e&quot;</span>, padx=(<span class="nu">10</span>, <span class="nu">4</span>))
+
+<span class="co"># ---------------- RIGHT: a big list that takes all the room ----------------</span>
+right.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+right.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)               <span class="co"># row 1 (the table) is the one that grows</span>
+tk.Label(right, text=<span class="st">&quot;Results&quot;</span>, bg=<span class="st">&quot;#d6ebf5&quot;</span>, font=(<span class="st">&quot;TkDefaultFont&quot;</span>, <span class="nu">11</span>, <span class="st">&quot;bold&quot;</span>)).grid(
+    row=<span class="nu">0</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">2</span>, pady=(<span class="nu">10</span>, <span class="nu">4</span>))
+tree = ttk.Treeview(right, columns=(<span class="st">&quot;a&quot;</span>, <span class="st">&quot;b&quot;</span>), show=<span class="st">&quot;headings&quot;</span>)
+tree.heading(<span class="st">&quot;a&quot;</span>, text=<span class="st">&quot;Name&quot;</span>)
+tree.heading(<span class="st">&quot;b&quot;</span>, text=<span class="st">&quot;Value&quot;</span>)
+<span class="kw">for</span> n <span class="kw">in</span> range(<span class="nu">40</span>):
+    tree.insert(<span class="st">&quot;&quot;</span>, <span class="st">&quot;end&quot;</span>, values=(f<span class="st">&quot;row {n}&quot;</span>, n * <span class="nu">7</span>))
+sb = ttk.Scrollbar(right, orient=<span class="st">&quot;vertical&quot;</span>, command=tree.yview)
+tree.configure(yscrollcommand=sb.set)
+tree.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=(<span class="nu">10</span>, <span class="nu">0</span>), pady=(<span class="nu">0</span>, <span class="nu">10</span>))
+sb.grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ns&quot;</span>, padx=(<span class="nu">0</span>, <span class="nu">10</span>), pady=(<span class="nu">0</span>, <span class="nu">10</span>))
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex09_paper_filled.py</code></div>
+</div></details><h2>4. SIZES, CHOPPING AND SHRINKING</h2>
+<div class="box">
+<div class="opt"><b>Where does the window's size come from?</b></div>
+<div class="sub">&bull; If you call <code>root.geometry("800x600")</code>, that is the size. Done.</div>
+<div class="sub">&bull; If you don't, the window is <b>exactly big enough for its contents</b>. Same for every Frame: a frame shrink-wraps its children. This is called <i>propagation</i>.</div>
+<div class="sub">&bull; <code>Frame(width=300, height=100)</code> is therefore <b>ignored</b> if the frame has children (or uses grid/pack inside). To force a size: <code>frame.pack_propagate(False)</code> (if its children use pack) or <code>frame.grid_propagate(False)</code> (if they use grid).</div>
+<div class="sub">&bull; Once a frame has a forced size, anything that doesn't fit is <b>cut off silently</b> &mdash; no error.</div>
+</div>
+
+<details open>
+<summary><span class="one">4.1 &mdash; size to fit &mdash; and propagate on/off</span> <span class="cm">&nbsp;&nbsp;ex10_size_to_fit.py</span></summary>
+<div class="detail-body">
+<p>Three frames all <i>asked</i> for a size. The red one has propagation on (default) and ignores the request. The green one and the yellow one turn it off and obey. <code>winfo_reqwidth()</code> / <code>winfo_reqheight()</code> tell you what size the window wants (printed in the terminal).</p>
+<div class="pics"><figure><img src="images/ex10_size_to_fit.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>Which method? Look at how the frame's <i>children</i> are placed: pack &rarr; <code>pack_propagate(False)</code>, grid &rarr; <code>grid_propagate(False)</code>.</li><li>Add <code>root.geometry("900x500")</code> before <code>mainloop()</code>: now the window size is yours, not the contents'.</li></ul>
+<pre><span class="co"># ex10_size_to_fit.py  -  how big is a window / frame if you DON&#x27;T set a size?</span>
+<span class="co">#   Answer: exactly big enough for its contents.  Frames SHRINK-WRAP their children.</span>
+<span class="co">#   (called &quot;propagation&quot;).  Turn it off with pack_propagate(False) / grid_propagate(False).</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex10 - size to fit  (no root.geometry() call!)&quot;</span>)
+
+<span class="co"># LEFT: a frame asks for width=300,height=120 but has a small label in it</span>
+<span class="co"># and propagation is ON (default) -&gt; frame IGNORES 300x120, shrink-wraps the label.</span>
+f1 = tk.Frame(root, bg=<span class="st">&quot;#ef476f&quot;</span>, width=<span class="nu">300</span>, height=<span class="nu">120</span>)
+f1.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, padx=<span class="nu">10</span>, pady=<span class="nu">10</span>)
+tk.Label(f1, text=<span class="st">&quot;propagate ON (default)\nwidth/height ignored&quot;</span>).pack()
+
+<span class="co"># RIGHT: same, but propagation OFF -&gt; frame obeys width/height.</span>
+f2 = tk.Frame(root, bg=<span class="st">&quot;#06d6a0&quot;</span>, width=<span class="nu">300</span>, height=<span class="nu">120</span>)
+f2.grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, padx=<span class="nu">10</span>, pady=<span class="nu">10</span>)
+f2.pack_propagate(<span class="kw">False</span>)          <span class="co"># f2&#x27;s children use pack -&gt; pack_propagate(False)</span>
+tk.Label(f2, text=<span class="st">&quot;propagate OFF\nsize is 300x120&quot;</span>).pack()
+
+<span class="co"># BOTTOM: a frame whose children use GRID needs grid_propagate(False) instead.</span>
+f3 = tk.Frame(root, bg=<span class="st">&quot;#ffd166&quot;</span>, width=<span class="nu">620</span>, height=<span class="nu">60</span>)
+f3.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">2</span>, padx=<span class="nu">10</span>, pady=(<span class="nu">0</span>, <span class="nu">10</span>))
+f3.grid_propagate(<span class="kw">False</span>)          <span class="co"># f3&#x27;s children use grid -&gt; grid_propagate(False)</span>
+tk.Label(f3, text=<span class="st">&quot;grid_propagate(<span class="kw">False</span>): size is 620x60&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, padx=<span class="nu">10</span>, pady=<span class="nu">10</span>)
+
+<span class="co"># Ask what size the window wants:</span>
+root.update_idletasks()
+print(<span class="st">&quot;window wants&quot;</span>, root.winfo_reqwidth(), <span class="st">&quot;x&quot;</span>, root.winfo_reqheight())
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex10_size_to_fit.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">4.2 &mdash; too many controls &rarr; chopped &rarr; scroll</span> <span class="cm">&nbsp;&nbsp;ex11_chopped.py</span></summary>
+<div class="detail-body">
+<p>Left: a fixed-size frame holds 12 buttons but only 7 fit, so Button 8&ndash;12 are invisible. Same thing happens when you shrink a window below what the contents need, or pack too many things in a fixed area. Right: the standard fix &mdash; put the controls in a Frame inside a Canvas, add a scrollbar. (Listbox, Treeview and Text already have scrolling built in: just attach a Scrollbar like in 1.3.)</p>
+<div class="pics"><figure><img src="images/ex11_chopped.png" alt="what it looks like"><figcaption>what it looks like</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li>Other fixes: make the window bigger, use fewer/smaller widgets, put things in columns instead of one tall stack, or use <code>ttk.Notebook</code> tabs.</li><li>Change <code>height=200</code> to <code>height=400</code> in the left frame: all 12 fit.</li></ul>
+<pre><span class="co"># ex11_chopped.py  -  TOO MANY CONTROLS: what gets chopped, and the fix</span>
+<span class="co">#   LEFT  window area: a fixed-size frame (propagate OFF) with 12 buttons -&gt; bottom ones CUT OFF.</span>
+<span class="co">#   RIGHT window area: same 12 buttons, but in a scrollable Canvas -&gt; scrollbar appears.</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+<span class="kw">from</span> tkinter <span class="kw">import</span> ttk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex11 - chopped content&quot;</span>)
+root.geometry(<span class="st">&quot;640x300&quot;</span>)
+root.columnconfigure((<span class="nu">0</span>, <span class="nu">1</span>), weight=<span class="nu">1</span>, uniform=<span class="st">&quot;c&quot;</span>)
+root.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)
+
+tk.Label(root, text=<span class="st">&quot;CHOPPED  (fixed frame, <span class="nu">12</span> buttons)&quot;</span>, fg=<span class="st">&quot;#b00020&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, pady=<span class="nu">4</span>)
+tk.Label(root, text=<span class="st">&quot;FIXED with a scrollable canvas&quot;</span>, fg=<span class="st">&quot;#007a3d&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, pady=<span class="nu">4</span>)
+
+<span class="co"># ---------- LEFT: the chopped one ----------</span>
+chopped = tk.Frame(root, bg=<span class="st">&quot;#ef476f&quot;</span>, width=<span class="nu">280</span>, height=<span class="nu">200</span>)
+chopped.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;n&quot;</span>, padx=<span class="nu">10</span>, pady=<span class="nu">4</span>)
+chopped.grid_propagate(<span class="kw">False</span>)             <span class="co"># frame stays 280x200 no matter what&#x27;s inside</span>
+<span class="kw">for</span> i <span class="kw">in</span> range(<span class="nu">12</span>):
+    ttk.Button(chopped, text=f<span class="st">&quot;Button {i + <span class="nu">1</span>}&quot;</span>).grid(row=i, column=<span class="nu">0</span>, padx=<span class="nu">6</span>, pady=<span class="nu">2</span>)
+<span class="co"># Buttons that don&#x27;t fit are simply NOT SHOWN. No error, no warning.</span>
+
+<span class="co"># ---------- RIGHT: the scrollable one ----------</span>
+holder = tk.Frame(root)
+holder.grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">10</span>, pady=<span class="nu">4</span>)
+holder.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+holder.rowconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+
+canvas = tk.Canvas(holder, bg=<span class="st">&quot;#d1e7dd&quot;</span>, highlightthickness=<span class="nu">0</span>)
+bar = ttk.Scrollbar(holder, orient=<span class="st">&quot;vertical&quot;</span>, command=canvas.yview)
+canvas.configure(yscrollcommand=bar.set)
+canvas.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>)
+bar.grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;ns&quot;</span>)
+
+inner = tk.Frame(canvas, bg=<span class="st">&quot;#d1e7dd&quot;</span>)                   <span class="co"># put your widgets in THIS frame</span>
+canvas.create_window((<span class="nu">0</span>, <span class="nu">0</span>), window=inner, anchor=<span class="st">&quot;nw&quot;</span>)
+<span class="kw">for</span> i <span class="kw">in</span> range(<span class="nu">12</span>):
+    ttk.Button(inner, text=f<span class="st">&quot;Button {i + <span class="nu">1</span>}&quot;</span>).grid(row=i, column=<span class="nu">0</span>, padx=<span class="nu">6</span>, pady=<span class="nu">2</span>)
+<span class="co"># tell the canvas how big the inner frame really is, so it knows how far to scroll</span>
+inner.bind(<span class="st">&quot;&lt;Configure&gt;&quot;</span>, <span class="kw">lambda</span> e: canvas.configure(scrollregion=canvas.bbox(<span class="st">&quot;all&quot;</span>)))
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex11_chopped.py</code></div>
+</div></details>
+<details>
+<summary><span class="one">4.3 &mdash; shrinking the window: minsize, sticky, weights</span> <span class="cm">&nbsp;&nbsp;ex12_shrink.py</span></summary>
+<div class="detail-body">
+<p>When the window gets smaller than the contents want, tkinter squeezes the <i>growable</i> parts first (rows/columns with weight &gt; 0 that are <code>sticky</code>). Fixed parts (weight 0, with <code>minsize</code>) hold their size. Whatever still can't fit gets chopped from the bottom/right. So: give the main content area the weight, and set <code>root.minsize()</code> to a size where nothing important is cut.</p>
+<div class="pics"><figure><img src="images/ex12_shrink.png" alt="as opened (640x340)"><figcaption>as opened (640x340)</figcaption></figure><figure><img src="images/ex12_shrink_2.png" alt="at the minsize 420x240"><figcaption>at the minsize 420x240</figcaption></figure><figure><img src="images/ex12_shrink_3.png" alt="dragged bigger"><figcaption>dragged bigger</figcaption></figure></div>
+<div class="opt-h">Try this (run it, then change it):</div>
+<ul><li><code>root.minsize(w, h)</code> = smallest allowed; <code>root.maxsize(w, h)</code> = biggest; <code>root.resizable(False, False)</code> = locked.</li><li>Comment out the <code>minsize</code> line and drag very small: the buttons at the bottom get cut off.</li><li>A widget with no <code>sticky</code> never stretches, even in a weight=1 cell.</li></ul>
+<pre><span class="co"># ex12_shrink.py  -  SHRINKING the window: what survives?  (minsize, sticky, weights)</span>
+<span class="co">#   Drag the window smaller and watch.  Then try removing the minsize line.</span>
+<span class="kw">import</span> tkinter <span class="kw">as</span> tk
+<span class="kw">from</span> tkinter <span class="kw">import</span> ttk
+
+root = tk.Tk()
+root.title(<span class="st">&quot;ex12 - shrinking&quot;</span>)
+root.geometry(<span class="st">&quot;640x340&quot;</span>)
+root.minsize(<span class="nu">420</span>, <span class="nu">240</span>)          <span class="co"># the user can&#x27;t drag smaller than this. (maxsize() also exists)</span>
+<span class="co"># root.resizable(False, False)  # or: forbid resizing completely</span>
+
+root.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">0</span>, minsize=<span class="nu">140</span>)   <span class="co"># sidebar: never narrower than 140</span>
+root.columnconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)                <span class="co"># content: absorbs all size changes</span>
+root.rowconfigure(<span class="nu">1</span>, weight=<span class="nu">1</span>)
+
+top = tk.Frame(root, bg=<span class="st">&quot;#ef476f&quot;</span>, height=<span class="nu">40</span>)
+top.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, columnspan=<span class="nu">2</span>, sticky=<span class="st">&quot;ew&quot;</span>)
+tk.Label(top, text=<span class="st">&quot;sticky=&#x27;ew&#x27;: stretches sideways only&quot;</span>, bg=<span class="st">&quot;#ef476f&quot;</span>).pack(pady=<span class="nu">8</span>)
+
+side = tk.Frame(root, bg=<span class="st">&quot;#06d6a0&quot;</span>)
+side.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;ns&quot;</span>)           <span class="co"># sticky ns: tall but NOT wide</span>
+tk.Label(side, text=<span class="st">&quot;minsize=<span class="nu">140</span>\nweight=<span class="nu">0</span>&quot;</span>, bg=<span class="st">&quot;#06d6a0&quot;</span>).pack(padx=<span class="nu">10</span>, pady=<span class="nu">10</span>)
+
+content = tk.Frame(root, bg=<span class="st">&quot;#118ab2&quot;</span>)
+content.grid(row=<span class="nu">1</span>, column=<span class="nu">1</span>, sticky=<span class="st">&quot;nsew&quot;</span>)      <span class="co"># nsew: fills the whole cell</span>
+content.columnconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+content.rowconfigure(<span class="nu">0</span>, weight=<span class="nu">1</span>)
+
+<span class="co"># the Text box is the part that absorbs the shrink</span>
+txt = tk.Text(content, wrap=<span class="st">&quot;word&quot;</span>)
+txt.insert(<span class="st">&quot;<span class="nu">1</span>.<span class="nu">0</span>&quot;</span>, <span class="st">&quot;This Text widget is sticky=&#x27;nsew&#x27; <span class="kw">in</span> a weight=<span class="nu">1</span> row/column,\n&quot;</span>
+                  <span class="st">&quot;so it grows and shrinks with the window.\n\n&quot;</span>
+                  <span class="st">&quot;The buttons below keep their size: they have no sticky and the\n&quot;</span>
+                  <span class="st">&quot;row they live <span class="kw">in</span> has weight=<span class="nu">0</span>.&quot;</span>)
+txt.grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;nsew&quot;</span>, padx=<span class="nu">8</span>, pady=<span class="nu">8</span>)
+
+btns = tk.Frame(content, bg=<span class="st">&quot;#118ab2&quot;</span>)
+btns.grid(row=<span class="nu">1</span>, column=<span class="nu">0</span>, sticky=<span class="st">&quot;e&quot;</span>, padx=<span class="nu">8</span>, pady=(<span class="nu">0</span>, <span class="nu">8</span>))
+ttk.Button(btns, text=<span class="st">&quot;OK&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">0</span>, padx=<span class="nu">4</span>)
+ttk.Button(btns, text=<span class="st">&quot;Cancel&quot;</span>).grid(row=<span class="nu">0</span>, column=<span class="nu">1</span>, padx=<span class="nu">4</span>)
+
+root.mainloop()
+</pre>
+<div class="run">Run it:&nbsp; <code>python ex12_shrink.py</code></div>
+</div></details>
+<h2>CHEAT SHEET</h2>
+<div class="box">
+<div class="opt"><code>parent.columnconfigure(0, weight=1, minsize=100, uniform="grp")</code> &nbsp;&nbsp;<span class="cm"># same for rowconfigure</span></div>
+<div class="opt"><code>w.grid(row=0, column=0, rowspan=1, columnspan=1, sticky="nsew", padx=4, pady=4, ipadx=0, ipady=0)</code></div>
+<div class="opt"><code>w.pack(side="top|bottom|left|right", fill="x|y|both", expand=True, anchor="n|ne|e|se|s|sw|w|nw|center", padx=, pady=)</code></div>
+<div class="opt"><code>frame.grid_propagate(False)</code> / <code>frame.pack_propagate(False)</code> &nbsp;<span class="cm"># keep the frame's own width/height</span></div>
+<div class="opt"><code>root.geometry("800x600")</code> &nbsp; <code>root.minsize(w, h)</code> &nbsp; <code>root.maxsize(w, h)</code> &nbsp; <code>root.resizable(False, False)</code></div>
+<div class="opt"><b>Stretchy cell recipe:</b> <code>weight=1</code> on its row/column + <code>sticky="nsew"</code> on the widget. Need BOTH.</div>
+<div class="opt"><b>Rule:</b> one manager per parent. Different parents can differ.</div>
+<div class="opt"><b>Debug tip:</b> give frames <code>bg="red"</code>, <code>bg="blue"</code> ... while building. Remove later.</div>
+<div class="opt"><b>Mac note:</b> <code>tk.Button</code> ignores <code>bg</code> on macOS &mdash; use <code>ttk.Button</code> (as here) and colour the Frames/Labels.</div>
+</div>
+
+</body></html>

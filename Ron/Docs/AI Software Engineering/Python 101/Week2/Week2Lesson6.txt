@@ -1,0 +1,205 @@
+Welcome to your next lesson: Working with text.
+
+
+I'm preparing your personalized lesson based on what you've learned, what's ahead, and how to help you build even more skills.
+
+
+Step by step, you’re moving forward.
+
+
+
+
+
+
+
+
+Imagine we’re writing a little Python program that talks about your favorite band 🎵
+
+
+Example:
+
+Python
+band = "Metallica"
+message = "is playing tonight!"
+print(band + message)
+Python is working with text here, not numbers. In programming, we call this kind of thing a data type.
+
+
+
+Data type = a category of data (like text, number, True/False) that decides what you can do with it.
+
+
+
+So "Metallica" is text, and text belongs to the string data type.
+
+Quick check before we go on:
+
+
+Does this idea of “data type = category of data that decides what you can do with it” make sense so far, or should I rephrase it a bit?
+
+makes tota sense used to integers floats boolean strings with c
+
+Nice, that background will help a lot 👌
+
+
+In Python, that text data type is called a string. You make a string by putting text inside quotes:
+
+Python
+"Hello"
+'Python'
+"Metallica"
+Single quotes ' ' or double quotes " " both work the same for strings in Python.
+
+Quick step:
+
+
+Can you tell me (just in words): if you write "Hello" in Python, is that a string or something else?
+
+its in quotes so it should be a string
+
+Exactly right — in quotes ⇒ it’s a string 🎯
+
+
+Now let’s use that with variables and the + operator.
+
+
+In Python, + between strings means: glue the text together (this is called concatenation).
+
+
+Example:
+
+Python
+first = "Metallica"
+second = " rocks"
+print(first + second)
+This takes the text in first and the text in second and sticks them together into one longer string.
+
+Quick mental check (no code editor yet):
+
+
+Without running it, what do you think print(first + second) will show on the screen in that example?
+
+Metallica rocks
+
+Exactly: Metallica rocks 🎸
+
+
+Now let’s make two strings and glue them ourselves.
+
+
+Remember:
+
+
+Put text in quotes → string
+Use + between strings → join them with no extra spaces added automatically
+
+For example:
+
+Python
+artist = "Metallica"
+song = "Nothing Else Matters"
+print(artist + " - " + song)
+Step by step, Python builds one big string from pieces:
+
+
+"Metallica"
+" - "
+"Nothing Else Matters"
+Your turn (in the code editor, not in chat):
+
+
+Make a variable for an artist name (string in quotes).
+Make a variable for a song title (string in quotes).
+Use print(...) with + to show something like: Artist - Song
+Run it, then Submit code.
+
+After you submit, I’ll help you predict and read the output together 👍
+
+Python
+artist = "Ozzy Osbourne"
+song = "Over The Mountain"
+print(artist + " - " + song)
+Love it 🎸
+
+
+Your code:
+
+Python
+artist = "Ozzy Osbourne"
+song = "Over The Mountain"
+print(artist + " - " + song)
+Output:
+
+Text
+Ozzy Osbourne - Over The Mountain
+This shows you’ve got:
+
+
+string variables ✅
+concatenation with + ✅
+predicting printed output ✅
+One more tiny thing to lock in the idea of + as the “text glue”:
+
+
+Which operator in Python joins two pieces of text (strings) together?
+
+
+I’ll put this as a quick multiple-choice question next — ready to answer that?
+
+yes
+
+What do you think? 👇
+
+Which operator in Python glues two strings together (concatenates them)?
+
+
+A.
+*
+
+
+B.
++
+
+
+C.
+-
+
+Correct — + is the string glue in Python 🎉
+
+
+When both sides are strings, + concatenates them:
+"Ozzy" + " Osbourne"  # → "Ozzy Osbourne"
+Python does not add spaces for you, so you did the right thing by including " - " in quotes.
+
+You’ve hit all the goals for this lesson:
+
+
+You know what a data type is.
+You can create string variables with quotes.
+You can combine strings with +.
+You can predict print output from string code.
+Do you feel ready to wrap up this lesson and move to the next one, or would you like one more quick practice with strings first?
+
+im fine with moving ahead
+
+Nice work today, Ron 🎯
+
+
+Quick recap of what you just mastered:
+
+
+A data type is a category of data (like text) that decides what you can do with it.
+Text in Python is a string, and you create it by putting characters in single or double quotes.
+The + operator between strings glues text together (concatenation).
+You can predict what print(...) will show by mentally joining the string pieces.
+
+Your Ozzy example was spot on:
+
+Python
+artist = "Ozzy Osbourne"
+song = "Over The Mountain"
+print(artist + " - " + song)
+You’re all set to move ahead 🚀
+
+When you’re ready, go to the next lesson in the Learn tab, and I’ll keep building on this with you.
+

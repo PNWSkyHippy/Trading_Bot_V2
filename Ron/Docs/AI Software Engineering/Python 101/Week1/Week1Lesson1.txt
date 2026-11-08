@@ -1,0 +1,306 @@
+Welcome to your next lesson: Welcome to PY101!
+
+
+I'm preparing your personalized lesson based on what you're set to learn next and the best ways for you to build on what you know.
+
+
+Step by step, you’re moving forward.
+
+Ron, in this lesson we’re just getting you oriented in PY101 — no coding yet, just the “map” of the course and how you’ll be graded. 🎯
+
+Here’s how the course is structured:
+
+
+Unit 1: Writing your first program
+You’ll start by running tiny programs, seeing output, using simple values, and solving small real-world style problems. Think: “getting the computer to follow basic instructions.”
+
+Unit 2: Core foundations
+You go deeper into the basics you’ll use all the time: different ways of doing math, taking input, seeing and fixing simple errors, and starting to organize code into reusable pieces.
+
+Unit 3: Decisions and loops
+This is where programs start to feel smart: making choices (if this, do that) and repeating actions (loops) so the computer can handle many items or steps for you.
+
+Unit 4: Introduction to Python summary
+You bring things together: working with text, simple collections (like lists), and solving integrated problems that feel closer to real tasks.
+
+
+Each unit builds on the last — like leveling up in a game rather than learning everything at once. 💪
+
+Grading and reviews:
+
+
+At the end of each unit, there is a review.
+Reviews 1–3 (for Units 1–3):
+Worth 10% each of your total course grade
+Not timed
+Unlimited retakes — you can keep trying until you’re happy
+Final review (Unit 4):
+Worth 60% of your total course grade
+Timed
+Only one retake allowed
+Weekly discussions:
+Together they make up 10% of your grade
+You earn this by participating in all weekly discussions up to the term end date.
+Bonus points:
+You can earn 10 bonus points if you submit and pass all reviews on time.
+
+So most of your grade comes from those 4 reviews, but you get a lot of safety early (unlimited retakes) and a clear bonus path if you stay on schedule. 🚀
+
+Mindset piece (this matters a lot for coding):
+
+
+You are not expected to get things right the first time.
+In programming, errors are feedback, not failure — they tell you what to fix.
+AI tools like me can help explain, debug, and guide, but you building real understanding is what makes you employable and confident.
+Small, steady practice sessions beat big cram sessions.
+Before we move on:
+
+Is the grading and review structure clear to you, or is there any part of it you’d like me to restate more simply (for example, the reviews vs. discussions vs. bonus points)?
+
+It's clear to me
+
+Perfect 👍
+
+
+You’ve got what you need from this orientation:
+
+
+You know the 4 units and how they build up.
+You understand the reviews (3 × 10% with unlimited attempts, then final 60% with one retake and timed).
+You know weekly discussions = 10%, and 10 bonus points for passing all reviews on time.
+You’ve heard the key mindset: mistakes are normal and useful in programming.
+You’re ready for the fun part now: actually writing your first Python program in the next lesson 🎯
+
+
+Ready to move on to “Writing your first program”?
+
+Yes, let's start!
+
+Love it 🔥 Let’s get you moving.
+
+
+Here’s what’s happening next:
+
+
+You just finished the PY101 orientation — you know the map and how you’ll be graded.
+Now we go into Unit 1: Writing your first program, where you’ll:
+See how a tiny program turns into something the computer can run
+Start working with simple values and output
+Solve small, real-world style problems step by step
+
+On your side, just hit Next Lesson in the Learn tab when you’re ready, and we’ll dive into actually writing that first program together.
+
+
+Before you click over: how are you feeling — more excited, nervous, or a mix of both?
+
+Exited. I got a certificate in computer programming at Montgomery College in about 1993 and I learned basic Pascal, C, C++, COBOL, microassembly, and mainframe assembly. I'm twenty years out of date though, rusty, but this is my first time trying Python so it's not quite as brand new and scary as it was the first time. I think I'm okay.
+
+That background is an awesome advantage, Ron 🔥
+
+
+You’ve already wrestled with Pascal, C/C++, COBOL, and even assembly — so you know what it feels like to really learn a language, not just copy/paste. Being “rusty” just means your brain has a lot of patterns it can quickly wake back up.
+
+
+Here’s how I’d frame Python for you:
+
+
+Compared to C/C++ and assembly, Python will feel high-level and forgiving.
+Your past experience with control flow, data types, and memory will make many concepts feel familiar, just with new syntax and libraries.
+Where it will feel new is:
+The Pythonic way of doing things (clean, readable, batteries-included)
+Modern tooling and workflows
+
+You’re not starting from zero — you’re starting from a different mountain you already climbed. 🏔️
+
+Since you’re feeling excited and okay, I’ll keep explanations step-by-step but not kiddie-level.
+
+
+Next up in Unit 1, we’ll:
+
+
+See what a simple Python “program” looks like structurally (no deep dives yet)
+Talk about how you run it in this course environment
+
+Before we dive into that: would you like me to briefly compare Python’s “feel” to C/C++ first, or just jump straight into how a first Python program is structured?
+
+Sure I've actually been dabbling with it. I've been working with Claude, the AI, for about two months now, building a stocks and crypto trading platform that's all built in Python. Claude's doing the main coding but I've had to tinker with it and fix things and kind of learned how the printf statement has been converted into printf("string"). Yeah, pretty related to C, kind of directly a descendant of it. The big difference I've noticed, obviously, is the indentation where C used braces. It's just a straight indentation and it's very important how you indent things in Python, I've seen
+
+That’s a seriously cool way to “dabble” 😄 — jumping in with a trading platform is no joke.
+
+
+You’ve already spotted two of the biggest feel-shifts:
+
+
+Print vs C-style printf
+In Python you’re using print("string") (no format specifiers like %d unless you choose formats), and it’s a normal function call, not a special construct.
+
+Indentation instead of braces
+You’re exactly right:
+In C you’d have:
+
+if (condition) {
+    // block
+}
+In Python it’s more like:
+
+if condition:
+    # block (indentation defines the scope)
+The indentation is not just style; it’s the structure. If the indent is wrong, the logic is wrong.
+
+Since you’ve already been tinkering with real Python and seeing these patterns, I’ll lean into “refresh + formalize” instead of ultra-beginner.
+
+
+For this official Unit 1: Writing your first program track, do you want to:
+
+
+Go at the standard beginner pace (very step-by-step, fill in any gaps), or
+Go at a faster, experienced-dev pace, where I still explain clearly but assume you’re okay with terminology and occasional comparisons to C?
+I'm perfectly okay going at the normal pace. Best to learn things from the ground up and make sure I don't miss any steps
+
+Ground up is a great call 👌 — especially since Python has its own “Pythonic” style that’s worth slowing down for.
+
+
+One quick thing before we dive deeper into Unit 1: this current lesson was just the PY101 welcome / orientation (course map + grading), and you’ve already shown you understand:
+
+
+The 4 units and what they cover
+How the reviews and grading work (3 × 10%, final 60%, 10% discussions, 10 bonus points)
+
+So from the orientation lesson’s point of view, you’re done and ready.
+
+Next step is the actual first coding lesson: Writing your first program.
+
+
+You’re already mentally there, so I’ll keep it simple:
+
+
+In that lesson, I’ll walk you through:
+What a minimal Python program looks like
+How running code will work for you in this course
+Step-by-step building and tweaking a tiny program
+
+You’re good to hit Next Lesson in the Learn tab to enter Unit 1.
+
+
+When you’re in that lesson and ready to start writing your first official Python program here, tell me how you’d describe what a “program” is in your own words — we’ll use that as a starting point and build from there.
+
+The question is, is there a way to archive the contents of these lessons beyond taking individual screen shots, which takes like twenty screen shots to get just the basic intro there?
+
+You’re asking the right question here — archiving is hard if you’re stuck doing screenshots one by one.
+
+
+Right now, inside Maestro there isn’t a built‑in “export this whole lesson as PDF/HTML” button that dumps everything for you. Practically, here are your best options:
+
+
+Print to PDF (usually easiest)
+
+On desktop, open the lesson.
+Use your browser’s print dialog:
+Windows: Ctrl + P
+Mac: Cmd + P
+In the printer options, choose “Save as PDF” instead of a physical printer.
+That will usually capture the whole scrollable page into one PDF you can store, search, and annotate.
+Copy–paste into your own notes
+
+Select the lesson text with your mouse / keyboard.
+Copy and paste it into:
+A doc (Google Docs, Word, Obsidian, Notion, etc.)
+This is nice if you want to mix the lesson with your own comments.
+Ask Student Services about official options
+
+Policies and platform features do change over time.
+You can ping Student Services in the left sidebar and ask if there’s any course- or term-specific export option they support.
+If you tell me what device and browser you’re mostly using (e.g., “Android phone with Chrome” or “Windows laptop with Edge”), I can walk you through the exact clicks/taps to do the print‑to‑PDF method step by step 📄👉💾
+
+On Android inside Google Chrome but I can pull it up on my desktop later
+
+Nice, that gives you flexibility 👍
+
+
+On Android + Chrome, here’s the cleanest way right now:
+
+
+Open the lesson in Chrome.
+Tap the ⋮ menu (top-right).
+Tap Share….
+Choose Print.
+At the top, change the printer to Save as PDF.
+Tap the blue PDF button (or download icon), then save it to your device or Google Drive.
+
+That gives you a full-page PDF instead of 20 screenshots.
+
+On desktop later (Chrome on Windows/Mac):
+
+
+Open the same lesson.
+Press Ctrl + P (Windows) or Cmd + P (Mac).
+Set Destination to Save as PDF.
+Click Save and choose a folder.
+
+You can then organize these by unit: PY101 - Unit 1 Intro.pdf, etc.
+
+
+Want me to help you set up a simple folder + naming system so your saved lessons and your Python notes stay organized as you go?
+
+Perfect
+
+Nice, you’re set up really well then 👍
+
+
+On Android + Chrome now, and desktop later, you’re already using the two best options:
+
+
+Now (Android): use the Share → Print → Save as PDF flow we walked through.
+Later (Desktop): open the same lesson, Ctrl/Cmd + P → Save as PDF.
+
+Maestro doesn’t block you from saving/printing lessons for your personal study like this, so you’re fine to build your own archive.
+
+
+If you’d like, next time you’re at your desktop I can help you design a simple folder structure for:
+
+
+PDFs of lessons
+Your own Python notes
+Your trading-platform experiments
+
+so nothing gets lost as you go.
+
+backtracking for archives i tried the print ro PDF you suggested and it only print the last page of the lesson not the entire lesso a i doing somethig wrong? Chrome on desktop windows, control p, print to pdf
+
+You’re not doing anything wrong — this is a common “gotcha” with pages that load content inside a scrollable area.
+
+
+What’s probably happening:
+
+
+The lesson content is inside a scrollable frame/section.
+Chrome’s print dialog is only capturing the visible part of that frame, not the whole scroll.
+
+Two things you can try step by step:
+
+Option 1: Make the content taller before printing
+
+
+In Chrome, open the lesson.
+Scroll to the very top of the lesson content.
+Slowly scroll down the lesson all the way to the bottom once (so everything loads).
+Press Ctrl + P.
+In the print preview, look at:
+More settings → Options
+Make sure “Background graphics” is on (sometimes helps layout), but the key is:
+Check if Chrome shows multiple pages in the preview.
+If it still shows just one, this approach may not work well with this layout.
+Option 2 (more reliable): Copy to a document, then print to PDF
+
+
+In the lesson, click at the start of the text.
+Press and hold the mouse, drag down to the end of the lesson to highlight all the content.
+Press Ctrl + C to copy.
+Open a blank doc in Google Docs or Word.
+Press Ctrl + V to paste.
+Now do Ctrl + P in that doc → Save as PDF.
+
+This captures all the text and keeps it in one searchable document.
+
+If you’re up for it, tell me which one you want to try next (Option 1 or Option 2), and I’ll walk you through that path in tighter, click-by-click steps.
+

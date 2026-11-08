@@ -1,0 +1,503 @@
+Welcome to your next lesson: Modeling real-world calculations.
+
+
+I'm getting your personalized lesson ready—based on what you've learned, what's coming next, and the best way for you to learn it.
+
+Step by step, you’re moving forward.
+
+
+
+
+
+
+
+
+
+
+
+Imagine you’re buying concert tickets 🎵
+
+
+Ticket price: 35 dollars
+You buy 2 tickets
+There’s a 10 dollar service fee added to the whole order
+
+We want to model this as a two-step calculation in Python.
+
+
+One clear way to think:
+
+
+1️⃣ First, cost of tickets: 35 * 2
+
+2️⃣ Then, add the fee: + 10
+
+
+So the full math expression (no code yet) is:
+
+
+
+(35 * 2) + 10
+
+
+Does that expression match the story in the same order you would naturally think about it?
+
+Reply with just: yes or no, and then we’ll turn it into Python step by step.
+
+that nakes senese
+
+Nice 👍
+
+
+Let’s now turn that same idea into Python.
+
+
+We’ll have Python both do the math and show the answer at once, using print():
+
+
+
+print((35 * 2) + 10)
+
+
+
+Step by step what this says is:
+
+
+multiply 35 by 2
+then add 10
+then print the result
+Your turn in the editor ✍️
+
+
+Open the code editor for this lesson.
+Type exactly:
+print((35 * 2) + 10)
+Click Run (you don’t need to Submit yet).
+
+Run it, look at the number it shows, and then tell me:
+
+did the output match what you expected?
+
+yes exctly , 80 , (35 * 2) + 10 , ((70) + 10 , 80
+
+Love how you broke that down: 35 * 2 = 70, then 70 + 10 = 80 ✅
+
+That’s exactly the kind of step‑by‑step thinking we want.
+
+Let’s shift to another tiny story, same idea, two steps:
+
+
+You’re buying snacks 🍿
+
+
+Each snack costs 4 dollars
+You buy 3 snacks
+Then you use a 2 dollar coupon (so you subtract 2 from the total)
+
+First do the total snack cost, then subtract the coupon.
+
+
+So as math (not code yet), which feels more natural to you:
+
+
+(4 * 3) - 2
+or
+4 * (3 - 2)
+
+You don’t have to explain — just tell me which one matches the story better:
+
+(4 * 3) - 2 or 4 * (3 - 2)?
+
+(4 * 3) - 2
+
+Exactly 🎯
+
+
+Story in order:
+
+
+Total snacks: 4 * 3
+Then subtract coupon: - 2
+So (4 * 3) - 2 matches the story clearly.
+
+The other one, 4 * (3 - 2), would mean “you somehow only pay for 1 snack,” which is not what our story said.
+
+Now let’s turn your choice into Python:
+
+
+In the editor, write and run:
+
+Python
+print((4 * 3) - 2)
+Don’t submit yet, just Run it.
+
+What number do you see as the output?
+
+10
+
+Perfect ✅
+
+
+You just:
+
+
+read a story
+turned it into a two-step math expression
+ran it in Python using print()
+and checked the result (10) step by step
+
+That’s exactly the skill this lesson is about 🎯
+
+Next mini-step: parentheses and clarity.
+
+
+Sometimes two expressions give the same answer, but one feels clearer.
+
+
+Look at these two:
+
+
+print(35 * 2 + 10)
+print((35 * 2) + 10)
+
+They both follow the same math rules and give 80.
+
+But one makes the “first tickets, then fee” story easier to see.
+
+
+Which one do you think is clearer to read, 1 or 2? Just answer: 1 or 2.
+
+2
+
+Nice call 🎯 I agree — print((35 * 2) + 10) makes the story “first tickets, then fee” much easier to see.
+
+
+So you’ve now done:
+
+
+Turn story → math expression
+Put expression inside print()
+Used parentheses to make the order super clear
+Let’s try a new story where you build the expression from scratch 😈 (still just two steps):
+
+
+You’re at a game store 🕹️
+
+
+Each game costs 18 dollars
+You buy 3 games
+There’s a 5 dollar discount on the whole purchase (subtract 5 at the end)
+
+Step-by-step in math (not code yet):
+
+
+Total games cost = 18 * 3
+Then apply discount = subtract 5
+
+So the full expression should look like:
+
+
+
+(something) - 5
+
+
+
+What should go in place of something to match the story?
+
+Just type the expression, like you did before (for example: 18 * 3).
+
+(18 * 3) is what goes in something
+
+Exactly right ✅
+
+
+So the full math expression for the story is:
+
+
+
+(18 * 3) - 5
+
+
+
+Step by step:
+
+
+18 * 3 → total price of the 3 games
+- 5 → apply the discount
+Now let’s turn that into Python.
+
+
+In the code editor, write and Run this:
+
+Python
+print((18 * 3) - 5)
+Don’t Submit yet, just Run it.
+
+Then tell me: what number do you see as the output?
+
+51
+
+Nice work, Ron 🎯
+
+
+You:
+
+
+Read the story
+Built (18 * 3) - 5
+Ran it in Python and got 51 ✅
+
+So you’ve now practiced:
+
+
+Turning word problems into two-step expressions
+Doing the math inside print()
+Using parentheses to make the story order clear
+Before we move toward wrapping this lesson, I want to check one more thing: choosing the clearest expression.
+
+
+I’ll show you a quick multiple-choice question next, where you pick which Python line best matches a tiny story.
+
+
+Ready for a short one-question check? Just say yes or no.
+
+yes
+
+What do you think? Pick the option that matches the story best 👇
+
+You’re buying museum tickets 🖼️
+
+Each ticket costs 12 dollars
+You buy 4 tickets
+There is a 3 dollar fee added to the whole order
+Which Python line best matches this story? (math done inside print())
+
+
+A.
+python
+print(12 * 4 + 3)
+
+B.
+python
+print(12 * (4 + 3))
+
+C.
+python
+print((12 + 4) * 3)
+
+D.
+python
+print(12 * 4) + 3
+Good try on that one, Ron — this is a subtle difference 👍
+
+
+The story was:
+
+
+Each ticket: 12
+You buy: 4
+Fee added to the whole order: +3
+
+So in math steps:
+
+
+Ticket total: 12 * 4
+Then add the fee: + 3
+
+The Python line that does both steps inside print() is:
+
+Python
+print(12 * 4 + 3)
+Python first does 12 * 4 (because * comes before +), gets 48, then adds 3, so the result is 51, and print(...) shows 51.
+
+The one you chose:
+
+Python
+print(12 * 4) + 3
+print(12 * 4) prints 48
+then Python tries to do + 3 outside of print(), which doesn’t make sense there and will cause an error.
+
+So the key idea:
+
+➡️ All the math should live inside the parentheses of print( ... ).
+
+Want to try one more quick story like this so you can nail it?
+
+yes i didnt notice the missing ) shoot me another one please
+
+What do you think on this one, Ron? Pick the line that best matches the story 👕👇
+
+You’re ordering custom T-shirts 👕
+
+Each shirt costs 15 dollars
+You order 3 shirts
+There is a 7 dollar shipping fee added to the whole order
+Which Python line best matches this story? (do all the math inside print())
+
+
+A.
+python
+print(15 * 3 + 7)
+
+B.
+python
+print(15) * 3 + 7
+
+C.
+python
+print(15 * (3 + 7))
+
+D.
+python
+print((15 + 3) * 7)
+Nice, Ron — you nailed that one 🎯
+
+
+Your choice:
+
+Python
+print(15 * 3 + 7)
+matches the story step by step:
+
+
+15 * 3 → cost of 3 shirts
++ 7 → add the shipping fee
+All of it is inside print(...), so Python does the math first, then shows the final total.
+
+And you avoided the trap of putting print(15) by itself or adding numbers in the wrong order — that’s solid.
+
+Want to do one more from-scratch story where you write the code in the editor, or would you rather move on to the next lesson topic?
+
+sure
+
+Cool 😄 Let’s do one more, but this time you’ll write the code in the editor.
+
+
+Story 🧺
+
+
+Laundry costs 2.5 dollars per load
+You do 5 loads
+There is a 4 dollar extra charge added to the whole bill
+
+Step-by-step in math first:
+
+
+Cost for all loads: 2.5 * 5
+Then add the extra charge: + 4
+
+So the full math expression should be:
+
+
+
+(2.5 * 5) + 4
+
+
+Now in the code editor, write and Run a line that:
+
+
+uses print(...)
+does all the math inside print()
+matches that expression
+
+Example shape (don’t copy this, just the shape):
+
+print( MATH_EXPRESSION_HERE )
+
+
+Go ahead and Run it (no need to Submit yet), then tell me what number you get.
+
+16.5
+
+Nice job, Ron — 16.5 is exactly right 🎯
+
+
+You just:
+
+
+Turned the story into math: (2.5 * 5) + 4
+Put all the math inside print(...)
+Got the correct result: 16.5
+
+You’re clearly getting the hang of:
+
+
+translating short stories into two-step expressions
+doing arithmetic directly inside print()
+choosing clear, story-matching formulas
+Want to push this one small step further with a new mini-story, or do you feel ready to start wrapping up this lesson and move on to the next one?
+
+we can do one more
+
+Awesome, let’s do one more 💪
+
+
+New story 🎟️
+
+
+A movie ticket costs 9 dollars
+You buy 3 tickets
+You also buy popcorn for 6 dollars (one big bucket, just once)
+
+Think it through in math steps first:
+
+
+Ticket total → 9 * 3
+Then add popcorn → + 6
+
+So the full expression should look like:
+
+
+
+(9 * 3) + 6
+
+
+Now your turn in the code editor:
+
+
+Write a single line of Python using print(...) that does this whole calculation inside print.
+Click Run (no need to Submit yet).
+Then tell me: what number did your program print?
+33
+
+Exactly right again ✅
+
+
+Your thinking:
+
+
+Tickets: 9 * 3 = 27
+Add popcorn: 27 + 6 = 33
+
+And your code did that math inside print(...) and showed 33. That’s the full “story → math → Python” loop working nicely 🎯
+
+At this point you’ve shown you can:
+
+
+translate two-step word problems into expressions
+do the arithmetic directly inside print()
+choose expressions that clearly match the story
+
+I’d say you’ve mastered this lesson.
+
+Are you ready to wrap up this lesson and move on to the next one, or do you want one more challenge just for extra practice?
+
+ready to move on
+
+Nice work today, Ron 🎯
+
+
+You:
+
+
+Took real-world stories (tickets, snacks, games, laundry, movies) and turned them into two-step math expressions
+Put those expressions directly inside print() so Python did the math and showed the result
+Chose the clearer version when different expressions meant the same thing, especially with parentheses
+
+These skills are the foundation for writing small real-world programs that actually help you calculate things.
+
+
+When you’re ready, you can hit Next Lesson in the Learn tab, and we’ll keep building from here step by step.
+
+If anything from this lesson feels fuzzy later, just tell me what you want to revisit and we’ll walk it slowly together.
+

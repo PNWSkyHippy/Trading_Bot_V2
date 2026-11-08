@@ -1,0 +1,170 @@
+
+Writing your first program
+
+Mon, Jun 1
+
+Welcome to your next lesson: Writing your first program.
+
+
+I'm getting your personalized lesson ready—using what you've learned so far, what’s coming up next, and the best way to help everything stick.
+
+
+Step by step, you’re moving forward.
+
+
+
+
+
+
+
+Ron, this is where you write your very first real Python program 🎯
+
+
+Think of the Maestro Code Editor as your workbench or artist’s canvas for code: it’s where you type, run, and see what your Python code does.
+
+
+To open it in this lesson, look for the </> button on your screen and click it. That should open the editor with a place to type and an area where the output will show.
+
+Can you tell me once you’ve found and opened the editor with the </> button? Then we’ll put your first line of Python on that canvas.
+
+I found the editor
+
+Nice work getting there, Ron 🎉
+
+Now we’ll write your very first Python program.
+
+
+Step 1: In the editor’s typing area, delete anything that’s there.
+
+Step 2: Type exactly this line in the editor (don’t type it in chat):
+
+Python
+print('Hello World')
+When you’ve typed it into the editor, don’t run it yet—just tell me “done” and we’ll talk about what this line is doing before you hit Run.
+
+Perfect 👌
+
+
+The line you typed uses print(). In simple terms:
+
+
+
+print() tells Python: “show this message on the screen.”
+
+
+
+The text you want to show goes inside the parentheses, wrapped in quotes:
+
+'Hello World' is just a piece of text.
+
+Next step:
+
+
+In the editor, click the Run button (not Submit yet).
+Look at the output/console area.
+
+You should see:
+
+Text
+Hello World
+(without the quotes)
+
+
+Run it now, then tell me what you see in the output area.
+
+Python
+print('Hello World')
+Ron, you just ran your first Python program 🎉🔥 That’s a real milestone.
+
+
+You told Python: “show the message Hello World on the screen,” and the console did exactly that.
+
+
+Quick reflection question (no right/wrong vibe, just thinking):
+
+
+Why do you think so many programmers start with a tiny program like Hello World instead of something bigger—what’s your guess?
+
+I also just learned something about Python. It is case-sensitive. I had print with a capital P and got an error. The print was undefined. I had to come back and review and realized it's lowercase only
+
+Exactly right — great catch 👍
+
+
+Python is case-sensitive, so:
+
+
+print('Hello World') → works ✅
+Print('Hello World') or PRINT('Hello World') → Python thinks this is something completely different and says it’s not defined ❌
+
+You just did something very “real programmer”: you hit an error, read it, thought about it, and fixed it. That’s the core loop of coding 👌
+
+Want to do one tiny variation to lock this in?
+
+
+In the editor, change your line to:
+
+Python
+print('Hello Ron')
+Then:
+
+
+Click Run
+If it looks good, click Submit code
+
+Don’t paste the code here—just run and submit it, and I’ll check it.
+
+Python
+print('Hello Ron')
+What do you think? 👉 Choose your answer in the question box above.
+
+When you want to try your code locally first in the Maestro Code Editor, which button should you click first?
+
+
+A.
+Run
+
+
+B.
+Run & Submit
+
+You nailed it, Ron 🎯
+
+
+Run is exactly the right choice:
+
+
+Run 👉 lets you test your code yourself, see the output, and fix anything before anyone else sees it.
+Run & Submit 👉 is for when you’re happy with the result and want to submit it for review.
+
+You’ve now:
+
+
+Opened the Maestro Code Editor
+Written and run print('Hello World')
+Tweaked it to print('Hello Ron')
+Used Run vs Run & Submit correctly
+
+That’s everything for this lesson’s goals ✅
+
+Before we wrap this lesson:
+
+Do you feel ready to move on to the next lesson, or would you like to do one more quick practice with print() first?
+
+I'm ready to move on
+
+Nice work, Ron — that was a clean first win 🎉
+
+
+In this lesson you:
+
+
+Opened the Maestro Code Editor using the </> button
+Wrote and ran print('Hello World') and then customized it to print('Hello Ron')
+Saw how Run lets you test code, and Run & Submit sends it in when you’re happy
+Discovered on your own that Python is case-sensitive (print ≠ Print) 💡
+
+You’ve got the basics of writing and running a Python program down.
+
+
+When you’re ready, go ahead and hit Next Lesson in the Learn tab, and we’ll build on this together.
+

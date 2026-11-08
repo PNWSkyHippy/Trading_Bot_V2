@@ -1,0 +1,2761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Python Master Reference Guide (101 • 102 • 103 • 104)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 24px 32px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    h1 {
+      color: #569cd6;
+      border-bottom: 2px solid #569cd6;
+      padding-bottom: 8px;
+      margin-bottom: 4px;
+      font-size: 1.5em;
+    }
+    .intro {
+      color: #808080;
+      font-size: 0.85em;
+      margin-bottom: 28px;
+    }
+    h2 {
+      color: #4ec9b0;
+      margin: 28px 0 8px 0;
+      border-left: 4px solid #4ec9b0;
+      padding-left: 10px;
+      font-size: 1.05em;
+      letter-spacing: 0.03em;
+    }
+    details {
+      margin: 3px 0;
+    }
+    summary {
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 3px;
+      list-style: none;
+      display: flex;
+      align-items: baseline;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: '+';
+      color: #569cd6;
+      font-weight: bold;
+      margin-right: 8px;
+      min-width: 10px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    details[open] > summary::before { content: '\2212'; }
+    summary:hover { background: #2a2a2a; }
+    .one { color: #ce9178; }
+    .cm  { color: #6a9955; }
+    .detail-body {
+      margin: 5px 0 9px 22px;
+      border-left: 2px solid #3c3c3c;
+      padding-left: 14px;
+    }
+    .opt {
+      margin: 5px 0;
+      color: #9cdcfe;
+    }
+    .opt::before { content: '\2022  '; color: #569cd6; }
+    .sub {
+      margin: 4px 0 4px 18px;
+      color: #9cdcfe;
+    }
+    .sub::before { content: '\25e6  '; color: #569cd6; }
+    code { color: #ce9178; font-family: inherit; }
+    pre {
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      padding: 9px 14px;
+      margin: 8px 0 4px 0;
+      overflow-x: auto;
+      font-size: 0.92em;
+      color: #d4d4d4;
+      tab-size: 4;
+    }
+    .kw  { color: #569cd6; }
+    .fn  { color: #dcdcaa; }
+    .st  { color: #ce9178; }
+    .co  { color: #6a9955; }
+    .nu  { color: #b5cea8; }
+    .warn {
+      color: #f14c4c;
+      font-size: 0.88em;
+      margin: 5px 0;
+    }
+    .warn::before { content: '\26a0  '; }
+  
+    /* Navigation Bar, Quick Filter & Section Jump Chips */
+    .controls-panel {
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 6px;
+    }
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    #quick-search {
+      flex: 1;
+      padding: 7px 12px;
+      background: #1e1e1e;
+      border: 1px solid #4ec9b0;
+      border-radius: 4px;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.95em;
+      outline: none;
+    }
+    #quick-search:focus {
+      border-color: #569cd6;
+      box-shadow: 0 0 6px rgba(86, 156, 214, 0.4);
+    }
+    .ctrl-btn {
+      background: #333333;
+      color: #d4d4d4;
+      border: 1px solid #474747;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85em;
+      transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: #444444; color: #ffffff; }
+    .nav-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .nav-label {
+      color: #808080;
+      font-size: 0.82em;
+      margin-right: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .nav-link {
+      color: #9cdcfe;
+      text-decoration: none;
+      font-size: 0.82em;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .nav-link:hover {
+      background: #094771;
+      color: #ffffff;
+      border-color: #569cd6;
+    }
+    .nav-link.oop {
+      background: #193327;
+      color: #4ec9b0;
+      border-color: #2e7d62;
+      font-weight: bold;
+    }
+    .nav-link.oop:hover {
+      background: #135d46;
+      color: #ffffff;
+      border-color: #4ec9b0;
+    }
+    .nav-link.oop-traps {
+      background: #3d1a1a;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+      font-weight: bold;
+    }
+    .nav-link.oop-traps:hover {
+      background: #7f1d1d;
+      color: #ffffff;
+    }
+    .back-top {
+      display: inline-block;
+      margin-top: 14px;
+      font-size: 0.8em;
+      color: #569cd6;
+      text-decoration: none;
+    }
+    .back-top:hover { text-decoration: underline; }
+
+  </style>
+</head>
+<body>
+
+<h1>&#x1F40D; Python Master Reference Guide &#8212; Foundations &amp; Object-Oriented Programming (101 &bull; 102 &bull; 103 &bull; 104)</h1>
+<p class="intro">Click <span style="color:#569cd6;font-weight:bold">+</span> on any entry to expand options, descriptions, and examples &nbsp;|&nbsp; Covers Python 101 + 104 + 102 + 103 (Complete OOP Master Reference) &nbsp;|&nbsp; Updated October 2026</p>
+
+<div class="controls-panel">
+  <div class="search-row">
+    <input type="text" id="quick-search" placeholder="🔍 Quick Search Reference (e.g. self, super, Point3d, __dict__, pnl, aliasing, property)..." oninput="filterDetails(this.value)">
+    <button class="ctrl-btn" onclick="toggleAll(true)">➕ Expand All</button>
+    <button class="ctrl-btn" onclick="toggleAll(false)">➖ Collapse All</button>
+  </div>
+  <div class="nav-chips">
+    <span class="nav-label">Foundations:</span>
+    <a href="#sec-io" class="nav-link">I/O</a>
+    <a href="#sec-vars" class="nav-link">Variables</a>
+    <a href="#sec-math" class="nav-link">Math</a>
+    <a href="#sec-errors" class="nav-link">Errors</a>
+    <a href="#sec-functions" class="nav-link">Functions</a>
+    <a href="#sec-control-flow" class="nav-link">Control Flow</a>
+    <a href="#sec-loops" class="nav-link">Loops</a>
+    <a href="#sec-strings" class="nav-link">Strings</a>
+    <a href="#sec-lists" class="nav-link">Lists</a>
+    <a href="#sec-stacks-queues" class="nav-link">Stacks &amp; Queues</a>
+    <a href="#sec-big-o" class="nav-link">Big O</a>
+    <a href="#sec-searching" class="nav-link">Searching</a>
+    <a href="#sec-sorting" class="nav-link">Sorting</a>
+    <a href="#sec-dicts-sets" class="nav-link">Dicts &amp; Sets</a>
+    <a href="#sec-nested-data" class="nav-link">Nested Data</a>
+    <a href="#sec-exceptions" class="nav-link">Exceptions</a>
+    <a href="#sec-modules" class="nav-link">Modules</a>
+    <a href="#sec-file-io" class="nav-link">File I/O</a>
+    <a href="#sec-func-design" class="nav-link">Design</a>
+    <a href="#sec-testing" class="nav-link">Testing</a>
+    <a href="#sec-comprehensions" class="nav-link">Comprehensions</a>
+  </div>
+  <div class="nav-chips" style="margin-top: 8px;">
+    <span class="nav-label" style="color: #4ec9b0;">Python 103 (OOP):</span>
+    <a href="#sec-oop-classes" class="nav-link oop">🏛️ Classes &amp; Instances</a>
+    <a href="#sec-oop-constructors" class="nav-link oop">🪄 Constructors &amp; self</a>
+    <a href="#sec-oop-class-attributes" class="nav-link oop">🎛️ Class vs Instance Attrs</a>
+    <a href="#sec-oop-relationships" class="nav-link oop">🔗 Relationships (1:1 &amp; 1:N)</a>
+    <a href="#sec-oop-pillars" class="nav-link oop">🛡️ 4 Pillars &amp; 3D Graphics</a>
+    <a href="#sec-oop-traps" class="nav-link oop-traps">⚠️ OOP Traps &amp; Anti-Patterns</a>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-io">&#x1F4E4; Output &amp; Input</h2>
+
+<details>
+<summary><span class="one">print(value)</span>&nbsp; <span class="cm"># outputs value(s) to the screen</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>print("hello", "world")</code> &mdash; multiple args separated by space by default</div>
+  <div class="opt"><code>print("a", "b", sep="-")</code> &mdash; custom separator &rarr; <code>a-b</code></div>
+  <div class="opt"><code>print("loading", end="...")</code> &mdash; custom ending (default is newline <code>\n</code>)</div>
+  <div class="opt"><code>print("ha" * 3)</code> &mdash; string repetition &rarr; <code>hahaha</code></div>
+  <div class="opt"><code>print("Hi " + name)</code> &mdash; concatenate with <code>+</code></div>
+  <pre><span class="fn">print</span>(<span class="st">"Name:"</span>, name, <span class="st">"Score:"</span>, score)
+<span class="fn">print</span>(<span class="st">"done"</span>, end=<span class="st">""</span>)  <span class="co"># no newline at end</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">input("prompt")</span>&nbsp; <span class="cm"># reads a line from the user — ALWAYS returns a string</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>name = input("Enter your name: ")</code> &mdash; stores result in variable</div>
+  <div class="opt"><code>age = int(input("Age: "))</code> &mdash; convert to int immediately</div>
+  <div class="opt"><code>price = float(input("Price: "))</code> &mdash; convert to float</div>
+  <div class="warn">input() ALWAYS returns a string &mdash; wrap in int() or float() for numbers</div>
+  <pre>name = <span class="fn">input</span>(<span class="st">"Your name: "</span>)
+age  = <span class="kw">int</span>(<span class="fn">input</span>(<span class="st">"Your age: "</span>))</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-vars">&#x1F4E6; Variables &amp; Data Types</h2>
+
+<details>
+<summary><span class="one">variable = value</span>&nbsp; <span class="cm"># stores a value; use snake_case names</span></summary>
+<div class="detail-body">
+  <div class="opt">Names: letters, digits, underscores &mdash; cannot start with a digit</div>
+  <div class="opt">Convention: <code>my_score</code>, <code>player_name</code>, <code>is_active</code></div>
+  <div class="opt"><code>=</code> is assignment;&nbsp; <code>==</code> is comparison &mdash; never mix them</div>
+  <div class="opt">Re-assigning overwrites the old value</div>
+  <pre>score  = <span class="nu">0</span>        <span class="co"># int</span>
+price  = <span class="nu">9.99</span>     <span class="co"># float</span>
+name   = <span class="st">"Ron"</span>    <span class="co"># str</span>
+active = <span class="kw">True</span>     <span class="co"># bool</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">str &nbsp; int &nbsp; float &nbsp; bool</span>&nbsp; <span class="cm"># the four basic data types</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>str</code> &mdash; text in quotes: <code>"hello"</code>, <code>'world'</code></div>
+  <div class="opt"><code>int</code> &mdash; whole number: <code>42</code>, <code>-7</code>, <code>0</code></div>
+  <div class="opt"><code>float</code> &mdash; decimal number: <code>3.14</code>, <code>-0.5</code></div>
+  <div class="opt"><code>bool</code> &mdash; <code>True</code> or <code>False</code> (capitalized; storable like any variable)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">type(value)</span>&nbsp; <span class="cm"># returns the data type of a value — useful for debugging</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>type(42)</code> &rarr; <code>&lt;class 'int'&gt;</code></div>
+  <div class="opt"><code>type("hi")</code> &rarr; <code>&lt;class 'str'&gt;</code></div>
+  <div class="opt"><code>type(3.14)</code> &rarr; <code>&lt;class 'float'&gt;</code></div>
+  <div class="opt"><code>type(True)</code> &rarr; <code>&lt;class 'bool'&gt;</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">int(x) &nbsp; float(x) &nbsp; str(x)</span>&nbsp; <span class="cm"># type conversion functions</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>int("42")</code> &rarr; <code>42</code> &mdash; string to integer</div>
+  <div class="opt"><code>float("3.14")</code> &rarr; <code>3.14</code> &mdash; string to float</div>
+  <div class="opt"><code>str(100)</code> &rarr; <code>"100"</code> &mdash; number to string (required before string concatenation)</div>
+  <div class="opt"><code>int(9.9)</code> &rarr; <code>9</code> &mdash; truncates, does NOT round</div>
+  <div class="warn">int("hello") raises ValueError &mdash; only works on valid numeric strings</div>
+  <pre>age = <span class="fn">int</span>(<span class="fn">input</span>(<span class="st">"Age: "</span>))
+msg = <span class="st">"Score: "</span> + <span class="fn">str</span>(score)  <span class="co"># must convert to concat</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-math">&#x2795; Arithmetic &amp; Math</h2>
+
+<details>
+<summary><span class="one">+&nbsp; -&nbsp; *&nbsp; /&nbsp; //&nbsp; %&nbsp; **</span>&nbsp; <span class="cm"># arithmetic operators</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>+</code> addition: <code>5 + 3</code> &rarr; <code>8</code></div>
+  <div class="opt"><code>-</code> subtraction: <code>10 - 4</code> &rarr; <code>6</code></div>
+  <div class="opt"><code>*</code> multiplication: <code>3 * 4</code> &rarr; <code>12</code></div>
+  <div class="opt"><code>/</code> division (always float): <code>7 / 2</code> &rarr; <code>3.5</code></div>
+  <div class="opt"><code>//</code> floor division (drops decimal): <code>7 // 2</code> &rarr; <code>3</code></div>
+  <div class="opt"><code>%</code> modulo (remainder): <code>7 % 3</code> &rarr; <code>1</code></div>
+  <div class="opt"><code>**</code> exponent (power): <code>2 ** 8</code> &rarr; <code>256</code></div>
+  <div class="warn"><code>number % 2 == 0</code> checks EVEN;&nbsp; <code>number % 2</code> alone is truthy for ODD numbers</div>
+  <pre>result = <span class="nu">10</span> / <span class="nu">3</span>    <span class="co"># 3.333...  (float)</span>
+result = <span class="nu">10</span> // <span class="nu">3</span>   <span class="co"># 3         (floor)</span>
+result = <span class="nu">10</span> % <span class="nu">3</span>    <span class="co"># 1         (remainder)</span>
+result = <span class="nu">2</span> ** <span class="nu">10</span>   <span class="co"># 1024      (power)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">round(number, digits)</span>&nbsp; <span class="cm"># rounds number to N decimal places</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>round(3.14159, 2)</code> &rarr; <code>3.14</code></div>
+  <div class="opt"><code>round(3.7)</code> &rarr; <code>4</code> &mdash; rounds to nearest integer when no digits given</div>
+  <div class="opt"><code>round(2.5)</code> &rarr; <code>2</code> &mdash; Python uses banker's rounding (rounds to even)</div>
+  <pre>price = <span class="fn">round</span>(total / qty, <span class="nu">2</span>)  <span class="co"># 2 decimal places</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">f"{variable}"</span>&nbsp; <span class="cm"># f-string: embed variables/expressions directly in a string</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>f"Hello, {name}!"</code> &mdash; embed any variable</div>
+  <div class="opt"><code>f"Score: {score:.2f}"</code> &mdash; format float to 2 decimal places</div>
+  <div class="opt"><code>f"{a} + {b} = {a + b}"</code> &mdash; expressions inside braces work</div>
+  <div class="opt">Prefix with <code>f</code> or <code>F</code> before the opening quote</div>
+  <pre>name  = <span class="st">"Ron"</span>
+score = <span class="nu">95.5</span>
+<span class="fn">print</span>(<span class="st">f"</span>{name}<span class="st"> scored </span>{score:.1f}<span class="st"> points"</span>)
+<span class="co"># Ron scored 95.5 points</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-errors">&#x26A0;&#xFE0F; Common Errors</h2>
+
+<details>
+<summary><span class="one">TypeError</span>&nbsp; <span class="cm"># wrong type used in an operation</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>"score: " + 95</code> &mdash; can't concatenate str + int</div>
+  <div class="opt">Fix: <code>"score: " + str(95)</code> or use an f-string</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">NameError</span>&nbsp; <span class="cm"># using a variable before it's defined</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>print(score)</code> before <code>score = 0</code> is set</div>
+  <div class="opt">Fix: define the variable before using it</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">ZeroDivisionError</span>&nbsp; <span class="cm"># dividing by zero</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>10 / 0</code> or <code>10 // 0</code></div>
+  <div class="opt">Fix: check <code>if divisor != 0:</code> before dividing</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">ValueError</span>&nbsp; <span class="cm"># conversion fails because the value is wrong type or format</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>int("hello")</code> &mdash; can't convert non-numeric string</div>
+  <div class="opt">Also: <code>int("3.14")</code> &mdash; must go through float first: <code>int(float("3.14"))</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">IndentationError</span>&nbsp; <span class="cm"># code block not indented correctly</span></summary>
+<div class="detail-body">
+  <div class="opt">Python uses 4 spaces per indent level (tabs or spaces &mdash; never mixed)</div>
+  <div class="opt">All code inside a function, if block, or loop must be indented one level</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">UnboundLocalError</span>&nbsp; <span class="cm"># variable used before assigned inside a function</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by reading a global variable then trying to assign to it locally</div>
+  <div class="opt">Fix: pass values as parameters instead of relying on globals</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">IndexError: list index out of range</span>&nbsp; <span class="cm"># index position doesn't exist</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>items[5]</code> on a 5-item list (valid range: 0&ndash;4)</div>
+  <div class="opt">Valid indexes: <code>0</code> to <code>len(list) - 1</code></div>
+  <div class="opt">Fix: guard with <code>if index &lt; len(list):</code> before accessing</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">f-string quote collision</span>&nbsp; <span class="cm"># same quote style inside and outside an f-string breaks it</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>f"...{cart["sku"]}..."</code> &mdash; inner double quote closes the string early</div>
+  <div class="opt">Fix: use a different quote style inside than outside &mdash; <code>f"...{cart['sku']}..."</code></div>
+  <div class="opt">Also watch for a missing closing quote at end of line &mdash; Python then thinks the string never ends</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">assigning to a method call</span>&nbsp; <span class="cm"># SyntaxError — a method call can't be the left side of =</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>counts.get(fruit, 0) = val + 1</code> &mdash; <code>.get()</code> returns a value, it isn't a storage location</div>
+  <div class="opt">Fix: assign through bracket indexing instead &mdash; <code>counts[fruit] = counts.get(fruit, 0) + 1</code></div>
+  <div class="opt"><code>.get()</code> is safe to READ on the right side of <code>=</code>; never valid on the left side</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">looping .items() on an empty dict</span>&nbsp; <span class="cm"># silently does nothing — no error, just skipped</span></summary>
+<div class="detail-body">
+  <div class="opt">Caused by: <code>for key, val in counts.items():</code> when <code>counts</code> is still <code>{}</code> on that pass</div>
+  <div class="opt">Fix: loop over the SOURCE list, and read/write the accumulator dict by key inside that loop &mdash; don't loop over the accumulator itself</div>
+  <pre><span class="co"># WRONG — counts starts empty, inner loop never runs</span>
+counts = {}
+<span class="kw">for</span> fruit <span class="kw">in</span> [<span class="st">'apple'</span>, <span class="st">'pear'</span>]:
+    <span class="kw">for</span> key, val <span class="kw">in</span> counts.items():
+        ...
+
+<span class="co"># RIGHT — loop the source, index into counts directly</span>
+counts = {}
+<span class="kw">for</span> fruit <span class="kw">in</span> [<span class="st">'apple'</span>, <span class="st">'pear'</span>]:
+    counts[fruit] = counts.get(fruit, <span class="nu">0</span>) + <span class="nu">1</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">reset-vs-increment counting bug</span>&nbsp; <span class="cm"># assigning = 1 in BOTH if/else branches resets the tally every time</span></summary>
+<div class="detail-body">
+  <div class="opt">Broken: <code>if code in counts: counts[code] = 1  else: counts[code] = 1</code> &mdash; every sighting resets to 1</div>
+  <div class="opt">Fixed: only the first-seen branch assigns <code>= 1</code>; the already-seen branch must use <code>+= 1</code></div>
+  <div class="opt">Manual, verbose equivalent of the one-liner <code>counts[code] = counts.get(code, 0) + 1</code></div>
+  <pre>counts = {}
+<span class="kw">for</span> code <span class="kw">in</span> errors:
+    <span class="kw">if</span> code <span class="kw">in</span> counts:
+        counts[code] += <span class="nu">1</span>   <span class="co"># must increment, not reset</span>
+    <span class="kw">else</span>:
+        counts[code] = <span class="nu">1</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">{a, b} set instead of a linked record</span>&nbsp; <span class="cm"># curly braces with commas but no colons is always a SET</span></summary>
+<div class="detail-body">
+  <div class="opt">Intending to pair two values, e.g. <code>{title, year}</code>, actually creates a <em>set</em> of two loose items</div>
+  <div class="opt">A set loses key-based lookup entirely &mdash; no way to find the title from the year or vice versa</div>
+  <div class="opt">Fix for "group by two things": a nested dict-of-dict-of-list built with chained <code>.setdefault()</code></div>
+  <div class="warn">{} with commas but no colons is ALWAYS a set, never a paired record &mdash; {} alone (no commas) is a dict</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-functions">&#x1F527; Functions</h2>
+
+<details>
+<summary><span class="one">def function_name(param):</span>&nbsp; <span class="cm"># define a reusable named block of code</span></summary>
+<div class="detail-body">
+  <div class="opt">Body must be indented (4 spaces)</div>
+  <div class="opt">Parameters = variable names in the <code>()</code> at definition</div>
+  <div class="opt">Arguments = actual values passed when calling the function</div>
+  <div class="opt">Multiple parameters: <code>def add(a, b):</code></div>
+  <div class="opt">No params: <code>def greet():</code></div>
+  <div class="opt">Functions implicitly return <code>None</code> if no <code>return</code> statement</div>
+  <pre><span class="kw">def</span> <span class="fn">greet</span>(name):
+    <span class="fn">print</span>(<span class="st">f"Hello, {name}!"</span>)
+
+<span class="fn">greet</span>(<span class="st">"Ron"</span>)  <span class="co"># argument is "Ron"</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">return value</span>&nbsp; <span class="cm"># exits the function and sends a value back to the caller</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>return</code> bare or <code>return None</code> &mdash; exits without a value</div>
+  <div class="opt">Code after a <code>return</code> never runs</div>
+  <div class="opt">Multiple return paths are fine &mdash; only one runs per call</div>
+  <div class="opt">Capture returned value: <code>result = my_function(x)</code></div>
+  <pre><span class="kw">def</span> <span class="fn">add</span>(a, b):
+    <span class="kw">return</span> a + b
+
+total = <span class="fn">add</span>(<span class="nu">3</span>, <span class="nu">4</span>)  <span class="co"># total = 7</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">return a, b</span>&nbsp; <span class="cm"># return multiple values at once — caller unpacks them into separate variables</span></summary>
+<div class="detail-body">
+  <div class="opt">Comma-separated values after <code>return</code> are packaged together as a tuple</div>
+  <div class="opt">Caller unpacks positionally: <code>cart, ok = remove_item(cart, item)</code></div>
+  <div class="opt">Number of variables on the left must match the number of values returned</div>
+  <div class="opt">Common use: return both a result and a status flag from one call</div>
+  <pre><span class="kw">def</span> <span class="fn">remove_item</span>(cart, item):
+    <span class="kw">if</span> item <span class="kw">in</span> cart:
+        cart.remove(item)
+        <span class="kw">return</span> cart, <span class="kw">True</span>
+    <span class="kw">return</span> cart, <span class="kw">False</span>
+
+cart, removed_ok = <span class="fn">remove_item</span>(cart, <span class="st">"apple"</span>)
+<span class="kw">if</span> <span class="kw">not</span> removed_ok:
+    <span class="fn">print</span>(<span class="st">"Item not found"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">guard clause</span>&nbsp; <span class="cm"># early return at the top of a function to handle edge cases first</span></summary>
+<div class="detail-body">
+  <div class="opt">Check for invalid/special cases at the top, return early</div>
+  <div class="opt">Avoids deeply nested if/else &mdash; keeps the main logic flat and readable</div>
+  <pre><span class="kw">def</span> <span class="fn">divide</span>(a, b):
+    <span class="kw">if</span> b == <span class="nu">0</span>:
+        <span class="kw">return</span> <span class="kw">None</span>   <span class="co"># guard: handle bad input first</span>
+    <span class="kw">return</span> a / b      <span class="co"># main logic</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">local scope</span>&nbsp; <span class="cm"># variables inside a function only exist inside that function</span></summary>
+<div class="detail-body">
+  <div class="opt">Variables defined inside a function disappear when the function ends</div>
+  <div class="opt">Can READ a global variable from inside a function</div>
+  <div class="opt">Cannot ASSIGN to a global variable without <code>global</code> keyword &mdash; creates a new local one instead</div>
+  <div class="opt">Assigning then reading causes <code>UnboundLocalError</code></div>
+  <div class="opt">Best practice: pass values in as parameters instead of relying on globals</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-control-flow">&#x1F500; Control Flow &mdash; if / elif / else</h2>
+
+<details>
+<summary><span class="one">if condition: &nbsp; elif condition: &nbsp; else:</span>&nbsp; <span class="cm"># branching — only ONE branch runs</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>if</code> &mdash; first check; runs if condition is True</div>
+  <div class="opt"><code>elif</code> &mdash; checked only if all prior conditions were False</div>
+  <div class="opt"><code>else</code> &mdash; runs when no condition matched (no condition needed; optional)</div>
+  <div class="opt">"First true wins" &mdash; order matters; put specific conditions before general ones</div>
+  <pre><span class="kw">if</span> score >= <span class="nu">90</span>:
+    grade = <span class="st">"A"</span>
+<span class="kw">elif</span> score >= <span class="nu">80</span>:
+    grade = <span class="st">"B"</span>
+<span class="kw">elif</span> score >= <span class="nu">70</span>:
+    grade = <span class="st">"C"</span>
+<span class="kw">elif</span> score >= <span class="nu">60</span>:
+    grade = <span class="st">"D"</span>
+<span class="kw">else</span>:
+    grade = <span class="st">"F"</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">&lt; &nbsp; &gt; &nbsp; &lt;= &nbsp; &gt;= &nbsp; == &nbsp; !=</span>&nbsp; <span class="cm"># comparison operators — return True or False</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>&lt;</code> less than &nbsp;&nbsp; <code>&gt;</code> greater than</div>
+  <div class="opt"><code>&lt;=</code> less than or equal &nbsp;&nbsp; <code>&gt;=</code> greater than or equal</div>
+  <div class="opt"><code>==</code> equal to (comparison) &mdash; NOT <code>=</code> which is assignment</div>
+  <div class="opt"><code>!=</code> not equal to</div>
+  <div class="opt">Chained comparison: <code>10 &lt;= temp &lt; 25</code> &mdash; both conditions in one expression</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">and &nbsp; or &nbsp; not</span>&nbsp; <span class="cm"># logical operators to combine conditions</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>and</code> &mdash; True only if BOTH sides are True</div>
+  <div class="opt"><code>or</code> &mdash; True if EITHER side is True</div>
+  <div class="opt"><code>not</code> &mdash; flips True &harr; False</div>
+  <div class="opt">Short-circuiting: <code>and</code> stops at first False; <code>or</code> stops at first True</div>
+  <pre><span class="kw">if</span> age >= <span class="nu">18</span> <span class="kw">and</span> has_id:
+    <span class="fn">print</span>(<span class="st">"allowed"</span>)
+<span class="kw">if</span> <span class="kw">not</span> is_banned:
+    <span class="fn">print</span>(<span class="st">"welcome"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">is &nbsp; / &nbsp; is not</span>&nbsp; <span class="cm"># identity check — preferred way to test for None</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>x is None</code> &mdash; preferred over <code>x == None</code></div>
+  <div class="opt"><code>x is not None</code> &mdash; confirms something has a value</div>
+  <div class="opt"><code>==</code> checks value equality; <code>is</code> checks same object in memory</div>
+  <pre><span class="kw">if</span> result <span class="kw">is</span> <span class="kw">None</span>:
+    <span class="fn">print</span>(<span class="st">"no result"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">"text" in string</span>&nbsp; <span class="cm"># checks if a substring (or value) exists inside a string or list</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>"cat" in "concatenate"</code> &rarr; <code>True</code></div>
+  <div class="opt"><code>"cat" not in "dog"</code> &rarr; <code>True</code></div>
+  <div class="opt">Case-sensitive: <code>"Cat" in "cat"</code> &rarr; <code>False</code></div>
+  <div class="opt">Works on lists too: <code>5 in [1, 3, 5]</code> &rarr; <code>True</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">decision table &rarr; if/elif/else</span>&nbsp; <span class="cm"># turn rows of a logic table into branches</span></summary>
+<div class="detail-body">
+  <div class="opt">Each table row becomes one <code>if</code> / <code>elif</code> branch</div>
+  <div class="opt">Check for overlaps: one value shouldn't match two rows</div>
+  <div class="opt">Check for gaps: every possible value should match at least one row</div>
+  <div class="opt">Flat if/elif/else is better than deeply nested ifs</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-loops">&#x1F501; Loops</h2>
+
+<details>
+<summary><span class="one">for i in range(stop)</span>&nbsp; <span class="cm"># loop from 0 to stop-1</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>range(5)</code> &rarr; 0, 1, 2, 3, 4</div>
+  <div class="opt"><code>range(start, stop)</code> &rarr; start to stop-1</div>
+  <div class="opt"><code>range(start, stop, step)</code> &rarr; with custom step</div>
+  <div class="sub"><code>range(1, 11)</code> &rarr; 1 through 10 (stop 11 not included)</div>
+  <div class="sub"><code>range(0, 10, 2)</code> &rarr; 0, 2, 4, 6, 8 &nbsp;(evens)</div>
+  <div class="sub"><code>range(10, 0, -1)</code> &rarr; 10, 9, 8, &hellip; 1 &nbsp;(countdown)</div>
+  <pre><span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">5</span>):
+    <span class="fn">print</span>(i)           <span class="co"># 0 1 2 3 4</span>
+
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">1</span>, <span class="nu">6</span>):
+    <span class="fn">print</span>(i)           <span class="co"># 1 2 3 4 5</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">for item in list:</span>&nbsp; <span class="cm"># loop directly over list values — no index needed</span></summary>
+<div class="detail-body">
+  <div class="opt">Use when you only need the value, not the position</div>
+  <div class="opt">Cleaner and shorter than <code>range(len(list))</code> when index isn't used</div>
+  <div class="opt"><code>for i in range(len(list)):</code> &mdash; use this version when you need the index too</div>
+  <pre><span class="co"># value-based (preferred when no index needed)</span>
+<span class="kw">for</span> score <span class="kw">in</span> scores:
+    <span class="fn">print</span>(score)
+
+<span class="co"># index-based (when position matters)</span>
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(scores)):
+    <span class="fn">print</span>(i, scores[i])</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">accumulator pattern</span>&nbsp; <span class="cm"># initialize a running total to 0 before loop, add inside</span></summary>
+<div class="detail-body">
+  <div class="opt">Always initialize accumulator BEFORE the loop</div>
+  <div class="opt"><code>total = total + value</code> can also be written <code>total += value</code></div>
+  <div class="opt">Works for sums, products, counts, building strings, building lists</div>
+  <pre>total = <span class="nu">0</span>
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">1</span>, <span class="nu">11</span>):
+    total = total + i
+<span class="fn">print</span>(total)  <span class="co"># 55</span>
+
+<span class="co"># average from a list</span>
+total = <span class="nu">0</span>
+<span class="kw">for</span> num <span class="kw">in</span> numbers:
+    total += num
+average = total / <span class="fn">len</span>(numbers)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">counter pattern</span>&nbsp; <span class="cm"># count how many items meet a condition inside a loop</span></summary>
+<div class="detail-body">
+  <div class="opt">Initialize <code>counter = 0</code> before loop</div>
+  <div class="opt">Inside loop: <code>if condition: counter += 1</code></div>
+  <div class="opt">Can combine counter + total accumulators in one loop</div>
+  <pre>even_count = <span class="nu">0</span>
+even_total = <span class="nu">0</span>
+<span class="kw">for</span> num <span class="kw">in</span> numbers:
+    <span class="kw">if</span> num % <span class="nu">2</span> == <span class="nu">0</span>:   <span class="co"># % 2 == 0 means EVEN</span>
+        even_count += <span class="nu">1</span>
+        even_total += num</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">filter / transform pattern</span>&nbsp; <span class="cm"># build a new list from an old one, driven by a helper function</span></summary>
+<div class="detail-body">
+  <div class="opt">Filter: loop the source list, <code>.append()</code> only items that satisfy a condition &mdash; source is untouched</div>
+  <div class="opt">Transform: loop the source list, compute a new value each time, <code>.append()</code> the new value instead of the original</div>
+  <div class="opt">A helper function (e.g. <code>is_hot(temp)</code>) holds the condition/transform logic separate from the loop mechanics</div>
+  <div class="opt">Neither pattern mutates the source list &mdash; both build and return a brand-new one</div>
+  <pre><span class="kw">def</span> <span class="fn">is_hot</span>(temp):
+    <span class="kw">return</span> temp >= <span class="nu">70</span>
+
+temperatures = [<span class="nu">65</span>, <span class="nu">72</span>, <span class="nu">58</span>, <span class="nu">81</span>, <span class="nu">70</span>]
+hot_days = []
+<span class="kw">for</span> temp <span class="kw">in</span> temperatures:
+    <span class="kw">if</span> <span class="fn">is_hot</span>(temp):
+        hot_days.append(temp)
+<span class="fn">print</span>(hot_days)  <span class="co"># [72, 81, 70]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">while condition:</span>&nbsp; <span class="cm"># repeats while condition is True; use when repeat count is unknown</span></summary>
+<div class="detail-body">
+  <div class="opt">Pattern: initialize &rarr; test &rarr; update</div>
+  <div class="opt">Must update the condition variable inside the loop or it runs forever</div>
+  <div class="opt"><code>while True:</code> &mdash; intentional infinite loop; must use <code>break</code> to exit</div>
+  <pre><span class="co"># password checker</span>
+password = <span class="fn">input</span>(<span class="st">"Password: "</span>)
+<span class="kw">while</span> password != <span class="st">"opensesame"</span>:
+    <span class="fn">print</span>(<span class="st">"Incorrect"</span>)
+    password = <span class="fn">input</span>(<span class="st">"Try again: "</span>)
+<span class="fn">print</span>(<span class="st">"Access granted"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">break</span>&nbsp; <span class="cm"># exits the loop entirely — no more iterations</span></summary>
+<div class="detail-body">
+  <div class="opt">Works in both <code>for</code> and <code>while</code> loops</div>
+  <div class="opt">Only exits the innermost loop it's in</div>
+  <div class="opt">Common pattern: <code>while True: ... if done: break</code></div>
+  <pre>score = <span class="nu">0</span>
+<span class="kw">while</span> score != -<span class="nu">1</span>:
+    score = <span class="fn">int</span>(<span class="fn">input</span>(<span class="st">"Score (-1 to quit): "</span>))
+    <span class="kw">if</span> score == -<span class="nu">1</span>:
+        <span class="kw">break</span>
+    <span class="fn">print</span>(<span class="st">"Recorded"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">continue</span>&nbsp; <span class="cm"># skips the rest of the current iteration and starts the next one</span></summary>
+<div class="detail-body">
+  <div class="opt">Loop does NOT exit &mdash; only this iteration is skipped</div>
+  <div class="opt">Useful to filter out items that don't meet a condition</div>
+  <div class="warn">In a while loop, make sure the update variable changes before <code>continue</code> or you get an infinite loop</div>
+  <pre><span class="kw">for</span> num <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">1</span>, <span class="nu">11</span>):
+    <span class="kw">if</span> num % <span class="nu">2</span> != <span class="nu">0</span>:
+        <span class="kw">continue</span>       <span class="co"># skip odds</span>
+    <span class="fn">print</span>(num)         <span class="co"># only prints evens</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-strings">&#x1F524; Strings</h2>
+
+<details>
+<summary><span class="one">string[index]</span>&nbsp; <span class="cm"># get a single character by position — 0-based</span></summary>
+<div class="detail-body">
+  <div class="opt">First character is index <code>0</code>, not <code>1</code></div>
+  <div class="opt"><code>word[-1]</code> &mdash; last character (negative counts from end)</div>
+  <div class="opt"><code>word[-2]</code> &mdash; second-to-last</div>
+  <pre>word = <span class="st">"Python"</span>
+<span class="co"># + indexes:  0  1  2  3  4  5</span>
+<span class="co"># - indexes: -6 -5 -4 -3 -2 -1</span>
+word[<span class="nu">0</span>]   <span class="co"># "P"</span>
+word[<span class="nu">2</span>]   <span class="co"># "t"</span>
+word[-<span class="nu">1</span>]  <span class="co"># "n"  (last)</span>
+word[-<span class="nu">2</span>]  <span class="co"># "o"  (second-to-last)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">string[start:stop]</span>&nbsp; <span class="cm"># slice: get a substring — start included, stop excluded</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>word[1:4]</code> on "Python" &rarr; <code>"yth"</code> (indexes 1, 2, 3)</div>
+  <div class="opt"><code>word[:3]</code> &mdash; from start up to index 3 (not included)</div>
+  <div class="opt"><code>word[3:]</code> &mdash; from index 3 to the end</div>
+  <div class="opt"><code>word[:]</code> &mdash; copy of the whole string</div>
+  <div class="opt"><code>word[start:stop:step]</code> &mdash; every Nth character</div>
+  <div class="sub"><code>word[0:6:2]</code> on "Python" &rarr; <code>"Pto"</code> &nbsp;(every 2nd char)</div>
+  <div class="sub"><code>word[::-1]</code> &rarr; reversed: <code>"nohtyP"</code></div>
+  <div class="opt">Negative slices: <code>word[-3:]</code> &rarr; last 3 chars;&nbsp; <code>word[:-2]</code> &rarr; all but last 2</div>
+  <pre>word = <span class="st">"Python"</span>
+word[<span class="nu">1</span>:<span class="nu">4</span>]    <span class="co"># "yth"</span>
+word[:<span class="nu">3</span>]     <span class="co"># "Pyt"</span>
+word[<span class="nu">3</span>:]     <span class="co"># "hon"</span>
+word[::-<span class="nu">1</span>]   <span class="co"># "nohtyP"  (reversed)</span>
+word[-<span class="nu">3</span>:]    <span class="co"># "hon"  (last 3 chars)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">string.strip()</span>&nbsp; <span class="cm"># removes leading and trailing whitespace; returns new string</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>" hello ".strip()</code> &rarr; <code>"hello"</code></div>
+  <div class="opt">Does NOT modify the original &mdash; assign the result</div>
+  <div class="opt">After <code>strip()</code>, empty result <code>""</code> signals "no data / missing field"</div>
+  <pre>name  = <span class="st">" Ron Hensley "</span>
+clean = name.strip()    <span class="co"># "Ron Hensley"</span>
+
+field = parts[<span class="nu">1</span>].strip()
+<span class="kw">if</span> field == <span class="st">""</span>:
+    <span class="fn">print</span>(<span class="st">"no data"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">string.lower() &nbsp; / &nbsp; string.upper()</span>&nbsp; <span class="cm"># returns new all-lowercase / all-uppercase string</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>"Hello".lower()</code> &rarr; <code>"hello"</code></div>
+  <div class="opt"><code>"hello".upper()</code> &rarr; <code>"HELLO"</code></div>
+  <div class="opt">Use <code>.lower()</code> before comparisons for case-insensitive matching</div>
+  <pre>answer = <span class="fn">input</span>(<span class="st">"Yes or no? "</span>).lower()
+<span class="kw">if</span> answer == <span class="st">"yes"</span>:
+    ...</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">string.replace(old, new)</span>&nbsp; <span class="cm"># returns new string with ALL occurrences of old swapped for new</span></summary>
+<div class="detail-body">
+  <div class="opt">Case-sensitive: <code>"Hello".replace("h", "J")</code> &rarr; <code>"Hello"</code> (no change)</div>
+  <div class="opt">Replaces ALL occurrences, not just the first</div>
+  <div class="opt">Returns a new string &mdash; original is unchanged</div>
+  <pre>msg   = <span class="st">"server down"</span>
+fixed = msg.replace(<span class="st">"server"</span>, <span class="st">"database"</span>)
+<span class="co"># "database down"</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">string.find(sub)</span>&nbsp; <span class="cm"># returns index of first match, or -1 if not found (case-sensitive)</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>"hello".find("ll")</code> &rarr; <code>2</code></div>
+  <div class="opt"><code>"hello".find("z")</code> &rarr; <code>-1</code> (not found)</div>
+  <div class="opt">Case-sensitive: <code>"URGENT".find("urgent")</code> &rarr; <code>-1</code></div>
+  <div class="opt">Use <code>if text.find("x") != -1:</code> or simpler: <code>if "x" in text:</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">string.split(sep)</span>&nbsp; <span class="cm"># splits string at separator, returns a list of pieces</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>"a,b,c".split(",")</code> &rarr; <code>["a", "b", "c"]</code></div>
+  <div class="opt"><code>"hello world".split(" ")</code> &rarr; <code>["hello", "world"]</code></div>
+  <div class="opt">Result is a list &mdash; access pieces by index</div>
+  <pre>record = <span class="st">"Ron,Hensley,ron@example.com"</span>
+parts = record.split(<span class="st">","</span>)
+first = parts[<span class="nu">0</span>]  <span class="co"># "Ron"</span>
+email = parts[<span class="nu">2</span>]  <span class="co"># "ron@example.com"</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">"sep".join(list)</span>&nbsp; <span class="cm"># glues a list of strings together with separator between each item</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>", ".join(["a","b","c"])</code> &rarr; <code>"a, b, c"</code></div>
+  <div class="opt"><code>" | ".join(parts)</code> &rarr; pipe-separated string</div>
+  <div class="opt"><code>"".join(chars)</code> &rarr; join with no separator</div>
+  <pre>parts  = [<span class="st">"Ron"</span>, <span class="st">"Hensley"</span>, <span class="st">"ron@x.com"</span>]
+result = <span class="st">" | "</span>.join(parts)
+<span class="co"># "Ron | Hensley | ron@x.com"</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">method chaining</span>&nbsp; <span class="cm"># call multiple string methods in a row — left to right</span></summary>
+<div class="detail-body">
+  <div class="opt">Each method returns a new string which the next method acts on</div>
+  <div class="opt">Order matters &mdash; strip first, then lower, then replace</div>
+  <pre>text  = <span class="st">" URGENT: reset password "</span>
+clean = text.strip().lower().replace(<span class="st">": "</span>, <span class="st">":"</span>)
+<span class="co"># "urgent:reset password"</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-lists">&#x1F4CB; Lists</h2>
+
+<details>
+<summary><span class="one">my_list = [a, b, c]</span>&nbsp; <span class="cm"># create a list — ordered, mutable, any mix of types</span></summary>
+<div class="detail-body">
+  <div class="opt">Square brackets, comma-separated values</div>
+  <div class="opt">Can hold ints, floats, strings, bools &mdash; even mixed types</div>
+  <div class="opt">One variable holds many related values &mdash; better than score1, score2, score3&hellip;</div>
+  <div class="opt"><code>list(range(start, stop))</code> &mdash; create list of integers from a range</div>
+  <pre>scores = [<span class="nu">10</span>, <span class="nu">15</span>, <span class="nu">8</span>, <span class="nu">20</span>]
+names  = [<span class="st">"Alice"</span>, <span class="st">"Bob"</span>, <span class="st">"Carol"</span>]
+nums   = <span class="fn">list</span>(<span class="fn">range</span>(<span class="nu">1</span>, <span class="nu">6</span>))  <span class="co"># [1, 2, 3, 4, 5]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">len(list)</span>&nbsp; <span class="cm"># returns the number of items in the list (also works on strings)</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>len([5, 6, 7, 8])</code> &rarr; <code>4</code></div>
+  <div class="opt"><code>len("hello")</code> &rarr; <code>5</code></div>
+  <div class="opt">Used in <code>range(len(list))</code> for index-based loops</div>
+  <div class="opt">Valid indexes: <code>0</code> to <code>len(list) - 1</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list[index]</span>&nbsp; <span class="cm"># access a single item by position — same 0-based rules as strings</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>scores[0]</code> &mdash; first item</div>
+  <div class="opt"><code>scores[-1]</code> &mdash; last item</div>
+  <div class="opt"><code>scores[2]</code> &mdash; third item (index 2)</div>
+  <div class="opt"><code>list[start:stop]</code> &mdash; slice returns a new sub-list (same rules as strings)</div>
+  <div class="sub"><code>items[:3]</code> &rarr; first 3 items</div>
+  <div class="sub"><code>items[2:]</code> &rarr; from index 2 to end</div>
+  <div class="sub"><code>items[:]</code> &rarr; shallow copy of entire list</div>
+  <pre>scores = [<span class="nu">80</span>, <span class="nu">95</span>, <span class="nu">72</span>, <span class="nu">88</span>]
+scores[<span class="nu">0</span>]    <span class="co"># 80</span>
+scores[-<span class="nu">1</span>]   <span class="co"># 88 (last)</span>
+scores[<span class="nu">1</span>:<span class="nu">3</span>]  <span class="co"># [95, 72]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list[index] = value</span>&nbsp; <span class="cm"># replace an item in place — lists are mutable, strings are not</span></summary>
+<div class="detail-body">
+  <div class="opt">Changes the original list &mdash; no new list is created</div>
+  <div class="opt">"Mutable" means changeable in place</div>
+  <div class="opt">Strings are immutable &mdash; <code>word[0] = "X"</code> raises a TypeError</div>
+  <pre>colors = [<span class="st">"red"</span>, <span class="st">"green"</span>, <span class="st">"blue"</span>]
+colors[<span class="nu">1</span>] = <span class="st">"yellow"</span>
+<span class="co"># ["red", "yellow", "blue"]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list.append(x)</span>&nbsp; <span class="cm"># adds x to the END of the list; modifies in place, returns None</span></summary>
+<div class="detail-body">
+  <div class="opt">Adds exactly one item to the end</div>
+  <div class="opt">Does NOT return a new list &mdash; it changes the original</div>
+  <div class="opt">Most common list method; great for building lists one item at a time</div>
+  <pre>trades = []
+trades.append(<span class="st">"AAPL"</span>)
+trades.append(<span class="st">"TSLA"</span>)
+<span class="co"># trades = ["AAPL", "TSLA"]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list.insert(index, value)</span>&nbsp; <span class="cm"># inserts value at position; everything after shifts right</span></summary>
+<div class="detail-body">
+  <div class="opt">First arg = where to insert; second arg = what to insert</div>
+  <div class="opt"><code>list.insert(0, x)</code> &mdash; insert at the very beginning</div>
+  <div class="opt">Modifies in place, returns None</div>
+  <pre>nums = [<span class="nu">10</span>, <span class="nu">30</span>, <span class="nu">40</span>]
+nums.insert(<span class="nu">1</span>, <span class="nu">20</span>)
+<span class="co"># [10, 20, 30, 40]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list.pop(index)</span>&nbsp; <span class="cm"># removes AND returns the item at index; pop() with no arg removes the last</span></summary>
+<div class="detail-body">
+  <div class="opt">Only method that both removes AND gives you back the item</div>
+  <div class="opt"><code>list.pop()</code> &mdash; no arg &rarr; removes and returns the last item</div>
+  <div class="opt"><code>removed = list.pop(2)</code> &mdash; save the removed item in a variable</div>
+  <pre>items = [<span class="st">"a"</span>, <span class="st">"b"</span>, <span class="st">"c"</span>]
+last = items.pop()    <span class="co"># "c" removed, last="c"</span>
+mid  = items.pop(<span class="nu">0</span>)  <span class="co"># "a" removed, mid="a"</span>
+<span class="co"># items is now ["b"]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list.remove(value)</span>&nbsp; <span class="cm"># removes the FIRST matching value; raises ValueError if not found</span></summary>
+<div class="detail-body">
+  <div class="opt">Removes by value, not by index</div>
+  <div class="opt">Only removes the FIRST occurrence &mdash; not all matches</div>
+  <div class="opt">Raises <code>ValueError</code> if the value is not in the list</div>
+  <div class="opt">Does NOT return the removed item (returns None)</div>
+  <pre>fruits = [<span class="st">"apple"</span>, <span class="st">"banana"</span>, <span class="st">"cherry"</span>, <span class="st">"banana"</span>]
+fruits.remove(<span class="st">"banana"</span>)
+<span class="co"># ["apple", "cherry", "banana"]  — first one removed</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list.extend(other_list)</span>&nbsp; <span class="cm"># adds ALL items from another list to the end, one by one</span></summary>
+<div class="detail-body">
+  <div class="opt">Unlike <code>append</code>, unpacks the other list &mdash; items added individually, not nested</div>
+  <div class="opt">Modifies in place, returns None</div>
+  <div class="warn"><code>append([3,4])</code> adds <code>[3,4]</code> as a single nested element; <code>extend([3,4])</code> adds 3 then 4 separately</div>
+  <pre>nums = [<span class="nu">1</span>, <span class="nu">2</span>]
+nums.extend([<span class="nu">3</span>, <span class="nu">4</span>])    <span class="co"># [1, 2, 3, 4]</span>
+
+nums2 = [<span class="nu">1</span>, <span class="nu">2</span>]
+nums2.append([<span class="nu">3</span>, <span class="nu">4</span>])   <span class="co"># [1, 2, [3, 4]]  &lt;-- nested!</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list[:]</span>&nbsp; <span class="cm"># shallow copy of a list — changes to the copy do not affect the original</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>copy = original[:]</code> &mdash; creates a separate list</div>
+  <div class="opt">Changing <code>copy[0] = 99</code> does NOT change <code>original</code></div>
+  <div class="opt"><code>copy = original</code> without <code>[:]</code> makes BOTH point to the same list</div>
+  <pre>numbers = [<span class="nu">1</span>, <span class="nu">2</span>, <span class="nu">3</span>]
+backup  = numbers[:]
+numbers[<span class="nu">0</span>] = <span class="nu">99</span>
+<span class="co"># numbers = [99, 2, 3]</span>
+<span class="co"># backup  = [1, 2, 3]  (unchanged)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">grid[row][col]</span>&nbsp; <span class="cm"># nested lists / 2D arrays — a list of lists, read and updated with two indices</span></summary>
+<div class="detail-body">
+  <div class="opt">Build with <code>grid = [[...], [...], [...]]</code> &mdash; outer index picks the row, inner index picks the column</div>
+  <div class="opt">Read a cell: <code>grid[row][col]</code> &mdash; update a cell in place: <code>grid[row][col] = new_value</code></div>
+  <div class="opt">Only that one cell changes &mdash; the rest of the structure is untouched</div>
+  <div class="opt"><code>grid[row]</code> alone returns the entire inner list (the whole row)</div>
+  <div class="opt">Row-level operations like <code>.pop()</code>/<code>.insert()</code> on one inner list don't shift or affect any other row's indexes</div>
+  <pre>board = [
+    [<span class="st">" "</span>, <span class="st">" "</span>, <span class="st">" "</span>],
+    [<span class="st">" "</span>, <span class="st">"X"</span>, <span class="st">" "</span>],
+    [<span class="st">" "</span>, <span class="st">" "</span>, <span class="st">" "</span>]
+]
+board[<span class="nu">0</span>][<span class="nu">2</span>] = <span class="st">"O"</span>   <span class="co"># top-right cell</span>
+board[<span class="nu">2</span>][<span class="nu">1</span>] = <span class="st">"X"</span>   <span class="co"># bottom-middle cell</span>
+<span class="fn">print</span>(board[<span class="nu">1</span>][<span class="nu">1</span>])  <span class="co"># "X" -- center cell</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list[:n]</span>&nbsp; <span class="cm"># safe slicing — never raises IndexError, even past the list's length</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>my_list[:3]</code> means "up to 3 items from the start" &mdash; returns fewer items if the list is shorter</div>
+  <div class="opt">No <code>None</code> padding, no error on short/empty lists &mdash; <code>[][:3]</code> just returns <code>[]</code></div>
+  <div class="opt">Direct indexing <code>my_list[3]</code> DOES raise <code>IndexError</code> when out of range &mdash; slicing is the safer choice for a variable-length prefix</div>
+  <pre><span class="kw">def</span> <span class="fn">top_three</span>(scores):
+    <span class="kw">return</span> scores[:<span class="nu">3</span>]
+
+<span class="fn">top_three</span>([<span class="nu">100</span>, <span class="nu">90</span>, <span class="nu">80</span>, <span class="nu">70</span>])  <span class="co"># [100, 90, 80]</span>
+<span class="fn">top_three</span>([<span class="nu">100</span>])              <span class="co"># [100]</span>
+<span class="fn">top_three</span>([])                 <span class="co"># []</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-stacks-queues">&#x1F4DA; Stacks, Queues &amp; collections.deque</h2>
+
+<details>
+<summary><span class="one">stack (LIFO)</span>&nbsp; <span class="cm"># Last In, First Out — a plain list used with append()/pop()</span></summary>
+<div class="detail-body">
+  <div class="opt">Push: <code>stack.append(item)</code> &mdash; adds to the top (the end of the list)</div>
+  <div class="opt">Pop: <code>stack.pop()</code> &mdash; removes and returns the top item</div>
+  <div class="opt">Peek: <code>stack[-1]</code> &mdash; look at the top without removing it</div>
+  <div class="opt">Real-world models: a stack of dinner plates, undo history, the browser back button</div>
+  <div class="warn">Popping (or peeking) an empty stack raises <code>IndexError</code> &mdash; guard with <code>if stack:</code> first</div>
+  <pre>history = []
+history.append(<span class="st">"page1"</span>)
+history.append(<span class="st">"page2"</span>)
+history.append(<span class="st">"page3"</span>)
+
+last_page = history.pop()      <span class="co"># "page3" — most recently added comes off first</span>
+
+<span class="co"># guarded undo: pop only if there's something to pop</span>
+<span class="kw">if</span> history:
+    <span class="fn">print</span>(history.pop())
+
+<span class="co"># guarded DOUBLE undo — must check length, not just truthiness</span>
+<span class="kw">if</span> <span class="fn">len</span>(history) &gt;= <span class="nu">2</span>:
+    history.pop()
+    history.pop()</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">queue (FIFO) with a list</span>&nbsp; <span class="cm"># First In, First Out — works, but pop(0) is slow on big lists</span></summary>
+<div class="detail-body">
+  <div class="opt">Enqueue: <code>queue.append(item)</code> &mdash; adds to the back of the line</div>
+  <div class="opt">Dequeue: <code>queue.pop(0)</code> &mdash; removes and returns the front item</div>
+  <div class="opt">Real-world models: a coffee-shop line, a printer queue</div>
+  <div class="warn"><code>pop(0)</code> is O(n): every remaining item has to shift left one slot &mdash; fine for small queues, slow at scale (see <code>deque</code> below)</div>
+  <pre><span class="kw">def</span> <span class="fn">dequeue</span>(q):
+    <span class="kw">if</span> <span class="kw">not</span> q:
+        <span class="kw">return</span> <span class="kw">None</span>          <span class="co"># underflow guard — nothing to remove</span>
+    <span class="kw">return</span> q.pop(<span class="nu">0</span>)
+
+line = []
+line.append(<span class="st">"Ana"</span>)
+line.append(<span class="st">"Ben"</span>)
+next_up = <span class="fn">dequeue</span>(line)   <span class="co"># "Ana" — first one in line is served first</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">collections.deque</span>&nbsp; <span class="cm"># double-ended queue — O(1) append/pop from BOTH ends</span></summary>
+<div class="detail-body">
+  <div class="opt">Fixes the <code>pop(0)</code> slowness: <code>.append()</code> and <code>.popleft()</code> are both O(1), no shifting</div>
+  <div class="opt"><code>.append(x)</code> / <code>.appendleft(x)</code> &mdash; add to right / left end</div>
+  <div class="opt"><code>.pop()</code> / <code>.popleft()</code> &mdash; remove from right / left end</div>
+  <div class="opt">Import styles: <code>import collections</code> then <code>collections.deque()</code>, or <code>from collections import deque</code> then just <code>deque()</code></div>
+  <pre><span class="kw">from</span> collections <span class="kw">import</span> deque
+
+line = deque()
+line.append(<span class="st">"Ana"</span>)     <span class="co"># enqueue — O(1)</span>
+line.append(<span class="st">"Ben"</span>)
+next_up = line.popleft()  <span class="co"># "Ana" — dequeue, O(1), no shifting</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">mutable arguments &amp; shared references</span>&nbsp; <span class="cm"># mutating a list inside a function changes the caller's list too</span></summary>
+<div class="detail-body">
+  <div class="opt">Python passes objects by reference: a list argument and the caller's variable point at the SAME list in memory</div>
+  <div class="opt">Mutating it in place (<code>.append()</code>, <code>.pop()</code>, <code>[i] =</code>) is visible to the caller with no <code>return</code> needed</div>
+  <div class="opt">Reassigning the parameter (<code>arr = []</code>) does NOT affect the caller &mdash; that just points the local name at a new object</div>
+  <div class="warn">A shallow copy (<code>list(x)</code>, <code>x[:]</code>, <code>x.copy()</code>) copies the outer list, but if it holds mutable objects (lists/dicts), both copies still share THOSE inner objects &mdash; use <code>copy.deepcopy()</code> to fully separate them</div>
+  <pre><span class="kw">def</span> <span class="fn">add_item</span>(cart):
+    cart.append(<span class="st">"eggs"</span>)      <span class="co"># mutates the caller's list — no return needed</span>
+
+groceries = [<span class="st">"milk"</span>]
+<span class="fn">add_item</span>(groceries)
+<span class="co"># groceries is now ["milk", "eggs"]</span>
+
+<span class="co"># shallow-copy hazard</span>
+teams = [[<span class="st">"Ana"</span>], [<span class="st">"Ben"</span>]]
+teams_copy = teams.copy()          <span class="co"># outer list is new...</span>
+teams_copy[<span class="nu">0</span>].append(<span class="st">"Cara"</span>)     <span class="co"># ...but inner lists are still shared!</span>
+<span class="co"># teams[0] is now ["Ana", "Cara"] too</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-big-o">&#x23F1;&#xFE0F; Big O &amp; Algorithm Efficiency</h2>
+
+<details>
+<summary><span class="one">Big O notation</span>&nbsp; <span class="cm"># how work grows as input size (n) grows — not a literal timer</span></summary>
+<div class="detail-body">
+  <div class="opt">Describes the SHAPE of growth, not exact seconds &mdash; ignores machine speed, constants, and small-n details</div>
+  <div class="opt"><code>O(1)</code> constant &mdash; same number of steps no matter how big n is (e.g. dict lookup by key)</div>
+  <div class="opt"><code>O(log n)</code> logarithmic &mdash; each step cuts the remaining work about in half (e.g. binary search)</div>
+  <div class="opt"><code>O(n)</code> linear &mdash; work grows directly with n (e.g. scanning a whole list once)</div>
+  <div class="opt"><code>O(n&sup2;)</code> quadratic &mdash; work grows with n&times;n, typically a loop nested inside a loop (e.g. bubble/insertion sort)</div>
+  <div class="opt">Speed ranking for large n: <code>O(1)</code> &lt; <code>O(log n)</code> &lt; <code>O(n)</code> &lt; <code>O(n&sup2;)</code></div>
+  <div class="opt">See also the <code>nested-loop antipattern</code> entry under Nested Data Modeling for a worked O(n&times;m)&rarr;O(n) fix</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">O(n) vs O(log n) growth</span>&nbsp; <span class="cm"># doubling n doubles linear work, but only adds ONE step to logarithmic work</span></summary>
+<div class="detail-body">
+  <div class="opt">List size 8 &rarr; 16 &rarr; 32 &rarr; 64 &rarr; 128 (doubling each time)</div>
+  <div class="opt">Linear steps (O(n)): 8, 16, 32, 64, 128 &mdash; scales right along with n</div>
+  <div class="opt">Logarithmic steps (O(log n)): ~3, ~4, ~5, ~6, ~7 &mdash; barely moves</div>
+  <div class="opt">Intuition: "guess my number 1-100" by halving the range each guess &mdash; ~7 guesses instead of up to 100</div>
+  <pre><span class="kw">def</span> <span class="fn">halving_steps</span>(n):
+    <span class="co"># counts how many times n can be cut in half before reaching 1</span>
+    steps = <span class="nu">0</span>
+    <span class="kw">while</span> n &gt; <span class="nu">1</span>:
+        n = n // <span class="nu">2</span>
+        steps += <span class="nu">1</span>
+    <span class="kw">return</span> steps
+
+<span class="kw">for</span> size <span class="kw">in</span> [<span class="nu">8</span>, <span class="nu">16</span>, <span class="nu">32</span>, <span class="nu">64</span>, <span class="nu">128</span>, <span class="nu">1024</span>]:
+    <span class="fn">print</span>(size, <span class="fn">halving_steps</span>(size))
+<span class="co"># 8 3 / 16 4 / 32 5 / 64 6 / 128 7 / 1024 10</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-searching">&#x1F50D; Searching Algorithms</h2>
+
+<details>
+<summary><span class="one">linear search</span>&nbsp; <span class="cm"># check items one by one — works on ANY list, sorted or not — O(n)</span></summary>
+<div class="detail-body">
+  <div class="opt">Walks the list left to right, comparing each item to the target</div>
+  <div class="opt">Returns the index on a match, or a sentinel (commonly <code>-1</code>) if the target isn't found</div>
+  <div class="opt">Worst case checks every item &mdash; O(n) &mdash; happens when the target is last or absent</div>
+  <div class="opt">This is the same underlying scan that <code>in</code> and <code>list.index()</code> do internally</div>
+  <pre><span class="kw">def</span> <span class="fn">linear_search</span>(lst, target):
+    <span class="kw">for</span> index, value <span class="kw">in</span> <span class="fn">enumerate</span>(lst):
+        <span class="kw">if</span> value == target:
+            <span class="kw">return</span> index
+    <span class="kw">return</span> -<span class="nu">1</span>          <span class="co"># not found</span>
+
+<span class="fn">linear_search</span>([<span class="nu">4</span>, <span class="nu">9</span>, <span class="nu">2</span>, <span class="nu">7</span>, <span class="nu">5</span>], <span class="nu">7</span>)   <span class="co"># 3</span>
+<span class="fn">linear_search</span>([<span class="nu">4</span>, <span class="nu">9</span>, <span class="nu">2</span>, <span class="nu">7</span>, <span class="nu">5</span>], <span class="nu">10</span>)  <span class="co"># -1</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">binary search</span>&nbsp; <span class="cm"># halve the search space each step — REQUIRES a sorted list — O(log n)</span></summary>
+<div class="detail-body">
+  <div class="opt">Tracks <code>low</code> and <code>high</code> index bounds; checks the <code>mid</code>point and eliminates half the remaining range each step</div>
+  <div class="opt">If <code>lst[mid] &lt; target</code>, the target must be to the right &rarr; move <code>low</code> up; if greater, move <code>high</code> down</div>
+  <div class="warn">Only works correctly on a SORTED list &mdash; on unsorted data, eliminating "half" can throw away the actual target</div>
+  <div class="opt">32 items &rarr; ~5 checks; 1,000,000 items &rarr; ~20 checks &mdash; the O(log n) payoff grows huge on large data</div>
+  <pre><span class="kw">def</span> <span class="fn">binary_search</span>(lst, target):
+    low, high = <span class="nu">0</span>, <span class="fn">len</span>(lst) - <span class="nu">1</span>
+    <span class="kw">while</span> low &lt;= high:
+        mid = (low + high) // <span class="nu">2</span>
+        <span class="kw">if</span> lst[mid] == target:
+            <span class="kw">return</span> mid
+        <span class="kw">elif</span> lst[mid] &lt; target:
+            low = mid + <span class="nu">1</span>       <span class="co"># target is in the right half</span>
+        <span class="kw">else</span>:
+            high = mid - <span class="nu">1</span>      <span class="co"># target is in the left half</span>
+    <span class="kw">return</span> -<span class="nu">1</span>              <span class="co"># not found</span>
+
+<span class="fn">binary_search</span>([<span class="nu">3</span>, <span class="nu">7</span>, <span class="nu">15</span>, <span class="nu">22</span>, <span class="nu">31</span>, <span class="nu">45</span>, <span class="nu">58</span>], <span class="nu">31</span>)  <span class="co"># 4</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">linear vs binary — which to use</span>&nbsp; <span class="cm"># two questions decide it</span></summary>
+<div class="detail-body">
+  <div class="opt">"Is the data sorted?" &mdash; unsorted &rarr; linear search (sorting just for one search costs more than it saves)</div>
+  <div class="opt">"Am I searching once, or many times?" &mdash; a big sorted collection searched repeatedly (like a million user IDs looked up many times per second) &rarr; binary search wins overall</div>
+  <div class="opt">Small, one-off, or unsorted &rarr; linear search is simplest and fine</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-sorting">&#x1F522; Sorting</h2>
+
+<details>
+<summary><span class="one">sorted(list)</span>&nbsp; <span class="cm"># returns a NEW sorted list; original list is untouched</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>sorted(scores)</code> &rarr; new list, smallest to largest (default)</div>
+  <div class="opt"><code>sorted(scores, reverse=True)</code> &rarr; largest to smallest</div>
+  <div class="opt"><code>sorted(list, key=func)</code> &mdash; sort by a custom rule (pass a function)</div>
+  <div class="sub">Example: sort strings by length
+    <pre><span class="kw">def</span> <span class="fn">by_len</span>(word):
+    <span class="kw">return</span> <span class="fn">len</span>(word)
+
+result = <span class="fn">sorted</span>(words, key=by_len)
+<span class="co"># shortest to longest</span></pre>
+  </div>
+  <div class="opt">Sort is stable: tied items keep their original relative order</div>
+  <pre>scores = [<span class="nu">400</span>, <span class="nu">1200</span>, <span class="nu">800</span>, <span class="nu">600</span>]
+asc  = <span class="fn">sorted</span>(scores)
+<span class="co"># [400, 600, 800, 1200]   scores unchanged</span>
+desc = <span class="fn">sorted</span>(scores, reverse=<span class="kw">True</span>)
+<span class="co"># [1200, 800, 600, 400]   scores still unchanged</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list.sort()</span>&nbsp; <span class="cm"># sorts the list IN PLACE; returns None — the original list IS changed</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>list.sort()</code> &mdash; ascending (smallest first)</div>
+  <div class="opt"><code>list.sort(reverse=True)</code> &mdash; descending (largest first)</div>
+  <div class="opt"><code>list.sort(key=func)</code> &mdash; custom sort key, same as sorted()</div>
+  <div class="warn"><code>result = list.sort()</code> &rarr; result is None! .sort() never returns the sorted list</div>
+  <pre>nums = [<span class="nu">3</span>, <span class="nu">1</span>, <span class="nu">4</span>, <span class="nu">2</span>]
+nums.sort()
+<span class="co"># nums is now [1, 2, 3, 4]</span>
+
+result = nums.sort()   <span class="co"># TRAP: result is None!</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">.sort() vs sorted()</span>&nbsp; <span class="cm"># key difference: in-place mutation vs new list</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>.sort()</code> &rarr; changes original, returns None</div>
+  <div class="opt"><code>sorted()</code> &rarr; original unchanged, returns new sorted list</div>
+  <div class="opt">Decision rule: "Do I want to change this list?" &rarr; use <code>.sort()</code></div>
+  <div class="opt">Decision rule: "Do I want a sorted copy?" &rarr; use <code>sorted()</code></div>
+  <div class="opt">Both are stable: tied items keep their original relative order</div>
+  <pre><span class="co"># .sort() — changes in place</span>
+nums = [<span class="nu">3</span>, <span class="nu">1</span>, <span class="nu">2</span>]
+nums.sort()            <span class="co"># nums = [1, 2, 3]</span>
+
+<span class="co"># sorted() — new list, original untouched</span>
+nums = [<span class="nu">3</span>, <span class="nu">1</span>, <span class="nu">2</span>]
+result = <span class="fn">sorted</span>(nums) <span class="co"># result=[1,2,3], nums=[3,1,2]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">bubble sort</span>&nbsp; <span class="cm"># repeatedly swap out-of-order neighbors — O(n&sup2;), rarely used in real code</span></summary>
+<div class="detail-body">
+  <div class="opt">Compare each pair of neighbors; swap them if they're out of order</div>
+  <div class="opt">Repeat passes over the list until a full pass makes no swaps &mdash; the list is sorted</div>
+  <div class="opt">Big values "bubble" toward the end one swap at a time</div>
+  <div class="opt">O(n&sup2;) worst case: nested passes over the whole list, no shortcuts</div>
+  <pre><span class="kw">def</span> <span class="fn">bubble_sort</span>(lst):
+    arr = lst.copy()
+    <span class="kw">for</span> pass_num <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(arr) - <span class="nu">1</span>):
+        <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="fn">len</span>(arr) - <span class="nu">1</span> - pass_num):
+            <span class="kw">if</span> arr[i] &gt; arr[i + <span class="nu">1</span>]:
+                arr[i], arr[i + <span class="nu">1</span>] = arr[i + <span class="nu">1</span>], arr[i]   <span class="co"># swap neighbors</span>
+    <span class="kw">return</span> arr
+
+<span class="fn">bubble_sort</span>([<span class="nu">5</span>, <span class="nu">2</span>, <span class="nu">4</span>, <span class="nu">1</span>])   <span class="co"># [1, 2, 4, 5]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">insertion sort</span>&nbsp; <span class="cm"># grow a sorted left side one element at a time — O(n&sup2;) avg, close to O(n) on nearly-sorted data</span></summary>
+<div class="detail-body">
+  <div class="opt">Mental model: sorting a hand of playing cards &mdash; take the next card, slide it into place among the cards already sorted to its left</div>
+  <div class="opt">For each element: store it as <code>key</code>, shift every larger element to its left one slot right, then drop <code>key</code> into the gap</div>
+  <div class="opt">Random/jumbled data &rarr; lots of shifting &rarr; ~O(n&sup2;)</div>
+  <div class="opt">Nearly-sorted data &rarr; almost no shifting &rarr; close to O(n) &mdash; this is where it beats bubble sort</div>
+  <pre><span class="kw">def</span> <span class="fn">insertion_sort</span>(lst):
+    arr = lst.copy()
+    <span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">1</span>, <span class="fn">len</span>(arr)):
+        key = arr[i]
+        pos = i - <span class="nu">1</span>
+        <span class="kw">while</span> pos &gt;= <span class="nu">0</span> <span class="kw">and</span> arr[pos] &gt; key:
+            arr[pos + <span class="nu">1</span>] = arr[pos]     <span class="co"># shift bigger element right</span>
+            pos -= <span class="nu">1</span>
+        arr[pos + <span class="nu">1</span>] = key              <span class="co"># drop key into the gap</span>
+    <span class="kw">return</span> arr
+
+<span class="fn">insertion_sort</span>([<span class="nu">5</span>, <span class="nu">2</span>, <span class="nu">4</span>, <span class="nu">6</span>, <span class="nu">1</span>, <span class="nu">3</span>])   <span class="co"># [1, 2, 3, 4, 5, 6]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">why use sorted()/.sort() instead of hand-rolled sorts</span>&nbsp; <span class="cm"># built-in Timsort is O(n log n) — much faster than bubble/insertion's O(n&sup2;)</span></summary>
+<div class="detail-body">
+  <div class="opt">Python's built-in <code>sorted()</code>/<code>.sort()</code> use Timsort, running in about O(n log n)</div>
+  <div class="opt">Bubble sort and insertion sort are both O(n&sup2;) &mdash; fine for tiny lists, much slower once a list grows past ~30 items</div>
+  <div class="opt">Rule of thumb: in real code, reach for <code>sorted()</code>/<code>.sort()</code> &mdash; write bubble/insertion sort only to learn how sorting works</div>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-dicts-sets">&#x1F5C2;&#xFE0F; Dictionaries, Tuples &amp; Sets</h2>
+
+<details>
+<summary><span class="one">[ ]&nbsp; { }&nbsp; { : }&nbsp; ( )</span>&nbsp; <span class="cm"># list / set / dict / tuple literals — similar-looking, very different types</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>[1, 2, 3]</code> &mdash; list (ordered, mutable, duplicates allowed)</div>
+  <div class="opt"><code>{1, 2, 3}</code> &mdash; set (unordered, no duplicates)</div>
+  <div class="opt"><code>(1, 2, 3)</code> &mdash; tuple (ordered, immutable)</div>
+  <div class="opt"><code>{"a": 1}</code> &mdash; dict (key-value mapping)</div>
+  <div class="warn">The empty <code>{}</code> is a DICT, not a set &mdash; use <code>set()</code> for an empty set</div>
+  <pre>a_list  = [<span class="nu">1</span>, <span class="nu">2</span>, <span class="nu">3</span>]
+a_set   = {<span class="nu">1</span>, <span class="nu">2</span>, <span class="nu">3</span>}
+a_tuple = (<span class="nu">1</span>, <span class="nu">2</span>, <span class="nu">3</span>)
+a_dict  = {<span class="st">"name"</span>: <span class="st">"Bob"</span>, <span class="st">"score"</span>: <span class="nu">20</span>}</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">d[key]&nbsp; vs&nbsp; d.get(key, default)</span>&nbsp; <span class="cm"># two ways to read a dictionary — one crashes on a miss, one doesn't</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>d[key]</code> &mdash; raises <code>KeyError</code> if the key is missing</div>
+  <div class="opt"><code>d.get(key, default)</code> &mdash; returns <code>default</code> instead of crashing on a miss</div>
+  <div class="opt">Second argument is optional &mdash; omitting it returns <code>None</code> on a miss</div>
+  <div class="warn">.get() cannot be assigned to: <code>d.get(key, 0) = val</code> is a SyntaxError &mdash; use <code>d[key] = val</code> to store</div>
+  <pre>prices = {<span class="st">"apple"</span>: <span class="nu">0.50</span>, <span class="st">"banana"</span>: <span class="nu">0.25</span>}
+my_price = prices.get(<span class="st">"pear"</span>, <span class="nu">0.00</span>)
+<span class="fn">print</span>(<span class="st">f"Price is: </span>{my_price:.2f}<span class="st">"</span>)  <span class="co"># Price is: 0.00</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">dict.setdefault(key, default)</span>&nbsp; <span class="cm"># insert-if-missing shorthand — replaces the verbose if/else pattern</span></summary>
+<div class="detail-body">
+  <div class="opt">Returns the value at <code>key</code>, first inserting <code>default</code> there if the key isn't present yet</div>
+  <div class="opt">Especially useful chained with <code>.append()</code> to build a dict-of-lists in one line</div>
+  <div class="opt">Chain twice for two-level nesting: <code>d.setdefault(outer, {}).setdefault(inner, []).append(item)</code></div>
+  <pre>colors = {}
+colors.setdefault(<span class="st">"neutral"</span>, []).append(<span class="st">"white"</span>)
+colors.setdefault(<span class="st">"neutral"</span>, []).append(<span class="st">"black"</span>)
+<span class="co"># colors == {"neutral": ["white", "black"]}</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">counting pattern</span>&nbsp; <span class="cm"># d[key] = d.get(key, 0) + 1 — the standard tally idiom</span></summary>
+<div class="detail-body">
+  <div class="opt">Initializes unseen keys to 0 via <code>.get()</code>'s default, then adds 1</div>
+  <div class="warn">Classic bug: assigning <code>= 1</code> in BOTH the "seen"/"not seen" branches resets the count instead of incrementing it</div>
+  <div class="warn">Another classic bug: looping <code>.items()</code> on the accumulator dict itself while it's still empty &mdash; loop the SOURCE list instead</div>
+  <pre>colors = [<span class="st">'red'</span>, <span class="st">'blue'</span>, <span class="st">'red'</span>, <span class="st">'green'</span>, <span class="st">'blue'</span>]
+freq = {}
+<span class="kw">for</span> color <span class="kw">in</span> colors:
+    freq[color] = freq.get(color, <span class="nu">0</span>) + <span class="nu">1</span>
+<span class="co"># freq == {'red': 2, 'blue': 2, 'green': 1}</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">.keys()&nbsp; .values()&nbsp; .items()</span>&nbsp; <span class="cm"># the three dictionary iteration views</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>for k in d.keys():</code> &mdash; plain <code>for k in d:</code> is equivalent, but <code>.keys()</code> is explicit</div>
+  <div class="opt"><code>for v in d.values():</code> &mdash; iterate values only</div>
+  <div class="opt"><code>for k, v in d.items():</code> &mdash; unpack both in one loop, the most-used form</div>
+  <pre>teams = {<span class="st">"Lions"</span>: <span class="nu">5</span>, <span class="st">"Tigers"</span>: <span class="nu">3</span>, <span class="st">"Bears"</span>: <span class="nu">2</span>}
+<span class="kw">for</span> team, score <span class="kw">in</span> teams.items():
+    <span class="fn">print</span>(<span class="st">f"Team is </span>{team}<span class="st"> - Score is </span>{score}<span class="st">"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">dict-of-lists grouping</span>&nbsp; <span class="cm"># group records by a key into a dict whose values are lists</span></summary>
+<div class="detail-body">
+  <div class="opt">Verbose form: <code>if key not in d: d[key] = []</code> then <code>d[key].append(item)</code></div>
+  <div class="opt">Shorthand: <code>d.setdefault(key, []).append(item)</code> &mdash; one line instead of three</div>
+  <div class="opt">Plain dict iteration order is insertion order, not sorted &mdash; use <code>sorted(d.items())</code> to iterate alphabetically</div>
+  <pre>attendees = [{<span class="st">"name"</span>: <span class="st">"Zara"</span>, <span class="st">"country"</span>: <span class="st">"UK"</span>}, {<span class="st">"name"</span>: <span class="st">"Linda"</span>, <span class="st">"country"</span>: <span class="st">"US"</span>}]
+by_country = {}
+<span class="kw">for</span> person <span class="kw">in</span> attendees:
+    by_country.setdefault(person[<span class="st">"country"</span>], []).append(person)
+<span class="kw">for</span> country, people <span class="kw">in</span> <span class="fn">sorted</span>(by_country.items()):
+    <span class="fn">print</span>(<span class="st">f"Country: </span>{country}<span class="st"> (</span>{<span class="fn">len</span>(people)}<span class="st">)"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">two-level nested dict</span>&nbsp; <span class="cm"># dict-of-dict-of-list — group records by two keys at once</span></summary>
+<div class="detail-body">
+  <div class="opt">Built with a double <code>setdefault</code>: <code>library.setdefault(genre, {}).setdefault(year, []).append(title)</code></div>
+  <div class="opt">Iterating one branch: <code>for year in library["Fantasy"]: print(year, library["Fantasy"][year])</code></div>
+  <div class="warn">Easy to reuse a stale loop variable, or accidentally build a SET (<code>{title, year}</code>) instead of a nested dict &mdash; a set loses key-based lookup entirely</div>
+  <pre>library = {}
+books = [(<span class="st">"Sci-Fi"</span>, <span class="nu">2024</span>, <span class="st">"Mars Run"</span>), (<span class="st">"Sci-Fi"</span>, <span class="nu">2026</span>, <span class="st">"StarQuest"</span>), (<span class="st">"Fantasy"</span>, <span class="nu">2024</span>, <span class="st">"Oak King"</span>)]
+<span class="kw">for</span> genre, year, title <span class="kw">in</span> books:
+    library.setdefault(genre, {}).setdefault(year, []).append(title)
+<span class="kw">for</span> year <span class="kw">in</span> library[<span class="st">"Fantasy"</span>]:
+    <span class="fn">print</span>(year, library[<span class="st">"Fantasy"</span>][year])</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">filter + group combined</span>&nbsp; <span class="cm"># loop once, apply a condition, accumulate only for matching records</span></summary>
+<div class="detail-body">
+  <div class="opt">The dict analogue of SQL's <code>WHERE</code> + <code>GROUP BY</code></div>
+  <div class="warn">Bug: initializing every group's entry before checking the filter leaves zero-value entries for groups that never matched &mdash; create the entry INSIDE the same <code>if</code> instead</div>
+  <pre>orders = [{<span class="st">"seller"</span>: <span class="st">"Amy"</span>, <span class="st">"category"</span>: <span class="st">"garden"</span>, <span class="st">"amount"</span>: <span class="nu">10</span>},
+          {<span class="st">"seller"</span>: <span class="st">"Bob"</span>, <span class="st">"category"</span>: <span class="st">"books"</span>, <span class="st">"amount"</span>: <span class="nu">5</span>}]
+totals = {}
+<span class="kw">for</span> order <span class="kw">in</span> orders:
+    <span class="kw">if</span> order[<span class="st">"category"</span>] == <span class="st">"garden"</span>:
+        totals[order[<span class="st">"seller"</span>]] = totals.get(order[<span class="st">"seller"</span>], <span class="nu">0</span>) + order[<span class="st">"amount"</span>]
+<span class="co"># Bob never appears since he has no garden orders</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">list_of_dicts.sort(key=lambda x: x["field"])</span>&nbsp; <span class="cm"># sort a list of dicts by one field</span></summary>
+<div class="detail-body">
+  <div class="opt">The lambda extracts the field to compare on for each dict in the list</div>
+  <div class="opt"><code>reverse=True</code> flips ascending to descending</div>
+  <div class="opt">Distinct from <code>sorted(d.items())</code>, which sorts a dict's (key, value) pairs by key</div>
+  <pre>records = [{<span class="st">"customer"</span>: <span class="st">"Bob"</span>, <span class="st">"total"</span>: <span class="nu">15.0</span>}, {<span class="st">"customer"</span>: <span class="st">"Alice"</span>, <span class="st">"total"</span>: <span class="nu">65.0</span>}]
+records.sort(key=<span class="kw">lambda</span> r: r[<span class="st">"total"</span>], reverse=<span class="kw">True</span>)
+<span class="co"># Alice first, then Bob</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-nested-data">&#x1F5C3;&#xFE0F; Nested Data Modeling &mdash; Lists of Dictionaries</h2>
+
+<details>
+<summary><span class="one">list of dicts</span>&nbsp; <span class="cm"># models a table of records — each element is a dict with the same keys</span></summary>
+<div class="detail-body">
+  <div class="opt">Chosen over dict-of-lists when records need to stay together as ordered units and be scanned/filtered</div>
+  <div class="opt">Supports table-like operations: print all, find-and-update one record, append a new record</div>
+  <div class="opt">Building from parallel lists uses an index loop: <code>for i in range(len(names)):</code></div>
+  <div class="opt">Match dict key names exactly to the spec (<code>"name"</code>/<code>"score"</code>) rather than inventing your own</div>
+  <pre>students = [{<span class="st">"id"</span>: <span class="nu">1</span>, <span class="st">"name"</span>: <span class="st">"Ana"</span>, <span class="st">"grade"</span>: <span class="st">"B"</span>}, {<span class="st">"id"</span>: <span class="nu">2</span>, <span class="st">"name"</span>: <span class="st">"Luis"</span>, <span class="st">"grade"</span>: <span class="st">"C"</span>}]
+<span class="kw">for</span> student <span class="kw">in</span> students:
+    <span class="kw">if</span> student[<span class="st">"id"</span>] == <span class="nu">2</span>:
+        student[<span class="st">"grade"</span>] = <span class="st">"A"</span>          <span class="co"># find-and-update</span>
+students.append({<span class="st">"id"</span>: <span class="nu">3</span>, <span class="st">"name"</span>: <span class="st">"Bob"</span>, <span class="st">"grade"</span>: <span class="st">"A"</span>})  <span class="co"># append new record</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">choosing a data shape</span>&nbsp; <span class="cm"># plain dict vs list-of-dicts vs dict-of-lists</span></summary>
+<div class="detail-body">
+  <div class="opt">Plain dict &mdash; best for direct key &rarr; single-value lookup, e.g. <code>prices["apple"]</code></div>
+  <div class="opt">List-of-dicts &mdash; best for ordered records that stay together and may need scanning/filtering, e.g. a roster</div>
+  <div class="opt">Dict-of-lists &mdash; best for grouping many records under a shared key, e.g. attendees by country</div>
+  <div class="opt">Decide the shape BEFORE coding, as part of the four-pillars spec step (inputs/outputs/constraints/edge cases)</div>
+  <pre><span class="co"># dict: direct lookup</span>
+prices = {<span class="st">"apple"</span>: <span class="nu">0.50</span>}
+<span class="co"># list of dicts: ordered records</span>
+roster = [{<span class="st">"name"</span>: <span class="st">"Ana"</span>, <span class="st">"grade"</span>: <span class="st">"B"</span>}]
+<span class="co"># dict of lists: grouping</span>
+by_country = {<span class="st">"US"</span>: [{<span class="st">"name"</span>: <span class="st">"Linda"</span>}], <span class="st">"UK"</span>: [{<span class="st">"name"</span>: <span class="st">"Zara"</span>}]}</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">nested-loop antipattern</span>&nbsp; <span class="cm"># O(n×m) search vs a dict-index O(n) fix</span></summary>
+<div class="detail-body">
+  <div class="opt">Antipattern: for every item in list A, loop the ENTIRE list B to find a match &mdash; O(n&times;m) work</div>
+  <div class="opt">Fix: build a dict index of list B once (<code>{key: item}</code>), then do O(1) lookups inside a single loop over list A</div>
+  <div class="opt">Legitimate nested-loop use: comparing every item to every other item ON PURPOSE (all-pairs comparison) &mdash; no dict shortcut exists there</div>
+  <pre><span class="co"># antipattern: O(n*m) — searching a growing list on every new purchase</span>
+<span class="co"># fix: O(n) — accumulate in a plain dict, convert to a list once at the end</span>
+totals = {}
+<span class="kw">for</span> p <span class="kw">in</span> purchases:
+    totals[p[<span class="st">"customer"</span>]] = totals.get(p[<span class="st">"customer"</span>], <span class="nu">0</span>) + p[<span class="st">"amount"</span>]
+records = [{<span class="st">"customer"</span>: k, <span class="st">"total"</span>: v} <span class="kw">for</span> k, v <span class="kw">in</span> totals.items()]  <span class="co"># single conversion pass</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">extracting per-item helpers</span>&nbsp; <span class="cm"># pull a loop's per-item logic into its own function</span></summary>
+<div class="detail-body">
+  <div class="opt">"Loop outside, helper does one item" &mdash; the <code>for</code> statement stays in the caller; the helper is called once per iteration</div>
+  <div class="opt">"Loop inside the helper" &mdash; the caller makes a single call; the helper owns its own loop</div>
+  <div class="opt">Helper functions built this way are easy to test in isolation with <code>assert</code></div>
+  <pre><span class="kw">def</span> <span class="fn">square</span>(n):
+    <span class="kw">return</span> n * n
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    squared = []
+    <span class="kw">for</span> num <span class="kw">in</span> [<span class="nu">1</span>, <span class="nu">2</span>, <span class="nu">3</span>, <span class="nu">4</span>]:
+        squared.append(<span class="fn">square</span>(num))   <span class="co"># loop stays here; per-item logic lives in square()</span>
+    <span class="fn">print</span>(squared)</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-exceptions">&#x1F6A7; Exception Handling</h2>
+
+<details>
+<summary><span class="one">try: &nbsp; except SomeError:</span>&nbsp; <span class="cm"># catch a runtime error and recover instead of crashing</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>try:</code> holds code that might fail; <code>except SomeError:</code> runs only if that specific error is raised inside the try block</div>
+  <div class="opt">Commonly wraps <code>int()</code>/<code>float()</code> conversions of user input, since bad input raises <code>ValueError</code></div>
+  <div class="opt">Catch a specific type (<code>except ValueError:</code>) or a bare <code>except:</code> to catch anything</div>
+  <div class="opt">Often combined with a loop so the user is re-prompted until valid input is given</div>
+  <div class="warn">A variable assigned inside try may not exist afterward if the error happened before that line ran &mdash; give it a fallback value inside except</div>
+  <pre><span class="kw">while</span> <span class="kw">True</span>:
+    <span class="kw">try</span>:
+        price = <span class="fn">float</span>(<span class="fn">input</span>(<span class="st">"Please enter a price: $"</span>))
+        <span class="kw">break</span>
+    <span class="kw">except</span> ValueError:
+        <span class="fn">print</span>(<span class="st">"Invalid input. Please enter a numeric value."</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">multiple except clauses</span>&nbsp; <span class="cm"># stack several except blocks under one try, one per error type</span></summary>
+<div class="detail-body">
+  <div class="opt">Python checks each <code>except</code> in order and runs only the FIRST one that matches</div>
+  <div class="opt">Once one except block runs, the rest are skipped &mdash; not evaluated as separate independent checks</div>
+  <div class="opt">Each except clause needs the same indentation, lined up under <code>try</code></div>
+  <pre><span class="kw">try</span>:
+    num = <span class="fn">int</span>(<span class="fn">input</span>(<span class="st">"Enter a number: "</span>))
+<span class="kw">except</span> ValueError:
+    <span class="fn">print</span>(<span class="st">"Please enter a valid number."</span>)
+<span class="kw">except</span> NameError:
+    <span class="fn">print</span>(<span class="st">"This branch won't run from bad input here."</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">try: except: else: finally:</span>&nbsp; <span class="cm"># else runs only on success, finally ALWAYS runs</span></summary>
+<div class="detail-body">
+  <div class="opt">Full structure: <code>try:</code> &rarr; <code>except:</code> &rarr; <code>else:</code> &rarr; <code>finally:</code></div>
+  <div class="opt"><code>else</code> is a good place for code that should run only when the risky line succeeded</div>
+  <div class="opt"><code>finally</code> runs whether the try block succeeded, failed and was caught, or failed and was NOT caught &mdash; useful for cleanup</div>
+  <pre><span class="kw">def</span> <span class="fn">safe_int</span>():
+    <span class="kw">try</span>:
+        value = <span class="fn">int</span>(<span class="fn">input</span>(<span class="st">"Enter a number: "</span>))
+    <span class="kw">except</span> ValueError:
+        <span class="fn">print</span>(<span class="st">"That wasn't a valid number!"</span>)
+    <span class="kw">else</span>:
+        <span class="fn">print</span>(<span class="st">"You entered:"</span>, value)
+    <span class="kw">finally</span>:
+        <span class="fn">print</span>(<span class="st">"Done processing input."</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">try-block scope</span>&nbsp; <span class="cm"># except only catches errors on lines actually indented under try</span></summary>
+<div class="detail-body">
+  <div class="opt">If a variable is only assigned inside try and that line fails, the variable never gets created</div>
+  <div class="opt">Using that variable in a LATER line outside the try/except can raise <code>NameError</code>, and no except block will catch it &mdash; that line isn't "inside" the protected region</div>
+  <div class="opt">Fix: either include the risky use inside the same try, or assign a fallback value inside except so the variable always exists afterward</div>
+  <pre><span class="kw">try</span>:
+    num = <span class="fn">int</span>(<span class="fn">input</span>(<span class="st">"Enter a number: "</span>))
+<span class="kw">except</span> ValueError:
+    num = <span class="nu">0</span>          <span class="co"># fallback so `num` always exists</span>
+    <span class="fn">print</span>(<span class="st">"Invalid number, defaulting to 0"</span>)
+<span class="fn">print</span>(num * <span class="nu">2</span>)        <span class="co"># safe: num is guaranteed to exist here</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-modules">&#x1F4E6; Modules &amp; Built-in Functions</h2>
+
+<details>
+<summary><span class="one">import module &nbsp; from module import x</span>&nbsp; <span class="cm"># bring in code from the standard library or another file</span></summary>
+<div class="detail-body">
+  <div class="opt">Built-in modules ship with Python, no install needed: <code>import random</code>, <code>import math</code>, <code>import sys</code></div>
+  <div class="opt">After importing, call functions as <code>module.function(...)</code>: <code>math.sqrt(-1)</code>, <code>random.randint(1, 6)</code></div>
+  <div class="opt"><code>from datetime import datetime</code> pulls just one name out of a module so it's used directly, no prefix: <code>datetime.now()</code></div>
+  <div class="opt">Third-party libraries need <code>pip install</code> first, e.g. <code>python -m pip install requests</code></div>
+  <div class="warn">Unlike print()/len()/open(), these tools aren't automatically available — the import line must run first or Python raises NameError</div>
+  <pre><span class="kw">import</span> random
+<span class="kw">from</span> datetime <span class="kw">import</span> datetime
+
+dice_roll = random.randint(<span class="nu">1</span>, <span class="nu">6</span>)
+<span class="fn">print</span>(datetime.now())</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">abs(x)</span>&nbsp; <span class="cm"># absolute value — strips any negative sign, works on ints and floats</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>abs(-42)</code> &rarr; <code>42</code>;&nbsp; <code>abs(-3.5)</code> &rarr; <code>3.5</code></div>
+  <div class="opt">No import needed &mdash; always available</div>
+  <div class="opt">Useful for a difference where you don't care which direction it moved</div>
+  <pre>price_change = -<span class="nu">12.5</span>
+<span class="fn">print</span>(<span class="fn">abs</span>(price_change))   <span class="co"># 12.5</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">random.randint(a, b)</span>&nbsp; <span class="cm"># random integer between a and b — BOTH ends included</span></summary>
+<div class="detail-body">
+  <div class="opt">Requires <code>import random</code> first</div>
+  <div class="opt">Inclusive on both sides, unlike <code>range()</code> which excludes the stop value</div>
+  <div class="opt">Common for dice rolls, sampling, random choices</div>
+  <pre><span class="kw">import</span> random
+<span class="fn">print</span>(random.randint(<span class="nu">1</span>, <span class="nu">100</span>))   <span class="co"># random integer from 1 to 100, inclusive</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">isinstance(value, type)</span>&nbsp; <span class="cm"># checks whether a value is (or belongs to) a given type</span></summary>
+<div class="detail-body">
+  <div class="opt">Returns <code>True</code>/<code>False</code> &mdash; typically used inside an <code>if</code> to guard code that assumes a certain type</div>
+  <div class="opt">Different from <code>type(x)</code>, which returns the exact type object rather than a yes/no answer</div>
+  <div class="opt">Common pattern: <code>if isinstance(value, str) and len(value) > 0:</code> &mdash; confirm non-empty string before using it</div>
+  <pre>users_choice = <span class="fn">input</span>(<span class="st">"(A)dd, (R)emove, (Q)uit: "</span>)
+<span class="kw">if</span> <span class="fn">isinstance</span>(users_choice, <span class="fn">str</span>) <span class="kw">and</span> <span class="fn">len</span>(users_choice) > <span class="nu">0</span>:
+    first_letter = users_choice[<span class="nu">0</span>].upper()</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-file-io">&#x1F4C1; File I/O, Streams &amp; Command-Line Arguments</h2>
+
+<details>
+<summary><span class="one">with open(filename, mode) as file:</span>&nbsp; <span class="cm"># opens a file, auto-closes it when the block ends</span></summary>
+<div class="detail-body">
+  <div class="opt">The <code>with</code> block guarantees the file is closed even if an error occurs inside it</div>
+  <div class="opt">Mode strings: <code>'r'</code> read (file must exist), <code>'w'</code> write (creates/overwrites), <code>'a'</code> append (adds to the end)</div>
+  <div class="opt">Inside the block: <code>file.write(text)</code> to write</div>
+  <div class="warn">Writing does NOT add a newline automatically — include \n yourself or every write lands on the same line</div>
+  <pre><span class="kw">from</span> datetime <span class="kw">import</span> datetime
+
+<span class="kw">with</span> <span class="fn">open</span>(<span class="st">"notes.txt"</span>, <span class="st">"a"</span>) <span class="kw">as</span> file:
+    file.write(<span class="st">f"</span>{datetime.now()}<span class="st">\n"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">for line in file:</span>&nbsp; <span class="cm"># read a file line by line — stops automatically at end-of-file</span></summary>
+<div class="detail-body">
+  <div class="opt">Looping directly over the file object is the idiomatic ("Pythonic") way to read every line</div>
+  <div class="opt">Each <code>line</code> already ends with its own <code>\n</code> &mdash; <code>print(line)</code> alone double-spaces the output</div>
+  <div class="opt">Use <code>print(line, end='')</code> to suppress the extra newline since the line already has one</div>
+  <div class="opt"><code>file.read()</code> (whole file as one string) and <code>file.readline()</code> (one line) exist too, but need a manual empty-string EOF check &mdash; the for-loop avoids that</div>
+  <pre><span class="kw">with</span> <span class="fn">open</span>(<span class="st">"notes.txt"</span>, <span class="st">"r"</span>) <span class="kw">as</span> file:
+    <span class="kw">for</span> line <span class="kw">in</span> file:
+        <span class="fn">print</span>(line, end=<span class="st">""</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">sys.stdin</span>&nbsp; <span class="cm"># read the program's entire input stream — lets a script act as a "filter"</span></summary>
+<div class="detail-body">
+  <div class="opt">Requires <code>import sys</code></div>
+  <div class="opt"><code>for line in sys.stdin:</code> reads lines one at a time from whatever is feeding the program (keyboard, a piped file, or another program's output)</div>
+  <div class="opt">Combined with <code>print(..., end='')</code>, a script can transform each line and pass it straight to stdout, e.g. <code>filter1.py | filter2.py</code></div>
+  <div class="opt">Loop ends naturally at EOF, same idea as reading a file from a different source</div>
+  <pre><span class="kw">import</span> sys
+
+<span class="kw">for</span> line <span class="kw">in</span> sys.stdin:
+    <span class="fn">print</span>(line.upper(), end=<span class="st">""</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">sys.argv</span>&nbsp; <span class="cm"># list of arguments a script was launched with</span></summary>
+<div class="detail-body">
+  <div class="opt">Requires <code>import sys</code>; <code>sys.argv[0]</code> is always the script's own filename</div>
+  <div class="opt"><code>sys.argv[1]</code>, <code>sys.argv[2]</code>, etc. are the arguments the user supplied</div>
+  <div class="opt"><code>len(sys.argv)</code> tells you how many arguments were passed &mdash; check this before a required argument is missing</div>
+  <div class="opt"><code>sys.exit(1)</code> stops the program immediately with a non-zero status, commonly after a usage error</div>
+  <div class="warn">All values in sys.argv are strings — numeric arguments need int()/float() conversion, same as input()</div>
+  <pre><span class="kw">import</span> sys
+
+<span class="kw">if</span> <span class="fn">len</span>(sys.argv) &lt; <span class="nu">2</span>:
+    <span class="fn">print</span>(<span class="st">f"Usage: python </span>{sys.argv[0]}<span class="st"> [pattern]"</span>)
+    sys.exit(<span class="nu">1</span>)
+
+pattern = sys.argv[<span class="nu">1</span>]</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">argparse</span>&nbsp; <span class="cm"># declare and parse command-line options more robustly than sys.argv by hand</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>import argparse</code>, then <code>parser = argparse.ArgumentParser(description="...")</code></div>
+  <div class="opt"><code>parser.add_argument("name", help="...")</code> declares a required (positional) argument</div>
+  <div class="opt"><code>parser.add_argument("-x", "--longname", default=...)</code> declares an optional flag with short and long form</div>
+  <div class="opt"><code>args = parser.parse_args()</code> reads and validates sys.argv, auto-raising a usage error on a missing required argument</div>
+  <div class="opt">Parsed values are accessed as attributes: <code>args.pattern</code>, <code>args.infile</code></div>
+  <pre><span class="kw">import</span> argparse
+
+parser = argparse.ArgumentParser(description=<span class="st">"Grep-like filter"</span>)
+parser.add_argument(<span class="st">"pattern"</span>, help=<span class="st">"&lt;search pattern&gt;"</span>)
+parser.add_argument(<span class="st">"-o"</span>, <span class="st">"--outfile"</span>, default=<span class="st">""</span>)
+args = parser.parse_args()
+<span class="fn">print</span>(args.pattern, args.outfile)</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-func-design">&#x1F3D7;&#xFE0F; Function Design &amp; Program Structure</h2>
+
+<details>
+<summary><span class="one">return vs print</span>&nbsp; <span class="cm"># return hands a value to the caller; print only displays it</span></summary>
+<div class="detail-body">
+  <div class="opt">A function that only <code>print</code>s cannot have its result stored, tested, or passed to another function</div>
+  <div class="opt">Refactoring a print-only function to <code>return</code> lets the CALLER decide whether to print, store, or reuse the value</div>
+  <div class="opt">Fix pattern: replace <code>print(result)</code> inside the function with <code>return result</code>, then <code>print()</code> at the call site</div>
+  <div class="warn">This is the single most common early bug — a function that "looks like it works" but hands the caller nothing to use</div>
+  <pre><span class="kw">def</span> <span class="fn">double_and_print</span>(x):
+    result = x * <span class="nu">2</span>
+    <span class="kw">return</span> result          <span class="co"># caller decides what to do with it</span>
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    value = <span class="fn">double_and_print</span>(<span class="nu">5</span>)
+    <span class="fn">print</span>(value)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">if __name__ == "__main__":</span>&nbsp; <span class="cm"># entry-point guard — only runs main() when the file is executed directly</span></summary>
+<div class="detail-body">
+  <div class="opt">Wraps top-level work (data setup, calling <code>main()</code>, printing) so it doesn't fire on import</div>
+  <div class="opt">Refactor pattern: move all top-level statements into <code>main()</code>, then add the guard at the very bottom of the file</div>
+  <div class="opt">A professional-style habit, not required for these small scripts to work</div>
+  <pre><span class="kw">def</span> <span class="fn">main</span>():
+    records = ...
+    <span class="fn">print</span>(records)
+
+<span class="kw">if</span> __name__ == <span class="st">"__main__"</span>:
+    <span class="fn">main</span>()</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">parameter shadowing</span>&nbsp; <span class="cm"># a function must use its OWN parameter, not a same-named outer variable</span></summary>
+<div class="detail-body">
+  <div class="opt">Real bug: a helper had parameter <code>inventory</code> but its body referenced global <code>inventory_dict</code> instead &mdash; silently "worked" only because both existed with compatible data</div>
+  <div class="opt">Passing data explicitly through parameters keeps a function testable and independent of outer state</div>
+  <div class="opt">Related: referencing a name that only exists in <code>main()</code>'s scope raises <code>NameError</code> &mdash; fix by adding it to the parameter list and passing it at the call site</div>
+  <pre><span class="kw">def</span> <span class="fn">apply_discount</span>(price, loc_discount):     <span class="co"># renamed param avoids ambiguity with any global</span>
+    final_price = price - (price * loc_discount)
+    <span class="kw">return</span> final_price
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    discount = <span class="nu">0.1</span>
+    <span class="fn">print</span>(<span class="fn">apply_discount</span>(<span class="nu">50</span>, discount))</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">function pipelines</span>&nbsp; <span class="cm"># chain single-responsibility helpers, main() just orchestrates</span></summary>
+<div class="detail-body">
+  <div class="opt">Pattern: <code>compute_totals()</code> &rarr; <code>sort_totals()</code> &rarr; <code>print_summary()</code></div>
+  <div class="opt">Each stage takes the previous stage's return value as its input</div>
+  <div class="opt">Single-responsibility functions are easier to test individually with <code>assert</code></div>
+  <div class="opt">Prefer building a plain dict for aggregation, only convert to list-of-dicts at the end &mdash; don't mix responsibilities in one function</div>
+  <pre><span class="kw">def</span> <span class="fn">compute_totals</span>(purchases):
+    totals = {}
+    <span class="kw">for</span> p <span class="kw">in</span> purchases:
+        totals[p[<span class="st">"customer"</span>]] = totals.get(p[<span class="st">"customer"</span>], <span class="nu">0</span>) + p[<span class="st">"amount"</span>]
+    <span class="kw">return</span> totals
+
+<span class="kw">def</span> <span class="fn">sort_totals</span>(totals):
+    <span class="kw">return</span> <span class="fn">sorted</span>(totals.items(), key=<span class="kw">lambda</span> pair: pair[<span class="nu">1</span>], reverse=<span class="kw">True</span>)
+
+<span class="kw">def</span> <span class="fn">print_summary</span>(sorted_totals):
+    <span class="kw">for</span> name, total <span class="kw">in</span> sorted_totals:
+        <span class="fn">print</span>(<span class="st">f"</span>{name}<span class="st"> -> </span>{total}<span class="st">"</span>)
+
+<span class="kw">def</span> <span class="fn">main</span>():
+    <span class="fn">print_summary</span>(<span class="fn">sort_totals</span>(<span class="fn">compute_totals</span>(purchases)))</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">named status constants</span>&nbsp; <span class="cm"># give sentinel return values meaningful names instead of magic numbers</span></summary>
+<div class="detail-body">
+  <div class="opt">Pattern: <code>OUT_OF_STOCK = -1</code>, <code>PRICE_ERROR = -2</code>, <code>ITEM_VALIDATED = 1</code> defined once at module level</div>
+  <div class="opt">A helper returns one of these constants instead of True/False/raw numbers; the caller compares against the named constant</div>
+  <div class="opt"><code>if status == ITEM_VALIDATED:</code> is self-documenting compared to <code>if status == 1:</code></div>
+  <pre>OUT_OF_STOCK = -<span class="nu">1</span>
+PRICE_ERROR = -<span class="nu">2</span>
+ITEM_VALIDATED = <span class="nu">1</span>
+
+<span class="kw">def</span> <span class="fn">validate_item</span>(item, inventory):
+    <span class="kw">if</span> item[<span class="st">"sku"</span>] <span class="kw">not</span> <span class="kw">in</span> inventory:
+        <span class="kw">return</span> OUT_OF_STOCK
+    <span class="kw">if</span> item[<span class="st">"price"</span>] != inventory[item[<span class="st">"sku"</span>]]:
+        <span class="kw">return</span> PRICE_ERROR
+    <span class="kw">return</span> ITEM_VALIDATED</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-testing">&#x1F4D0; Program Design &amp; Testing</h2>
+
+<details>
+<summary><span class="one">pseudocode &rarr; Python</span>&nbsp; <span class="cm"># translate a plain-language plan line by line into working code</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>IF x is empty</code> &rarr; <code>if not x:</code> (or <code>if len(x) &lt; 1:</code>)</div>
+  <div class="opt"><code>PRINT "..."</code> &rarr; <code>print("...")</code>;&nbsp; <code>ELSE</code> &rarr; <code>else:</code></div>
+  <div class="warn">Common mistake: over-engineering the translation (e.g. adding an interactive input() loop) when the pseudocode only describes operating on an already-existing list &mdash; translate only what it actually says</div>
+  <pre>cart_items = [<span class="st">"apples"</span>, <span class="st">"pears"</span>]
+<span class="kw">if</span> <span class="kw">not</span> cart_items:
+    <span class="fn">print</span>(<span class="st">"cart is empty"</span>)
+<span class="kw">else</span>:
+    <span class="fn">print</span>(<span class="st">f"Item </span>{<span class="fn">len</span>(cart_items)}<span class="st">"</span>)
+    <span class="fn">print</span>(<span class="st">f"First item is: </span>{cart_items[<span class="nu">0</span>]}<span class="st">"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">the "four pillars" spec method</span>&nbsp; <span class="cm"># name Inputs, Outputs, Constraints, Edge cases before writing any code</span></summary>
+<div class="detail-body">
+  <div class="opt">Inputs &mdash; what data the function needs to receive</div>
+  <div class="opt">Outputs &mdash; what it returns or displays</div>
+  <div class="opt">Constraints &mdash; rules the valid input must satisfy, e.g. "list must have at least 2 prices"</div>
+  <div class="opt">Edge cases &mdash; valid-but-unusual inputs that must be handled deliberately, e.g. negative prices, empty list</div>
+  <pre><span class="co">Feature: total_prices(prices)
+Inputs: a list of numeric prices
+Outputs: the sum of all non-negative prices
+Constraints: list should contain at least 2 prices
+Edge cases: negative prices (skip them), empty list (return 0)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">boundary vs invalid edge cases</span>&nbsp; <span class="cm"># still-valid edge inputs vs bad/unexpected inputs</span></summary>
+<div class="detail-body">
+  <div class="opt">Boundary example: an order of exactly $50 when the rule is "50 or more ships free" &mdash; must use <code>>=</code>, not <code>></code>, so the boundary value is included</div>
+  <div class="opt">Invalid-input example: <code>amount</code> not being a number, or the input list being <code>None</code> instead of a list &mdash; guarded against rather than computed on</div>
+  <div class="opt">Boundary handling is driven by the exact wording of the spec ("50 or more" &rarr; <code>>=</code>)</div>
+  <div class="opt">Invalid-input edge cases are what motivate adding <code>assert</code>-based validation at the top of a function</div>
+  <pre><span class="kw">def</span> <span class="fn">calculate_shipping</span>(total):
+    <span class="kw">if</span> total >= <span class="nu">50</span>:      <span class="co"># boundary: exactly 50 must qualify, per "50 or more"</span>
+        <span class="kw">return</span> <span class="nu">0</span>
+    <span class="kw">return</span> <span class="nu">10</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">acceptance criteria</span>&nbsp; <span class="cm"># "if/then" and "given/when/then" sentence templates</span></summary>
+<div class="detail-body">
+  <div class="opt">Format A: "If <code>&lt;condition about input&gt;</code>, then <code>&lt;expected output&gt;</code>."</div>
+  <div class="opt">Format B: "Given <code>&lt;input&gt;</code>, when I call <code>&lt;function&gt;</code>, then <code>&lt;output&gt;</code>."</div>
+  <div class="opt">Written BEFORE writing code &mdash; translates almost directly into <code>assert</code> statements once the function exists</div>
+  <pre><span class="co">If the price list is [10, 20, 30], then total_prices must return 60.
+Given a cart of [], when I call checkout(cart), then the result must show "cart is empty".</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">assert expression</span>&nbsp; <span class="cm"># does nothing if True, raises AssertionError (halts the program) if False</span></summary>
+<div class="detail-body">
+  <div class="opt">Lightweight, code-based way to state "this must be true" instead of eyeballing print() output</div>
+  <div class="opt">Standard pattern: call the function, store the result, then <code>assert result == expected_value</code></div>
+  <div class="opt">A failed assert stops execution immediately &mdash; anything after it (including a print) does not run</div>
+  <div class="opt">Optional message: <code>assert condition, "error text"</code> &mdash; also used for input validation, e.g. checking <code>type()</code> or that a list isn't empty</div>
+  <pre><span class="kw">def</span> <span class="fn">calculate_shipping</span>(total):
+    <span class="kw">if</span> total >= <span class="nu">50</span>:
+        <span class="kw">return</span> <span class="nu">0</span>
+    <span class="kw">return</span> <span class="nu">10</span>
+
+result = <span class="fn">calculate_shipping</span>(<span class="nu">30</span>)
+<span class="kw">assert</span> result == <span class="nu">10</span>
+result = <span class="fn">calculate_shipping</span>(<span class="nu">80</span>)
+<span class="kw">assert</span> result == <span class="nu">0</span>
+<span class="fn">print</span>(<span class="st">"Test passed"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">incremental implementation</span>&nbsp; <span class="cm"># build in tiny steps, verifying correctness after each small addition</span></summary>
+<div class="detail-body">
+  <div class="opt">"Smallest testable unit" = one input paired with one expected output, verified with <code>assert</code> before adding the next behavior</div>
+  <div class="opt">Typical progression: start from a hardcoded stub returning a fixed value, get that passing, then generalize the logic while re-running the same assert</div>
+  <div class="opt">Superior to relying on print() alone, because the expected value is encoded in the code, not just eyeballed in output</div>
+  <pre><span class="kw">def</span> <span class="fn">apply_discount</span>(price, discount_percent):
+    discount_amount = price * discount_percent / <span class="nu">100</span>
+    final_price = price - discount_amount
+    <span class="kw">return</span> final_price
+
+result = <span class="fn">apply_discount</span>(<span class="nu">100</span>, <span class="nu">10</span>)
+<span class="kw">assert</span> result == <span class="nu">90</span>
+<span class="fn">print</span>(<span class="st">"Test passed"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">post-loop aggregation</span>&nbsp; <span class="cm"># code that computes a final value from loop state must live OUTSIDE the loop</span></summary>
+<div class="detail-body">
+  <div class="opt">Real bug: shipping cost, order total, and the final result dict were accidentally indented inside the per-item loop, so they were recomputed (and overwritten) every iteration instead of once at the end</div>
+  <div class="opt">Fix is purely about indentation: the loop builds partial state (e.g. a running subtotal); only after the loop exits do you compute derived values from that final state</div>
+  <div class="warn">One of the most common silent bugs — the code still "runs" and produces A result, just the wrong one, from only the last iteration's partial state</div>
+  <pre><span class="kw">def</span> <span class="fn">calculate_cart</span>(carts, inventory):
+    subtotal = <span class="nu">0</span>
+    <span class="kw">for</span> item <span class="kw">in</span> carts:
+        subtotal += item[<span class="st">"price"</span>] * item[<span class="st">"quantity"</span>]   <span class="co"># loop builds partial state</span>
+    shipping = <span class="nu">10</span> <span class="kw">if</span> subtotal &lt; <span class="nu">150</span> <span class="kw">else</span> <span class="nu">0</span>              <span class="co"># dedented — runs once, after the loop</span>
+    total = subtotal + shipping
+    <span class="kw">return</span> {<span class="st">"subtotal"</span>: subtotal, <span class="st">"shipping"</span>: shipping, <span class="st">"total"</span>: total}</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-comprehensions">&#x1F9EE; Comprehensions &amp; Conditional Expressions</h2>
+
+<details>
+<summary><span class="one">[expr for item in iterable if cond]</span>&nbsp; <span class="cm"># list comprehension — builds a new list in one line</span></summary>
+<div class="detail-body">
+  <div class="opt">Basic form: <code>[expr for item in iterable]</code></div>
+  <div class="opt">With filter: <code>[expr for item in iterable if condition]</code></div>
+  <div class="opt">Equivalent to a for-loop that appends to a list, but shorter and returns the list directly</div>
+  <div class="opt">Can nest: <code>[expr for x in outer for y in inner]</code></div>
+  <div class="warn">Overusing nested/complex comprehensions hurts readability — fall back to a real loop</div>
+  <pre>squares = [n ** <span class="nu">2</span> <span class="kw">for</span> n <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">1</span>, <span class="nu">6</span>)]
+<span class="co"># [1, 4, 9, 16, 25]</span>
+
+evens = [n <span class="kw">for</span> n <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">20</span>) <span class="kw">if</span> n % <span class="nu">2</span> == <span class="nu">0</span>]
+<span class="co"># [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]</span>
+
+upper_names = [name.upper() <span class="kw">for</span> name <span class="kw">in</span> [<span class="st">"ron"</span>, <span class="st">"ana"</span>]]
+<span class="co"># ["RON", "ANA"]</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">{expr for item in iterable if cond}</span>&nbsp; <span class="cm"># set comprehension — builds a new set (unique, unordered)</span></summary>
+<div class="detail-body">
+  <div class="opt">Same syntax as list comprehension but with <code>{}</code> instead of <code>[]</code></div>
+  <div class="opt">Automatically de-duplicates results, like any set</div>
+  <div class="opt">Useful for collecting unique values derived from a collection</div>
+  <pre>words = [<span class="st">"cat"</span>, <span class="st">"dog"</span>, <span class="st">"cat"</span>, <span class="st">"bird"</span>]
+lengths = {<span class="fn">len</span>(w) <span class="kw">for</span> w <span class="kw">in</span> words}
+<span class="co"># {3, 4}   (3 appears twice in words but only once in the set)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">{key_expr: value_expr for item in iterable if cond}</span>&nbsp; <span class="cm"># dict comprehension — builds a new dictionary in one line</span></summary>
+<div class="detail-body">
+  <div class="opt">Needs both a key expression and a value expression, separated by <code>:</code></div>
+  <div class="opt">Can transform an existing dict's keys/values, or build one from a list</div>
+  <div class="opt">Filter with <code>if</code> just like list/set comprehensions</div>
+  <pre>names = [<span class="st">"Ron"</span>, <span class="st">"Ana"</span>, <span class="st">"Sam"</span>]
+name_lengths = {name: <span class="fn">len</span>(name) <span class="kw">for</span> name <span class="kw">in</span> names}
+<span class="co"># {"Ron": 3, "Ana": 3, "Sam": 3}</span>
+
+prices = {<span class="st">"apple"</span>: <span class="nu">1.00</span>, <span class="st">"milk"</span>: <span class="nu">3.50</span>, <span class="st">"bread"</span>: <span class="nu">2.00</span>}
+on_sale = {item: <span class="fn">round</span>(price * <span class="nu">0.8</span>, <span class="nu">2</span>) <span class="kw">for</span> item, price <span class="kw">in</span> prices.items() <span class="kw">if</span> price > <span class="nu">1.5</span>}
+<span class="co"># {"milk": 2.8, "bread": 1.6}</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">(expr for item in iterable if cond)</span>&nbsp; <span class="cm"># generator expression — like a list comprehension but lazy</span></summary>
+<div class="detail-body">
+  <div class="opt">Uses <code>()</code> instead of <code>[]</code></div>
+  <div class="opt">Values are computed on demand as you iterate — nothing is stored up front</div>
+  <div class="opt">Can only be iterated once; after it's exhausted, it's empty</div>
+  <div class="opt">Use when you only need to loop over the results once and the source could be large (saves memory)</div>
+  <div class="opt">Pass directly into functions that accept an iterable, no extra parentheses needed: <code>sum(n * n for n in range(10))</code></div>
+  <pre>squares_gen = (n ** <span class="nu">2</span> <span class="kw">for</span> n <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">1_000_000</span>))
+<span class="co"># nothing computed yet — values generated one at a time as you loop</span>
+
+total = <span class="fn">sum</span>(n ** <span class="nu">2</span> <span class="kw">for</span> n <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">10</span>))
+<span class="co"># 285 — generator consumed directly by sum(), no full list ever built</span>
+
+<span class="kw">for</span> val <span class="kw">in</span> squares_gen:
+    <span class="fn">print</span>(val)
+    <span class="kw">break</span>   <span class="co"># only computes the first value: 0</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">value_if_true if condition else value_if_false</span>&nbsp; <span class="cm"># conditional expression — a one-line if/else that produces a value ("ternary")</span></summary>
+<div class="detail-body">
+  <div class="opt">Not a statement — it's an expression that evaluates to a value, so it can be assigned or embedded</div>
+  <div class="opt">Reads left to right: the "true" result comes first, then the condition, then the "false" result</div>
+  <div class="opt">Great inside comprehensions and f-strings; avoid chaining more than one — nested ternaries get unreadable fast</div>
+  <pre>age = <span class="nu">20</span>
+status = <span class="st">"adult"</span> <span class="kw">if</span> age >= <span class="nu">18</span> <span class="kw">else</span> <span class="st">"minor"</span>
+<span class="co"># "adult"</span>
+
+<span class="co"># inside a list comprehension</span>
+labels = [<span class="st">"even"</span> <span class="kw">if</span> n % <span class="nu">2</span> == <span class="nu">0</span> <span class="kw">else</span> <span class="st">"odd"</span> <span class="kw">for</span> n <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">5</span>)]
+<span class="co"># ["even", "odd", "even", "odd", "even"]</span>
+
+<span class="co"># inside an f-string</span>
+<span class="fn">print</span>(<span class="st">f"You are </span>{<span class="st">'eligible'</span> <span class="kw">if</span> age >= <span class="nu">18</span> <span class="kw">else</span> <span class="st">'not eligible'</span>}<span class="st"> to vote"</span>)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">(name := expr)</span>&nbsp; <span class="cm"># assignment expression — the "walrus operator": assigns AND produces a value in one expression</span></summary>
+<div class="detail-body">
+  <div class="opt">Syntax is <code>name := expr</code>, always the colon-equals — different from plain <code>=</code>, which is a statement and can't appear inside an expression</div>
+  <div class="opt">Almost always needs its own parentheses when used inside a larger expression: <code>(n := len(data))</code></div>
+  <div class="opt">Classic use: avoid calling the same expensive function/expression twice — once to check it, once to use it</div>
+  <div class="opt">Very common in <code>while</code> loops that read/compute something and test it in the same breath</div>
+  <div class="opt">Common in comprehensions: filter on a computed value AND keep that computed value, without recomputing it</div>
+  <div class="opt">Doesn't replace regular <code>=</code> for normal top-level assignment — it's for "I need to assign AND use the value in the same expression"</div>
+  <pre><span class="co"># without walrus — has to call input() twice or use an extra line</span>
+line = <span class="fn">input</span>(<span class="st">"Enter text (blank to quit): "</span>)
+<span class="kw">while</span> line != <span class="st">""</span>:
+    <span class="fn">print</span>(<span class="st">f"You typed: </span>{line}<span class="st">"</span>)
+    line = <span class="fn">input</span>(<span class="st">"Enter text (blank to quit): "</span>)
+
+<span class="co"># with walrus — assign and test in one line</span>
+<span class="kw">while</span> (line := <span class="fn">input</span>(<span class="st">"Enter text (blank to quit): "</span>)) != <span class="st">""</span>:
+    <span class="fn">print</span>(<span class="st">f"You typed: </span>{line}<span class="st">"</span>)
+
+<span class="co"># avoiding a duplicate/expensive call in an if</span>
+data = [<span class="nu">1</span>, <span class="nu">2</span>, <span class="nu">3</span>, <span class="nu">4</span>, <span class="nu">5</span>]
+<span class="kw">if</span> (n := <span class="fn">len</span>(data)) > <span class="nu">3</span>:
+    <span class="fn">print</span>(<span class="st">f"List is long: </span>{n}<span class="st"> items"</span>)
+
+<span class="co"># inside a comprehension — compute once, filter and reuse the same value</span>
+results = [y <span class="kw">for</span> x <span class="kw">in</span> <span class="fn">range</span>(<span class="nu">10</span>) <span class="kw">if</span> (y := x ** <span class="nu">2</span>) > <span class="nu">20</span>]
+<span class="co"># [25, 36, 49, 64, 81]  — x**2 isn't computed twice per item</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-oop-classes">&#x1F3DB;&#xFE0F; OOP Foundations &mdash; Classes &amp; Instances (Python 103 Week 1)</h2>
+
+<details>
+<summary><span class="one">class ClassName:</span>&nbsp; <span class="cm"># blueprint defining a user-defined data type</span></summary>
+<div class="detail-body">
+  <div class="opt">A <b>Class</b> is a logical blueprint and data type encapsulating data (attributes) and behavior (methods)</div>
+  <div class="opt">Naming convention: <b>PascalCase</b> (e.g. <code>BankAccount</code>, <code>Point3d</code>, <code>ShelterAnimal</code>)</div>
+  <div class="opt">A minimal class can use <code>pass</code> or a docstring as its body</div>
+  <pre><span class="kw">class</span> <span class="fn">Pet</span>:
+    <span class="co"># Minimal class blueprint</span>
+    <span class="kw">pass</span>
+
+luna = <span class="fn">Pet</span>()  <span class="co"># instantiates a new concrete Pet object in heap memory</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">obj = ClassName()</span>&nbsp; <span class="cm"># instantiation via call operator () — allocates a distinct object on heap</span></summary>
+<div class="detail-body">
+  <div class="opt">An <b>Instance / Object</b> is a concrete realization of a class allocated in memory</div>
+  <div class="opt">Every instance has its own unique memory address (<code>id(obj)</code>) and its own independent state dictionary (<code>__dict__</code>)</div>
+  <div class="warn">Omitting parentheses during instantiation (<code>pet = Pet</code>) binds the class itself, NOT a new instance!</div>
+  <pre>dog1 = <span class="fn">Pet</span>()
+dog2 = <span class="fn">Pet</span>()
+
+<span class="fn">print</span>(<span class="fn">id</span>(dog1) != <span class="fn">id</span>(dog2))  <span class="co"># True &mdash; two completely distinct objects in heap</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">type(obj) &amp; isinstance(obj, Class)</span>&nbsp; <span class="cm"># object type introspection and verification</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>type(obj)</code> &mdash; returns the exact type/class of the object (e.g., <code>&lt;class '__main__.Pet'&gt;</code>)</div>
+  <div class="opt"><code>isinstance(obj, Class)</code> &mdash; returns <code>True</code> if <code>obj</code> is an instance of <code>Class</code> or any subclass thereof</div>
+  <div class="opt">Prefer <code>isinstance()</code> over <code>type() == Class</code> because it respects inheritance hierarchies</div>
+  <pre>pet = <span class="fn">Pet</span>()
+<span class="fn">print</span>(<span class="fn">type</span>(pet))                 <span class="co"># &lt;class '__main__.Pet'&gt;</span>
+<span class="fn">print</span>(<span class="fn">isinstance</span>(pet, Pet))      <span class="co"># True</span>
+<span class="fn">print</span>(<span class="fn">isinstance</span>(pet, object))   <span class="co"># True &mdash; all classes inherit from object</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">obj.attr = value</span>&nbsp; <span class="cm"># dynamic attribute binding &amp; instance state isolation</span></summary>
+<div class="detail-body">
+  <div class="opt">Attributes can be bound directly to an instance using dot notation: <code>obj.name = "Luna"</code></div>
+  <div class="opt">Each instance maintains its own isolated state &mdash; modifying attributes on <code>dog1</code> does NOT affect <code>dog2</code></div>
+  <pre>dog1 = <span class="fn">Pet</span>()
+dog2 = <span class="fn">Pet</span>()
+
+dog1.name = <span class="st">"Luna"</span>
+dog1.energy = <span class="nu">80</span>
+
+dog2.name = <span class="st">"Max"</span>
+dog2.energy = <span class="nu">50</span>
+
+<span class="fn">print</span>(dog1.name, dog1.energy)  <span class="co"># Luna 80</span>
+<span class="fn">print</span>(dog2.name, dog2.energy)  <span class="co"># Max 50 (completely isolated state)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">is vs == &amp; Object Aliasing</span>&nbsp; <span class="cm"># identity (memory location) vs equality (value comparison)</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>is</code> checks <b>identity</b> &mdash; whether two variable names point to the exact same object in heap memory (<code>id(a) == id(b)</code>)</div>
+  <div class="opt"><code>==</code> checks <b>equality</b> &mdash; whether two objects have equivalent data/values</div>
+  <div class="opt"><b>Aliasing</b>: <code>pet2 = pet1</code> does NOT create a copy; both variables reference the single identical object in memory</div>
+  <div class="warn">Mutating an aliased reference mutates the underlying object for all variables pointing to it!</div>
+  <pre>a = <span class="fn">Pet</span>()
+a.name = <span class="st">"Bella"</span>
+
+b = a            <span class="co"># Aliasing &mdash; b references the exact same object as a</span>
+<span class="fn">print</span>(a <span class="kw">is</span> b)    <span class="co"># True &mdash; id(a) == id(b)</span>
+
+b.name = <span class="st">"Charlie"</span>
+<span class="fn">print</span>(a.name)    <span class="co"># "Charlie" &mdash; a was mutated through alias b!</span>
+
+c = <span class="fn">Pet</span>()        <span class="co"># Distinct instance</span>
+c.name = <span class="st">"Charlie"</span>
+<span class="fn">print</span>(a <span class="kw">is</span> c)    <span class="co"># False &mdash; separate objects in heap memory</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">obj.__dict__</span>&nbsp; <span class="cm"># the underlying instance namespace dictionary</span></summary>
+<div class="detail-body">
+  <div class="opt">Python stores every instance's attributes in a standard dictionary called <code>__dict__</code></div>
+  <div class="opt">Reading <code>obj.x</code> checks <code>obj.__dict__['x']</code> first, then falls back to class attributes</div>
+  <pre>p = <span class="fn">Pet</span>()
+p.name = <span class="st">"Fido"</span>
+p.age = <span class="nu">3</span>
+<span class="fn">print</span>(p.<span class="fn">__dict__</span>)  <span class="co"># {'name': 'Fido', 'age': 3}</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-oop-constructors">&#x1FA9B;&#xFE0F; Constructors, Methods &amp; Instance State (Python 103 Week 2)</h2>
+
+<details>
+<summary><span class="one">def __init__(self, ...):</span>&nbsp; <span class="cm"># constructor method — initializes new instance state</span></summary>
+<div class="detail-body">
+  <div class="opt">Called automatically whenever a new instance is created: <code>p = Pet("Luna", 3)</code></div>
+  <div class="opt">Initializes and binds attributes to <code>self</code> immediately upon creation</div>
+  <div class="opt">Always provide default parameter values when optional fallback instantiation is desired</div>
+  <pre><span class="kw">class</span> <span class="fn">Pet</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name: <span class="kw">str</span> = <span class="st">"Unknown"</span>, age: <span class="kw">int</span> = <span class="nu">0</span>):
+        <span class="kw">self</span>.name = name
+        <span class="kw">self</span>.age = age
+        <span class="kw">self</span>.energy = <span class="nu">100</span>  <span class="co"># default initial state</span>
+
+p1 = <span class="fn">Pet</span>(<span class="st">"Luna"</span>, <span class="nu">3</span>)
+p2 = <span class="fn">Pet</span>()  <span class="co"># uses safe defaults: "Unknown", 0</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">self</span>&nbsp; <span class="cm"># explicit instance reference passed as first parameter to all instance methods</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>self</code> represents the specific instance object executing the method</div>
+  <div class="opt">When you call <code>dog.bark()</code>, Python automatically passes <code>dog</code> as <code>self</code> behind the scenes</div>
+  <div class="opt">To access instance attributes or call sibling methods, ALWAYS prefix with <code>self.</code></div>
+  <div class="warn">Omitting <code>self</code> in method definitions causes <code>TypeError: takes 0 positional arguments but 1 was given</code></div>
+  <pre><span class="kw">class</span> <span class="fn">Dog</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name):
+        <span class="kw">self</span>.name = name
+
+    <span class="kw">def</span> <span class="fn">bark</span>(<span class="kw">self</span>):
+        <span class="kw">return</span> <span class="st">f"</span>{<span class="kw">self</span>.name}<span class="st"> says woof!"</span>  <span class="co"># must use self.name</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Defensive Constructor Validation</span>&nbsp; <span class="cm"># validating inputs, type conversion &amp; fallback handling</span></summary>
+<div class="detail-body">
+  <div class="opt">Never assume constructor arguments are the correct type &mdash; sanitize and cast defensively</div>
+  <div class="opt">Wrap conversions in <code>try/except (ValueError, TypeError)</code> and assign safe fallback values</div>
+  <div class="warn">Avoid the "discarded conversion" bug: <code>int(age)</code> computes the int but discards it unless assigned: <code>self.age = int(age)</code></div>
+  <pre><span class="kw">class</span> <span class="fn">Account</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, owner: <span class="kw">str</span>, initial_deposit: <span class="kw">float</span>):
+        <span class="kw">self</span>.owner = <span class="fn">str</span>(owner).<span class="fn">strip</span>() <span class="kw">if</span> owner <span class="kw">else</span> <span class="st">"Guest"</span>
+        <span class="kw">try</span>:
+            val = <span class="fn">float</span>(initial_deposit)
+            <span class="kw">self</span>.balance = val <span class="kw">if</span> val >= <span class="nu">0</span> <span class="kw">else</span> <span class="nu">0.0</span>
+        <span class="kw">except</span> (<span class="kw">ValueError</span>, <span class="kw">TypeError</span>):
+            <span class="kw">self</span>.balance = <span class="nu">0.0</span>  <span class="co"># safe fallback default</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Read-Only (Query) vs. State-Changing (Mutator) Methods</span>&nbsp; <span class="cm"># querying state vs modifying attributes</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Read-Only / Query Methods</b>: Inspect and compute from instance state without mutating attributes</div>
+  <div class="opt"><b>State-Changing / Mutator Methods</b>: Mutate internal instance state persistently (e.g., <code>self.energy += 10</code>)</div>
+  <pre><span class="kw">class</span> <span class="fn">Pet</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name):
+        <span class="kw">self</span>.name = name
+        <span class="kw">self</span>.energy = <span class="nu">50</span>
+
+    <span class="co"># Read-Only Query Method</span>
+    <span class="kw">def</span> <span class="fn">get_status</span>(<span class="kw">self</span>) -> <span class="kw">str</span>:
+        <span class="kw">return</span> <span class="st">f"</span>{<span class="kw">self</span>.name}<span class="st"> has </span>{<span class="kw">self</span>.energy}<span class="st"> energy"</span>
+
+    <span class="co"># State-Changing Mutator Method</span>
+    <span class="kw">def</span> <span class="fn">play</span>(<span class="kw">self</span>, cost: <span class="kw">int</span>):
+        <span class="kw">self</span>.energy = <span class="fn">max</span>(<span class="nu">0</span>, <span class="kw">self</span>.energy - cost)
+        <span class="kw">return</span> <span class="kw">self</span>.energy</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">def __str__(self): &amp; def __repr__(self):</span>&nbsp; <span class="cm"># object string representations for users and developers</span></summary>
+<div class="detail-body">
+  <div class="opt"><code>__str__</code> &mdash; User-facing string representation; invoked by <code>print(obj)</code> or <code>str(obj)</code></div>
+  <div class="opt"><code>__repr__</code> &mdash; Unambiguous developer/debug string; invoked by REPL, <code>repr(obj)</code>, and lists of objects</div>
+  <div class="warn"><code>__str__</code> and <code>__repr__</code> MUST return a string (<code>str</code>) &mdash; returning an int or None raises <code>TypeError</code></div>
+  <pre><span class="kw">class</span> <span class="fn">Point3d</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, x: <span class="kw">float</span>, y: <span class="kw">float</span>, z: <span class="kw">float</span>):
+        <span class="kw">self</span>._x = x
+        <span class="kw">self</span>._y = y
+        <span class="kw">self</span>._z = z
+
+    <span class="kw">def</span> <span class="fn">__str__</span>(<span class="kw">self</span>) -> <span class="kw">str</span>:
+        <span class="kw">return</span> <span class="st">f"Point3D(x=</span>{<span class="kw">self</span>._x}<span class="st">, y=</span>{<span class="kw">self</span>._y}<span class="st">, z=</span>{<span class="kw">self</span>._z}<span class="st">)"</span>
+
+    <span class="kw">def</span> <span class="fn">__repr__</span>(<span class="kw">self</span>) -> <span class="kw">str</span>:
+        <span class="kw">return</span> <span class="st">f"Point3d(</span>{<span class="kw">self</span>._x}<span class="st">, </span>{<span class="kw">self</span>._y}<span class="st">, </span>{<span class="kw">self</span>._z}<span class="st">)"</span>
+
+pt = <span class="fn">Point3d</span>(<span class="nu">1.0</span>, <span class="nu">2.5</span>, <span class="nu">-4.0</span>)
+<span class="fn">print</span>(pt)          <span class="co"># Point3D(x=1.0, y=2.5, z=-4.0) via __str__</span>
+<span class="fn">print</span>([pt])        <span class="co"># [Point3d(1.0, 2.5, -4.0)] via __repr__ in lists</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-oop-class-attributes">&#x1F39B;&#xFE0F; Class Attributes, Scope &amp; Namespace Mechanics (Python 103 Weeks 2 &amp; 3)</h2>
+
+<details>
+<summary><span class="one">Class Attributes vs. Instance Attributes</span>&nbsp; <span class="cm"># shared class state vs distinct instance state</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Class Attribute</b>: Defined directly in the class body; shared by ALL instances in memory</div>
+  <div class="opt"><b>Instance Attribute</b>: Defined on <code>self</code> (usually inside <code>__init__</code>); unique to each individual instance</div>
+  <pre><span class="kw">class</span> <span class="fn">Car</span>:
+    wheels = <span class="nu">4</span>  <span class="co"># Class attribute (shared by all cars)</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, model, color):
+        <span class="kw">self</span>.model = model  <span class="co"># Instance attribute</span>
+        <span class="kw">self</span>.color = color  <span class="co"># Instance attribute</span>
+
+c1 = <span class="fn">Car</span>(<span class="st">"Sedan"</span>, <span class="st">"Red"</span>)
+c2 = <span class="fn">Car</span>(<span class="st">"Coupe"</span>, <span class="st">"Blue"</span>)
+
+<span class="fn">print</span>(c1.wheels, c2.wheels, <span class="fn">Car</span>.wheels)  <span class="co"># 4 4 4</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Attribute Lookup &amp; Shadowing Trap</span>&nbsp; <span class="cm"># how Python resolves attributes and how instances shadow class attributes</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Lookup Order</b>: When accessing <code>c1.wheels</code>, Python checks <code>c1.__dict__</code> first; if not found, it checks <code>Car.__dict__</code></div>
+  <div class="opt"><b>Class Mutation</b>: Modifying <code>Car.wheels = 6</code> updates the shared attribute for all instances that don't shadow it</div>
+  <div class="warn"><b>The Shadowing Trap</b>: Assigning <code>c1.wheels = 3</code> creates a NEW instance attribute on <code>c1</code>, shadowing <code>Car.wheels</code> without changing the class or other instances!</div>
+  <pre><span class="co"># Mutating class attribute directly on the class</span>
+<span class="fn">Car</span>.wheels = <span class="nu">6</span>
+<span class="fn">print</span>(c1.wheels, c2.wheels)  <span class="co"># 6 6 (both reflect the class update)</span>
+
+<span class="co"># Assigning via instance reference shadows the class attribute!</span>
+c1.wheels = <span class="nu">3</span>                <span class="co"># Creates 'wheels': 3 in c1.__dict__</span>
+<span class="fn">print</span>(c1.wheels)             <span class="co"># 3 (reads c1's shadow attribute)</span>
+<span class="fn">print</span>(c2.wheels)             <span class="co"># 6 (still reads Car.wheels)</span>
+<span class="fn">print</span>(<span class="fn">Car</span>.wheels)            <span class="co"># 6 (Car namespace was NOT altered)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Class-Level Counters &amp; Registries</span>&nbsp; <span class="cm"># tracking aggregate counts and statistics across all objects</span></summary>
+<div class="detail-body">
+  <div class="opt">Use a class attribute to track totals across all instances instantiated throughout the program</div>
+  <div class="opt">Always increment via the Class name: <code>ClassName.total_count += 1</code> inside <code>__init__</code></div>
+  <pre><span class="kw">class</span> <span class="fn">AnimalShelter</span>:
+    total_sheltered = <span class="nu">0</span>  <span class="co"># Shared class counter</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name):
+        <span class="kw">self</span>.name = name
+        <span class="fn">AnimalShelter</span>.total_sheltered += <span class="nu">1</span>
+
+a1 = <span class="fn">AnimalShelter</span>(<span class="st">"Luna"</span>)
+a2 = <span class="fn">AnimalShelter</span>(<span class="st">"Max"</span>)
+<span class="fn">print</span>(<span class="fn">AnimalShelter</span>.total_sheltered)  <span class="co"># 2</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-oop-relationships">&#x1F517; Object Relationships &amp; Aggregation (Python 103 Weeks 2 &amp; 3)</h2>
+
+<details>
+<summary><span class="one">1-to-1 Object Relationships</span>&nbsp; <span class="cm"># an instance holding a reference to another single instance</span></summary>
+<div class="detail-body">
+  <div class="opt">An instance attribute stores a reference to another object (e.g., <code>hero.weapon = sword</code>)</div>
+  <div class="opt">Allows two distinct objects to interact while keeping their state independent</div>
+  <pre><span class="kw">class</span> <span class="fn">Weapon</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name: <span class="kw">str</span>, damage: <span class="kw">int</span>):
+        <span class="kw">self</span>.name = name
+        <span class="kw">self</span>.damage = damage
+
+<span class="kw">class</span> <span class="fn">Hero</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name: <span class="kw">str</span>):
+        <span class="kw">self</span>.name = name
+        <span class="kw">self</span>.weapon = <span class="kw">None</span>  <span class="co"># 1-to-1 relationship placeholder</span>
+
+    <span class="kw">def</span> <span class="fn">equip</span>(<span class="kw">self</span>, weapon: <span class="fn">Weapon</span>):
+        <span class="kw">self</span>.weapon = weapon
+
+hero = <span class="fn">Hero</span>(<span class="st">"Arthur"</span>)
+hero.<span class="fn">equip</span>(<span class="fn">Weapon</span>(<span class="st">"Excalibur"</span>, <span class="nu">50</span>))
+<span class="fn">print</span>(hero.name, <span class="st">"wields"</span>, hero.weapon.name)  <span class="co"># Arthur wields Excalibur</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">1-to-Many Object Relationships</span>&nbsp; <span class="cm"># an instance containing a collection of other instances</span></summary>
+<div class="detail-body">
+  <div class="opt">An instance attribute holds a list, dict, or set of other custom class objects</div>
+  <div class="opt">The parent object orchestrates and manages operations across the entire collection</div>
+  <div class="opt">Classic pattern: <code>TradingAccount</code> holds multiple <code>MNQPosition</code>s; <code>Shelter</code> holds multiple <code>Pet</code>s</div>
+  <pre><span class="kw">class</span> <span class="fn">MNQPosition</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, symbol, entry_price, current_price, quantity):
+        <span class="kw">self</span>.symbol = symbol
+        <span class="kw">self</span>.entry_price = <span class="fn">float</span>(entry_price)
+        <span class="kw">self</span>.current_price = <span class="fn">float</span>(current_price)
+        <span class="kw">self</span>.quantity = <span class="fn">int</span>(quantity)
+        <span class="kw">self</span>.multiplier = <span class="nu">2.0</span>  <span class="co"># $2 per point for Micro E-mini Nasdaq (MNQ)</span>
+
+    <span class="kw">def</span> <span class="fn">get_unrealized_pnl</span>(<span class="kw">self</span>) -> <span class="kw">float</span>:
+        <span class="kw">return</span> (<span class="kw">self</span>.current_price - <span class="kw">self</span>.entry_price) * <span class="kw">self</span>.multiplier * <span class="kw">self</span>.quantity
+
+<span class="kw">class</span> <span class="fn">TradingAccount</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, account_id, initial_cash):
+        <span class="kw">self</span>.account_id = account_id
+        <span class="kw">self</span>.cash = <span class="fn">float</span>(initial_cash)
+        <span class="kw">self</span>.positions = []  <span class="co"># 1-to-Many relationship</span>
+
+    <span class="kw">def</span> <span class="fn">add_position</span>(<span class="kw">self</span>, pos: <span class="fn">MNQPosition</span>):
+        <span class="kw">self</span>.positions.<span class="fn">append</span>(pos)
+
+    <span class="kw">def</span> <span class="fn">get_net_equity</span>(<span class="kw">self</span>) -> <span class="kw">float</span>:
+        total_pnl = <span class="fn">sum</span>(pos.<span class="fn">get_unrealized_pnl</span>() <span class="kw">for</span> pos <span class="kw">in</span> <span class="kw">self</span>.positions)
+        <span class="kw">return</span> <span class="kw">self</span>.cash + total_pnl
+
+acct = <span class="fn">TradingAccount</span>(<span class="st">"ACC-9982"</span>, <span class="nu">25000.0</span>)
+acct.<span class="fn">add_position</span>(<span class="fn">MNQPosition</span>(<span class="st">"MNQ"</span>, <span class="nu">18000.0</span>, <span class="nu">18050.0</span>, <span class="nu">10</span>))  <span class="co"># PnL: +$1,000</span>
+acct.<span class="fn">add_position</span>(<span class="fn">MNQPosition</span>(<span class="st">"MNQ"</span>, <span class="nu">18100.0</span>, <span class="nu">18050.0</span>, <span class="nu">-5</span>))  <span class="co"># PnL: +$500</span>
+<span class="fn">print</span>(<span class="st">f"Net Equity: $</span>{acct.<span class="fn">get_net_equity</span>():<span class="st">,.2f</span>}<span class="st">"</span>)  <span class="co"># $26,500.00</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Inter-Object Communication &amp; Delegation ("Tell, Don't Reach")</span>&nbsp; <span class="cm"># passing objects into methods</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Tell, Don't Reach Principle</b>: Do not reach into an object to modify its raw variables from the outside</div>
+  <div class="opt">Instead, call a method on the target object and let that object manage its own internal state transition</div>
+  <pre><span class="kw">class</span> <span class="fn">Book</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, title):
+        <span class="kw">self</span>.title = title
+        <span class="kw">self</span>.is_available = <span class="kw">True</span>
+
+    <span class="kw">def</span> <span class="fn">check_out</span>(<span class="kw">self</span>) -> <span class="kw">bool</span>:
+        <span class="kw">if</span> <span class="kw">self</span>.is_available:
+            <span class="kw">self</span>.is_available = <span class="kw">False</span>
+            <span class="kw">return</span> <span class="kw">True</span>
+        <span class="kw">return</span> <span class="kw">False</span>
+
+<span class="kw">class</span> <span class="fn">Patron</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name):
+        <span class="kw">self</span>.name = name
+
+    <span class="kw">def</span> <span class="fn">borrow</span>(<span class="kw">self</span>, book: <span class="fn">Book</span>):
+        <span class="co"># Delegates action to the book object rather than setting book.is_available directly</span>
+        <span class="kw">if</span> book.<span class="fn">check_out</span>():
+            <span class="kw">return</span> <span class="st">f"</span>{<span class="kw">self</span>.name}<span class="st"> successfully borrowed '</span>{book.title}<span class="st">'"</span>
+        <span class="kw">return</span> <span class="st">f"</span>{<span class="kw">self</span>.name}<span class="st"> failed: '</span>{book.title}<span class="st">' is unavailable"</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">The Sentinel None Default Parameter Pattern</span>&nbsp; <span class="cm"># preventing the shared mutable default argument bug</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>The Danger</b>: Defining <code>def __init__(self, items=[])</code> evaluates <code>[]</code> ONCE when the module loads</div>
+  <div class="opt">Every instance initialized without arguments will share the EXACT SAME list in memory!</div>
+  <div class="opt"><b>The Fix</b>: Use <code>None</code> as the default sentinel, and instantiate a fresh list inside <code>__init__</code></div>
+  <pre><span class="co"># CORRECT: Sentinel pattern ensures every instance gets its own independent list</span>
+<span class="kw">class</span> <span class="fn">Inventory</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, items = <span class="kw">None</span>):
+        <span class="kw">self</span>.items = [] <span class="kw">if</span> items <span class="kw">is</span> <span class="kw">None</span> <span class="kw">else</span> <span class="fn">list</span>(items)</pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-oop-pillars">&#x1F6E1;&#xFE0F; The 4 Pillars of OOP &mdash; Encapsulation, Inheritance, Polymorphism &amp; Abstraction (Python 103 Week 4)</h2>
+
+<details>
+<summary><span class="one">Pillar 1: Encapsulation &amp; Accessor Methods</span>&nbsp; <span class="cm"># protecting internal state with getters, setters &amp; boundaries</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Encapsulation</b>: Bundling data and behavior together while restricting direct access to raw internal state</div>
+  <div class="opt"><b>Internal Attribute Convention (<code>_attr</code>)</b>: Leading single underscore signals private/internal state ("gentleman's agreement")</div>
+  <div class="opt"><b>Getters &amp; Setters</b>: Method guardians that validate and clamp data to preserve domain invariants</div>
+  <pre><span class="kw">class</span> <span class="fn">ShelterPet</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name: <span class="kw">str</span>, health: <span class="kw">int</span>):
+        <span class="kw">self</span>._name = name
+        <span class="kw">self</span>._health = <span class="nu">0</span>
+        <span class="kw">self</span>.<span class="fn">set_health</span>(health)  <span class="co"># routes through guardian</span>
+
+    <span class="kw">def</span> <span class="fn">get_health</span>(<span class="kw">self</span>) -> <span class="kw">int</span>:
+        <span class="kw">return</span> <span class="kw">self</span>._health
+
+    <span class="kw">def</span> <span class="fn">set_health</span>(<span class="kw">self</span>, val: <span class="kw">int</span>):
+        <span class="co"># Invariant clamping strictly between 0 and 100</span>
+        <span class="kw">if</span> val < <span class="nu">0</span>:
+            <span class="kw">self</span>._health = <span class="nu">0</span>
+        <span class="kw">elif</span> val > <span class="nu">100</span>:
+            <span class="kw">self</span>._health = <span class="nu">100</span>
+        <span class="kw">else</span>:
+            <span class="kw">self</span>._health = val
+
+pet = <span class="fn">ShelterPet</span>(<span class="st">"Shadow"</span>, <span class="nu">150</span>)
+<span class="fn">print</span>(pet.<span class="fn">get_health</span>())  <span class="co"># 100 (safely clamped)</span>
+pet.<span class="fn">set_health</span>(<span class="nu">-25</span>)
+<span class="fn">print</span>(pet.<span class="fn">get_health</span>())  <span class="co"># 0 (safely clamped)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">@property &amp; @name.setter</span>&nbsp; <span class="cm"># Pythonic property decorators for clean attribute access with validation</span></summary>
+<div class="detail-body">
+  <div class="opt">Allows accessing methods like normal attributes (<code>obj.health</code> instead of <code>obj.get_health()</code>) while preserving validation</div>
+  <div class="opt">The getter uses <code>@property</code>; the setter uses <code>@attribute_name.setter</code></div>
+  <div class="warn"><b>Infinite Recursion Trap</b>: In the setter, assign to <code>self._attr</code> (with underscore), NOT <code>self.attr</code>! Assigning <code>self.attr</code> calls the setter again recursively until the stack overflows!</div>
+  <pre><span class="kw">class</span> <span class="fn">Player</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name, level):
+        <span class="kw">self</span>._name = name
+        <span class="kw">self</span>.level = level  <span class="co"># calls setter below</span>
+
+    <span class="fn">@property</span>
+    <span class="kw">def</span> <span class="fn">level</span>(<span class="kw">self</span>):
+        <span class="kw">return</span> <span class="kw">self</span>._level
+
+    <span class="fn">@level.setter</span>
+    <span class="kw">def</span> <span class="fn">level</span>(<span class="kw">self</span>, val):
+        <span class="kw">self</span>._level = <span class="fn">max</span>(<span class="nu">1</span>, <span class="fn">int</span>(val))  <span class="co"># must assign to _level</span>
+
+hero = <span class="fn">Player</span>(<span class="st">"Arthur"</span>, <span class="nu">5</span>)
+hero.level = <span class="nu">-2</span>     <span class="co"># intercepted by setter</span>
+<span class="fn">print</span>(hero.level)   <span class="co"># 1</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Pillar 2: Inheritance ("Is-A") &amp; Method Overriding</span>&nbsp; <span class="cm"># class Child(Parent): code reuse and specialization</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Inheritance</b>: Establishes an "Is-A" hierarchy where subclasses acquire attributes and behaviors from a base class</div>
+  <div class="opt"><b>super().__init__(...)</b>: Calls the parent class constructor to initialize inherited attributes</div>
+  <div class="opt"><b>Method Overriding</b>: Redefines a parent method in the subclass to provide specialized child behavior</div>
+  <pre><span class="kw">class</span> <span class="fn">Point3d</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, x: <span class="kw">float</span>, y: <span class="kw">float</span>, z: <span class="kw">float</span>):
+        <span class="kw">self</span>._x = x
+        <span class="kw">self</span>._y = y
+        <span class="kw">self</span>._z = z
+
+    <span class="kw">def</span> <span class="fn">move</span>(<span class="kw">self</span>, dx, dy, dz):
+        <span class="kw">self</span>._x += dx
+        <span class="kw">self</span>._y += dy
+        <span class="kw">self</span>._z += dz
+
+<span class="co"># ColoredPixel IS A Point3d (Inheritance)</span>
+<span class="kw">class</span> <span class="fn">ColoredPixel</span>(<span class="fn">Point3d</span>):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, x, y, z, color: <span class="kw">str</span>):
+        <span class="fn">super</span>().<span class="fn">__init__</span>(x, y, z)  <span class="co"># initialize parent Point3d</span>
+        <span class="kw">self</span>._color = color
+
+    <span class="kw">def</span> <span class="fn">set_color</span>(<span class="kw">self</span>, color):
+        <span class="kw">self</span>._color = color
+
+    <span class="kw">def</span> <span class="fn">__str__</span>(<span class="kw">self</span>):
+        <span class="kw">return</span> <span class="st">f"ColoredPixel(x=</span>{<span class="kw">self</span>._x}<span class="st">, y=</span>{<span class="kw">self</span>._y}<span class="st">, z=</span>{<span class="kw">self</span>._z}<span class="st">, color=</span>{<span class="kw">self</span>._color}<span class="st">)"</span>
+
+pixel = <span class="fn">ColoredPixel</span>(<span class="nu">0</span>, <span class="nu">10</span>, <span class="nu">0</span>, <span class="st">"Cyan"</span>)
+pixel.<span class="fn">move</span>(<span class="nu">5</span>, <span class="nu">0</span>, <span class="nu">5</span>)  <span class="co"># Inherited from Point3d!</span>
+<span class="fn">print</span>(pixel)        <span class="co"># ColoredPixel(x=5, y=10, z=5, color=Cyan)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Pillar 3: Composition ("Has-A") &amp; Cascaded Delegation</span>&nbsp; <span class="cm"># assembling complex systems from modular components</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Composition</b>: A design pattern where an object contains instances of other classes ("Has-A" relationship)</div>
+  <div class="opt"><b>Modularity</b>: "Prefer composition over inheritance" &mdash; promotes flexible toolbelts over rigid family trees</div>
+  <div class="opt"><b>Cascaded Delegation</b>: Calling a method on a composite object automatically delegates work down to its constituent components</div>
+  <pre><span class="kw">class</span> <span class="fn">Line3d</span>:
+    <span class="co"># A 3D line segment composed of two Point3d objects</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, start: <span class="fn">Point3d</span>, end: <span class="fn">Point3d</span>):
+        <span class="kw">self</span>._start = <span class="fn">Point3d</span>(start.get_x(), start.get_y(), start.get_z())
+        <span class="kw">self</span>._end   = <span class="fn">Point3d</span>(end.get_x(),   end.get_y(),   end.get_z())
+
+    <span class="kw">def</span> <span class="fn">move</span>(<span class="kw">self</span>, dx, dy, dz):
+        <span class="co"># Cascaded delegation: translates both underlying endpoints</span>
+        <span class="kw">self</span>._start.<span class="fn">move</span>(dx, dy, dz)
+        <span class="kw">self</span>._end.<span class="fn">move</span>(dx, dy, dz)
+
+<span class="kw">class</span> <span class="fn">Plane3d</span>:
+    <span class="co"># A 3D plane composite composed of 4 Line3d objects</span>
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, l1: <span class="fn">Line3d</span>, l2: <span class="fn">Line3d</span>, l3: <span class="fn">Line3d</span>, l4: <span class="fn">Line3d</span>):
+        <span class="kw">self</span>._lines = [l1, l2, l3, l4]
+
+    <span class="kw">def</span> <span class="fn">move</span>(<span class="kw">self</span>, dx, dy, dz):
+        <span class="co"># Cascaded delegation: plane move delegates to all 4 lines -> each line delegates to 2 points!</span>
+        <span class="kw">for</span> line <span class="kw">in</span> <span class="kw">self</span>._lines:
+            line.<span class="fn">move</span>(dx, dy, dz)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Pillar 4: Polymorphism &amp; Duck Typing</span>&nbsp; <span class="cm"># uniform interface producing specialized class-specific behavior</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Polymorphism</b> ("Many forms"): Calling the exact same method identifier (e.g. <code>.render()</code>, <code>.attack_power()</code>) across a collection of different object types</div>
+  <div class="opt"><b>Dynamic Dispatch</b>: Python automatically executes the specific subclass implementation at runtime</div>
+  <div class="opt"><b>Duck Typing</b>: "If it walks like a duck and quacks like a duck, it's a duck" &mdash; Python cares about available methods, not explicit class inheritance</div>
+  <pre><span class="kw">class</span> <span class="fn">Enemy</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name):
+        <span class="kw">self</span>.name = name
+    <span class="kw">def</span> <span class="fn">attack_power</span>(<span class="kw">self</span>):
+        <span class="kw">return</span> <span class="nu">5</span>
+
+<span class="kw">class</span> <span class="fn">Orc</span>(<span class="fn">Enemy</span>):
+    <span class="kw">def</span> <span class="fn">attack_power</span>(<span class="kw">self</span>):
+        <span class="kw">return</span> <span class="nu">15</span>  <span class="co"># specialized high damage</span>
+
+<span class="kw">class</span> <span class="fn">Goblin</span>(<span class="fn">Enemy</span>):
+    <span class="kw">def</span> <span class="fn">attack_power</span>(<span class="kw">self</span>):
+        <span class="kw">return</span> <span class="nu">3</span>   <span class="co"># specialized fast/low damage</span>
+
+<span class="co"># Polymorphic iteration over diverse instances</span>
+army = [<span class="fn">Orc</span>(<span class="st">"Gruk"</span>), <span class="fn">Goblin</span>(<span class="st">"Sneak"</span>), <span class="fn">Enemy</span>(<span class="st">"Scout"</span>)]
+total_damage = <span class="fn">sum</span>(unit.<span class="fn">attack_power</span>() <span class="kw">for</span> unit <span class="kw">in</span> army)
+<span class="fn">print</span>(<span class="st">f"Army Total Damage: </span>{total_damage}<span class="st">"</span>)  <span class="co"># 15 + 3 + 5 = 23</span></pre>
+</div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-oop-traps">&#x26A0;&#xFE0F; OOP Defensive Programming &amp; Common Traps (Python 103 Weeks 1-4)</h2>
+
+<details>
+<summary><span class="one">Trap 1: Omitting Parentheses on Instantiation</span>&nbsp; <span class="cm"># p = Pet vs p = Pet()</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: <code>p = Pet</code> assigns the class object itself to <code>p</code>, NOT an instantiated instance!</div>
+  <div class="opt"><b>Consequence</b>: Calling methods fails with <code>TypeError: missing 1 required positional argument: 'self'</code></div>
+  <pre><span class="co"># INCORRECT</span>
+p = <span class="fn">Pet</span>       <span class="co"># Bound to class blueprint!</span>
+p.<span class="fn">speak</span>()     <span class="co"># TypeError: speak() missing 1 required positional argument: 'self'</span>
+
+<span class="co"># CORRECT</span>
+p = <span class="fn">Pet</span>()     <span class="co"># Instantiates new object via call operator ()</span>
+p.<span class="fn">speak</span>()     <span class="co"># Works perfectly</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Trap 2: Accessing Uninitialized Attributes</span>&nbsp; <span class="cm"># AttributeError from conditional assignment</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: Binding an instance attribute only inside a conditional method or branch, leaving it undefined initially</div>
+  <div class="opt"><b>Consequence</b>: Reading the attribute before the branch runs crashes with <code>AttributeError</code></div>
+  <div class="warn"><b>Rule</b>: ALWAYS pre-initialize ALL instance attributes inside <code>__init__</code> with safe defaults!</div>
+  <pre><span class="co"># INCORRECT: weapon attribute only created if equip() is called</span>
+<span class="kw">class</span> <span class="fn">Hero</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name):
+        <span class="kw">self</span>.name = name
+
+hero = <span class="fn">Hero</span>(<span class="st">"Arthur"</span>)
+<span class="fn">print</span>(hero.weapon)  <span class="co"># CRASH: AttributeError: 'Hero' object has no attribute 'weapon'</span>
+
+<span class="co"># CORRECT: Pre-initialize to None in __init__</span>
+<span class="kw">class</span> <span class="fn">Hero</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, name):
+        <span class="kw">self</span>.name = name
+        <span class="kw">self</span>.weapon = <span class="kw">None</span>  <span class="co"># Safe initial state</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Trap 3: Shared Mutable Default Parameters</span>&nbsp; <span class="cm"># def __init__(self, items=[]) list bleed across instances</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: Default argument values are evaluated ONCE when the function definition is executed, not at each call</div>
+  <div class="opt"><b>Consequence</b>: If you use a mutable default like <code>[]</code> or <code>{}</code>, all instances share the identical object!</div>
+  <pre><span class="co"># INCORRECT: Shared list among all instances</span>
+<span class="kw">class</span> <span class="fn">Cart</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, items = []):
+        <span class="kw">self</span>.items = items
+
+c1 = <span class="fn">Cart</span>()
+c1.items.<span class="fn">append</span>(<span class="st">"Apple"</span>)
+
+c2 = <span class="fn">Cart</span>()
+<span class="fn">print</span>(c2.items)  <span class="co"># ["Apple"] &mdash; c2 was unintentionally contaminated!</span>
+
+<span class="co"># CORRECT: Use None sentinel</span>
+<span class="kw">class</span> <span class="fn">Cart</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, items = <span class="kw">None</span>):
+        <span class="kw">self</span>.items = [] <span class="kw">if</span> items <span class="kw">is</span> <span class="kw">None</span> <span class="kw">else</span> <span class="fn">list</span>(items)</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Trap 4: Bypassing Setters &amp; Encapsulation Violation</span>&nbsp; <span class="cm"># directly mutating _attribute from external code</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: Bypassing setter validation by directly reassigning private attributes: <code>pet._health = -500</code></div>
+  <div class="opt"><b>Consequence</b>: Corrupts object invariants and breaks system guarantees</div>
+  <div class="warn">Always invoke the public setter or method so boundary validation and clamping logic execute!</div>
+  <pre><span class="co"># INCORRECT: Direct assignment bypasses safety checks</span>
+pet._health = <span class="nu">-500</span>  <span class="co"># Breaks invariant!</span>
+
+<span class="co"># CORRECT: Route through setter guardian</span>
+pet.<span class="fn">set_health</span>(<span class="nu">-500</span>)
+<span class="fn">print</span>(pet.<span class="fn">get_health</span>())  <span class="co"># 0 (properly clamped by setter logic)</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Trap 5: Infinite Recursion in Property Setters</span>&nbsp; <span class="cm"># self.x = val inside def x(self, val)</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: Writing <code>self.name = val</code> inside the <code>@name.setter</code> definition</div>
+  <div class="opt"><b>Consequence</b>: Calling <code>self.name = ...</code> re-invokes the setter recursively, triggering <code>RecursionError: maximum recursion depth exceeded</code></div>
+  <div class="warn">Inside the property setter, you MUST assign to the private variable with the underscore: <code>self._name = val</code></div>
+  <pre><span class="co"># INCORRECT</span>
+<span class="fn">@score.setter</span>
+<span class="kw">def</span> <span class="fn">score</span>(<span class="kw">self</span>, val):
+    <span class="kw">self</span>.score = val   <span class="co"># RecursionError: infinite loop calling itself!</span>
+
+<span class="co"># CORRECT</span>
+<span class="fn">@score.setter</span>
+<span class="kw">def</span> <span class="fn">score</span>(<span class="kw">self</span>, val):
+    <span class="kw">self</span>._score = <span class="fn">max</span>(<span class="nu">0</span>, val)  <span class="co"># Assigns to internal backing variable _score</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Trap 6: Class Attribute Shadowing via Instance Assignment</span>&nbsp; <span class="cm"># self.class_attr = val creates instance shadow</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: Attempting to update a shared class variable through an instance: <code>self.max_capacity = 50</code></div>
+  <div class="opt"><b>Consequence</b>: Python creates a new entry in <code>self.__dict__</code>, leaving the class attribute and all sibling instances unchanged</div>
+  <pre><span class="co"># INCORRECT</span>
+<span class="kw">def</span> <span class="fn">update_capacity</span>(<span class="kw">self</span>, new_cap):
+    <span class="kw">self</span>.max_capacity = new_cap       <span class="co"># Shadows attribute for this instance only!</span>
+
+<span class="co"># CORRECT</span>
+<span class="kw">def</span> <span class="fn">update_capacity</span>(<span class="kw">self</span>, new_cap):
+    <span class="fn">ClassName</span>.max_capacity = new_cap  <span class="co"># Updates shared class namespace explicitly</span></pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Trap 7: Missing super().__init__() in Subclasses</span>&nbsp; <span class="cm"># child class fails to initialize parent attributes</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: Overriding <code>__init__</code> in a subclass without calling <code>super().__init__(...)</code></div>
+  <div class="opt"><b>Consequence</b>: Inherited parent attributes are never created, causing <code>AttributeError</code> when parent methods are called</div>
+  <pre><span class="co"># INCORRECT</span>
+<span class="kw">class</span> <span class="fn">ColoredPixel</span>(<span class="fn">Point3d</span>):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, x, y, z, color):
+        <span class="kw">self</span>._color = color  <span class="co"># Missing super().__init__(x, y, z)! _x, _y, _z are undefined</span>
+
+<span class="co"># CORRECT</span>
+<span class="kw">class</span> <span class="fn">ColoredPixel</span>(<span class="fn">Point3d</span>):
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="kw">self</span>, x, y, z, color):
+        <span class="fn">super</span>().<span class="fn">__init__</span>(x, y, z)  <span class="co"># Parent Point3d properly initialized</span>
+        <span class="kw">self</span>._color = color</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Trap 8: Returning Non-String from __str__</span>&nbsp; <span class="cm"># TypeError: __str__ returned non-string</span></summary>
+<div class="detail-body">
+  <div class="opt"><b>Bug</b>: Returning an integer, tuple, list, or None from <code>__str__</code> or <code>__repr__</code></div>
+  <div class="opt"><b>Consequence</b>: Python raises <code>TypeError: __str__ returned non-string (type int)</code></div>
+  <pre><span class="co"># INCORRECT</span>
+<span class="kw">def</span> <span class="fn">__str__</span>(<span class="kw">self</span>):
+    <span class="kw">return</span> <span class="kw">self</span>._id     <span class="co"># TypeError if _id is an integer!</span>
+
+<span class="co"># CORRECT</span>
+<span class="kw">def</span> <span class="fn">__str__</span>(<span class="kw">self</span>):
+    <span class="kw">return</span> <span class="st">f"Item ID: </span>{<span class="kw">self</span>._id}<span class="st">"</span>  <span class="co"># Always return a formatted str</span></pre>
+</div>
+</details>
+
+<div style="text-align:center; padding: 20px 0; color: #808080;">
+  <a href="#quick-search" class="back-top">&#x2191; Back to Top / Search</a>
+</div>
+
+
+<script>
+  function toggleAll(openState) {
+    document.querySelectorAll('details').forEach(d => {
+      d.open = openState;
+    });
+  }
+
+  function filterDetails(query) {
+    const q = query.trim().toLowerCase();
+    const details = document.querySelectorAll('details');
+    if (!q) {
+      details.forEach(d => {
+        d.style.display = '';
+      });
+      return;
+    }
+    details.forEach(d => {
+      const txt = d.innerText.toLowerCase();
+      const match = txt.includes(q);
+      d.style.display = match ? '' : 'none';
+      if (match) {
+        d.open = true;
+      }
+    });
+  }
+</script>
+
+</body>
+</html>

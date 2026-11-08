@@ -1,0 +1,334 @@
+Welcome to your next lesson: Working with numbers.
+
+
+I'm getting your personalized lesson ready, based on what you've learned so far, what's next, and how you learn best.
+
+Let’s dive in — you’re making real progress.
+
+
+
+
+
+
+
+
+
+
+
+Ron, let’s start super simple with how Python sees numbers. 🎯
+
+
+Imagine a concert:
+
+
+You buy 3 tickets → this is a whole number
+Each ticket costs 49.99 dollars → this is a decimal number
+
+Python treats these as two different kinds of numbers:
+
+
+Whole numbers like 3, 42, 100 → one kind
+Decimal numbers like 49.99, 3.0, 0.5 → another kind
+
+I’ll name them in the next step, but first:
+
+Does that difference (whole vs. decimal) feel clear so far?
+
+very
+
+Awesome 😄
+
+Now I’ll give you the Python names:
+
+
+Whole numbers (… -2, -1, 0, 1, 2, 3, 10, 100) are called integers → int
+Decimal numbers (1.5, 0.0, 3.14, 49.99) are called floats → float
+
+Quick visual:
+
+
+Looks like	Kind of number	Python name
+7	whole	int
+7.0	decimal	float
+
+So: 7 and 7.0 are not the same type in Python.
+
+
+Does this table make sense to you so far, or should I show one more example before we quiz it? 💡
+
+makes perfect sense
+
+What do you think? Pick the one float below 👇
+
+Which of these is a float in Python?
+
+
+A.
+5
+
+
+B.
+5.0
+
+
+C.
+10
+
+
+D.
+-3
+
+Nice job, Ron — 5.0 is exactly right 🎯
+
+
+5 is an int (whole number)
+5.0 is a float (has a decimal point, even if it’s .0)
+10 and -3 are also ints
+Next tiny step: let’s store numbers in variables.
+
+
+In Python, you can do:
+
+Python
+tickets = 3      # int
+price = 49.99    # float
+This just means: “remember these numbers with these names.”
+
+
+Does that idea of naming numbers with variables feel clear so far?
+
+yes and i see unlike C you dot have to specify the type like
+float floatvar = 5,5
+int intvar = 4
+python jut figures it out based on initial value
+
+Exactly right — great connection to C 👏
+
+
+In C you must say the type yourself:
+
+C
+float price = 5.5;
+int count = 4;
+In Python you just write:
+
+Python
+price = 5.5   # Python treats this as a float
+count = 4     # Python treats this as an int
+Python looks at the value on the right and decides the type for you.
+
+Next tiny step: let’s try a simple math operation with variables.
+
+
+Example:
+
+Python
+tickets = 3
+price_per_ticket = 50.0
+total_cost = tickets * price_per_ticket
+This multiplies the two numbers and stores the result.
+
+
+Does this step-by-step idea (store numbers, then use * to combine them) feel clear before I ask you to try something in the editor?
+
+yes it clear and total_cost is declared and made a type float by using it this way
+
+Beautiful reasoning, Ron — that’s exactly how Python treats it. 🎯
+
+
+Step by step in your example:
+
+Python
+tickets = 3              # int
+price_per_ticket = 50.0  # float
+total_cost = tickets * price_per_ticket
+tickets is an int
+price_per_ticket is a float
+Multiplying them gives a float, so total_cost ends up as a float too (like 150.0)
+Now I’d love for you to try something in the code editor:
+
+
+Open the editor for this lesson.
+Write code that:
+Creates an int variable for number of items
+Creates a float variable for price per item
+Multiplies them and stores the result in another variable
+print the result
+
+Then hit Run to check it, and when you’re happy, hit Submit code so I can see it. 😄
+
+Python
+num_items = 10
+item_price = 9.99
+total = num_items * item_price
+print(total)
+Nice work, Ron — that’s a clean, correct program 🎯
+
+
+Step by step what you did:
+
+Python
+num_items = 10        # int
+item_price = 9.99     # float
+total = num_items * item_price  # float result
+print(total)          # → 99.9
+You stored an int and a float in variables
+You used * to do math with them
+Python gave you a float result: 99.9
+Next concept I want to highlight: the four basic math operators on numbers:
+
+
++ add
+- subtract
+* multiply
+/ divide (always gives a float result in Python)
+
+Quick example:
+
+Python
+a = 10
+b = 4
+print(a + b)
+print(a - b)
+print(a * b)
+print(a / b)
+Make sense so far how these four operators work on numbers, before we check with a quick question?
+
+question, i tried print("Tota is " + otal) and got an error cant comine string and float
+
+Great question — and you found one of the key ideas of this lesson 🎯
+
+
+Step by step:
+
+
+"Total is " is a string → text
+total (your variable) is a float → number
+The + you used here is trying to join text with a number, and Python doesn’t allow that mix.
+
+So in Python’s mind:
+
+
+5 (number) is different from "5" (text)
+99.9 (number) is different from "99.9" (text)
+
+For math, Python wants numbers with numbers. For + with strings, it wants text with text.
+
+
+For now, you can think:
+
+
+
+If I’m using + with quotes, everything on both sides should be text.
+
+
+
+Does this difference between number 5 and string "5" feel clear?
+
+yes
+
+What do you think? 👇
+
+Which of these is text, not a number, in Python?
+
+
+A.
+5
+
+
+B.
+5.0
+
+
+C.
+"5"
+
+
+D.
+10.25
+
+Nice catch, Ron — "5" is exactly the one that’s text, not a number 🎯
+
+
+Quick recap:
+
+
+5 → number (int)
+5.0 → number (float)
+10.25 → number (float)
+"5" → string (because of the quotes)
+
+So when you wrote:
+
+Python
+print("Total is " + total)
+Python saw: string + float → not allowed.
+
+
+But this is actually a perfect moment to lock in all four goals from this lesson:
+
+
+You’ve shown you understand int vs float
+You’ve created variables storing both
+You’ve used + - * / on numbers (at least *, and you understand the others)
+You understand why 5 is different from "5" and saw the error from mixing types
+
+You’ve basically nailed everything in this lesson 💪
+
+Before we wrap, here’s one last quick check:
+
+
+Imagine this line in Python:
+
+Python
+value = 3.0
+Which statement is true about value?
+
+
+A) It’s an int
+
+B) It’s a float
+
+C) It’s a string
+
+D) It’s both an int and a float
+
+
+You can just answer with the letter.
+
+B its a float
+
+Exactly right — 3.0 makes value a float ✅
+
+
+You’ve shown you can:
+
+
+Tell int vs float
+Store both in variables
+Do math with + - * /
+Explain why 5 ≠ "5" (number vs text)
+
+You’ve fully mastered this lesson’s goals 🎯
+
+
+Ready to wrap up this lesson and move on to the next one?
+
+sure thing
+
+Nice work today, Ron 🎯
+
+
+Quick recap of what you can now do:
+
+
+Tell the difference between ints (3, 10, -5) and floats (3.0, 9.99)
+Create variables that hold numbers, like count = 4 or price = 12.5
+Use + - * / with numeric variables to calculate results
+Explain why 5 (number) and "5" (text) are not the same — and how mixing them can cause errors
+
+You’re thinking about types very clearly (especially comparing Python to C), which will help a lot as things get more complex. 💪
+
+
+Whenever you’re ready, you can jump into the next lesson — I’ll be right here with you for the next step.
+
