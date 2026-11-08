@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .node { cursor: pointer; transition: all 0.2s ease; }
+    .node:hover { filter: brightness(1.2); }
+    .link { fill: none; stroke-width: 1.5; opacity: 0.5; }
+    .link:hover { opacity: 1; stroke-width: 2.5; }
+    .tooltip {
+      position: absolute; padding: 10px 14px; border-radius: 8px;
+      font-size: 13px; pointer-events: none; z-index: 100;
+      max-width: 380px; line-height: 1.5;
+      background: var(--card); color: var(--foreground);
+      border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+    .tab { padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; font-size: 14px; transition: all 0.2s; }
+    .tab.active { border-color: var(--primary); color: var(--primary); }
+    .tab:hover { color: var(--primary); }
+    .metric-card { border-radius: 12px; padding: 16px; border: 1px solid var(--border); background: var(--card); }
+    .bar { border-radius: 4px; transition: width 0.6s ease; min-width: 2px; }
+    details summary { cursor: pointer; list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::before { content: "▶ "; font-size: 12px; transition: transform 0.2s; display: inline-block; }
+    details[open] summary::before { transform: rotate(90deg); }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-0 m-0">
+
+<div class="max-w-[1400px] mx-auto p-6">
+  <!-- Header -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold mb-1">TkFileTool.py</h1>
+    <p class="text-[var(--muted-foreground)] text-sm">Architecture & Code Visualization — 2,405 lines · 3 classes · 60+ methods</p>
+    <p class="text-[var(--muted-foreground)] text-xs mt-1">C:\Users\Linda\Trading_Bot_V2\Ron\Code\TkFileTool.py</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-1 border-b border-[var(--border)] mb-6">
+    <div class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</div>
+    <div class="tab" data-tab="architecture" onclick="switchTab('architecture')">Architecture</div>
+    <div class="tab" data-tab="methods" onclick="switchTab('methods')">Methods</div>
+    <div class="tab" data-tab="dependencies" onclick="switchTab('dependencies')">Dependencies</div>
+    <div class="tab" data-tab="complexity" onclick="switchTab('complexity')">Complexity</div>
+  </div>
+
+  <!-- TAB: Overview -->
+  <div id="tab-overview" class="tab-content">
+    <!-- Key Metrics -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="metric-card text-center">
+        <div class="text-3xl font-bold" style="color: var(--primary)">2,405</div>
+        <div class="text-[var(--muted-foreground)] text-sm">Total Lines</div>
+      </div>
+      <div class="metric-card text-center">
+        <div class="text-3xl font-bold" style="color: #f59e0b">3</div>
+        <div class="text-[var(--muted-foreground)] text-sm">Classes</div>
+      </div>
+      <div class="metric-card text-center">
+        <div class="text-3xl font-bold" style="color: #10b981">60+</div>
+        <div class="text-[var(--muted-foreground)] text-sm">Functions/Methods</div>
+      </div>
+      <div class="metric-card text-center">
+        <div class="text-3xl font-bold" style="color: #8b5cf6">14</div>
+        <div class="text-[var(--muted-foreground)] text-sm">Imports</div>
+      </div>
+    </div>
+
+    <!-- Architecture Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="metric-card">
+        <h3 class="font-semibold text-base mb-3 flex items-center gap-2">
+          <span style="color: #3b82f6">●</span> MyFileUtilityTool (GUI)
+        </h3>
+        <p class="text-[var(--muted-foreground)] text-sm mb-2">Tkinter GUI view — forms, menus, console, event handlers, duplicate finder window.</p>
+        <div class="text-xs text-[var(--muted-foreground)]">Lines 51–917 · ~866 lines · 40+ methods</div>
+        <div class="mt-2">
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#3b82f620;color:#3b82f6">UI</span> build_ui, setup_menu</div>
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#f59e0b20;color:#f59e0b">Config</span> open_floating_window_onoffs</div>
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#10b98120;color:#10b981">Dup</span> open_duplicates_window</div>
+          <div class="flex items-center gap-2 text-xs"><span class="badge" style="background:#8b5cf620;color:#8b5cf6">Search</span> on_run, search_worker</div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <h3 class="font-semibold text-base mb-3 flex items-center gap-2">
+          <span style="color: #f59e0b">●</span> Manipulate_files (Engine)
+        </h3>
+        <p class="text-[var(--muted-foreground)] text-sm mb-2">Core search engine — argument parsing, file finding, gitignore handling, output formatting.</p>
+        <div class="text-xs text-[var(--muted-foreground)]">Lines 1051–2393 · ~1342 lines · 18 methods</div>
+        <div class="mt-2">
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#ef444420;color:#ef4444">Parse</span> parse_arguments</div>
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#3b82f620;color:#3b82f6">Find</span> find_files, find_duplicates</div>
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#10b98120;color:#10b981">Git</span> _load_gitignore, _gitignored</div>
+          <div class="flex items-center gap-2 text-xs"><span class="badge" style="background:#8b5cf620;color:#8b5cf6">Out</span> write_out, write_tree_out</div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <h3 class="font-semibold text-base mb-3 flex items-center gap-2">
+          <span style="color: #10b981">●</span> Free Functions
+        </h3>
+        <p class="text-[var(--muted-foreground)] text-sm mb-2">Standalone utilities — safe I/O, binary detection, per-file & batch command execution.</p>
+        <div class="text-xs text-[var(--muted-foreground)]">Lines 920–1050 + 2394–2405 · ~140 lines · 7 functions</div>
+        <div class="mt-2">
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#06b6d420;color:#06b6d4">IO</span> safe_print_stdout/stderr</div>
+          <div class="flex items-center gap-2 text-xs mb-1"><span class="badge" style="background:#f59e0b20;color:#f59e0b">Exec</span> exec_on_files, exec_batch_on_files</div>
+          <div class="flex items-center gap-2 text-xs"><span class="badge" style="background:#ec489920;color:#ec4899">Entry</span> main()</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Distribution -->
+    <div class="metric-card mb-6">
+      <h3 class="font-semibold text-base mb-4">Line Distribution by Section</h3>
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between text-sm mb-1"><span>MyFileUtilityTool (GUI Layer)</span><span class="text-[var(--muted-foreground)]">866 lines · 36%</span></div>
+          <div class="w-full rounded-full h-5" style="background: var(--border)"><div class="bar h-5" style="width: 36%; background: #3b82f6"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-sm mb-1"><span>Manipulate_files (Core Engine)</span><span class="text-[var(--muted-foreground)]">1342 lines · 56%</span></div>
+          <div class="w-full rounded-full h-5" style="background: var(--border)"><div class="bar h-5" style="width: 56%; background: #f59e0b"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-sm mb-1"><span>Free Functions & Utilities</span><span class="text-[var(--muted-foreground)]">140 lines · 6%</span></div>
+          <div class="w-full rounded-full h-5" style="background: var(--border)"><div class="bar h-5" style="width: 6%; background: #10b981"></div></div>
+        </div>
+        <div>
+          <div class="flex justify-between text-sm mb-1"><span>Imports, Comments, Whitespace</span><span class="text-[var(--muted-foreground)]">57 lines · 2%</span></div>
+          <div class="w-full rounded-full h-5" style="background: var(--border)"><div class="bar h-5" style="width: 2%; background: #8b5cf6"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Architecture -->
+  <div id="tab-architecture" class="tab-content hidden">
+    <div class="metric-card mb-6">
+      <h3 class="font-semibold text-base mb-4">Component Architecture</h3>
+      <svg id="arch-svg" width="100%" height="500" viewBox="0 0 900 500">
+        <!-- Main entry -->
+        <rect x="370" y="10" width="160" height="40" rx="8" fill="#8b5cf6" opacity="0.2" stroke="#8b5cf6" stroke-width="1.5"/>
+        <text x="450" y="35" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">main()</text>
+
+        <!-- Arrow down -->
+        <line x1="450" y1="50" x2="450" y2="80" stroke="var(--muted-foreground)" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <!-- Manipulate_files -->
+        <rect x="280" y="80" width="340" height="50" rx="10" fill="#f59e0b" opacity="0.15" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="450" y="100" text-anchor="middle" fill="currentColor" font-size="14" font-weight="700">Manipulate_files</text>
+        <text x="450" y="118" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Core Engine · parse_arguments() → run_search()</text>
+
+        <!-- Branch: CLI vs GUI -->
+        <line x1="350" y1="130" x2="200" y2="175" stroke="var(--muted-foreground)" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="550" y1="130" x2="700" y2="175" stroke="var(--muted-foreground)" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <text x="260" y="158" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">-gui flag</text>
+        <text x="640" y="158" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">CLI mode</text>
+
+        <!-- GUI Path -->
+        <rect x="60" y="175" width="280" height="45" rx="10" fill="#3b82f6" opacity="0.15" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="200" y="195" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">QuickApp + MyFileUtilityTool</text>
+        <text x="200" y="210" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Tkinter GUI View</text>
+
+        <!-- CLI Path -->
+        <rect x="600" y="175" width="220" height="45" rx="10" fill="#10b981" opacity="0.15" stroke="#10b981" stroke-width="1.5"/>
+        <text x="710" y="195" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">run_search(is_gui=False)</text>
+        <text x="710" y="210" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">Direct stdout / file output</text>
+
+        <!-- GUI children -->
+        <line x1="120" y1="220" x2="120" y2="265" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4"/>
+        <line x1="200" y1="220" x2="200" y2="265" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4"/>
+        <line x1="280" y1="220" x2="280" y2="265" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4"/>
+
+        <rect x="50" y="265" width="140" height="55" rx="8" fill="#3b82f620" stroke="#3b82f6" stroke-width="1"/>
+        <text x="120" y="285" text-anchor="middle" fill="currentColor" font-size="12" font-weight="500">Form Panel</text>
+        <text x="120" y="300" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Pattern, Path, Output</text>
+        <text x="120" y="312" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Sort, Format</text>
+
+        <rect x="130" y="265" width="140" height="55" rx="8" fill="#3b82f620" stroke="#3b82f6" stroke-width="1"/>
+        <text x="200" y="285" text-anchor="middle" fill="currentColor" font-size="12" font-weight="500">Console Panel</text>
+        <text x="200" y="300" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Search results</text>
+        <text x="200" y="312" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Async printing</text>
+
+        <rect x="210" y="265" width="140" height="55" rx="8" fill="#3b82f620" stroke="#3b82f6" stroke-width="1"/>
+        <text x="280" y="285" text-anchor="middle" fill="currentColor" font-size="12" font-weight="500">Config Popup</text>
+        <text x="280" y="300" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Toggles, Filters</text>
+        <text x="280" y="312" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Sorts, Execute</text>
+
+        <!-- Shared services -->
+        <line x1="200" y1="320" x2="450" y2="370" stroke="var(--muted-foreground)" stroke-width="1" stroke-dasharray="4"/>
+        <line x1="710" y1="220" x2="450" y2="370" stroke="var(--muted-foreground)" stroke-width="1" stroke-dasharray="4"/>
+
+        <rect x="320" y="365" width="260" height="50" rx="10" fill="#ef4444" opacity="0.12" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="450" y="387" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">find_files() / find_duplicates()</text>
+        <text x="450" y="403" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">os.walk + glob + gitignore + filters</text>
+
+        <!-- Output -->
+        <line x1="450" y1="415" x2="450" y2="445" stroke="var(--muted-foreground)" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <rect x="310" y="445" width="280" height="45" rx="10" fill="#06b6d4" opacity="0.15" stroke="#06b6d4" stroke-width="1.5"/>
+        <text x="450" y="465" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">write_out() / write_tree_out()</text>
+        <text x="450" y="480" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">txt · csv · json · jsonl · yaml · tree</text>
+
+        <!-- Dup finder box -->
+        <rect x="660" y="280" width="200" height="55" rx="8" fill="#10b98120" stroke="#10b981" stroke-width="1"/>
+        <text x="760" y="300" text-anchor="middle" fill="currentColor" font-size="12" font-weight="500">Duplicate Finder</text>
+        <text x="760" y="315" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">SHA-256 · 3-pass dedup</text>
+        <text x="760" y="327" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">Recycle Bin delete</text>
+
+        <line x1="280" y1="295" x2="660" y2="300" stroke="#10b981" stroke-width="1" stroke-dasharray="4"/>
+
+        <!-- exec -->
+        <rect x="660" y="370" width="200" height="45" rx="8" fill="#f59e0b20" stroke="#f59e0b" stroke-width="1"/>
+        <text x="760" y="390" text-anchor="middle" fill="currentColor" font-size="12" font-weight="500">exec_on_files()</text>
+        <text x="760" y="405" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">ThreadPool · per-file / batch</text>
+
+        <line x1="580" y1="390" x2="660" y2="390" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4"/>
+
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="var(--muted-foreground)"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Data Flow -->
+    <div class="metric-card">
+      <h3 class="font-semibold text-base mb-4">Data Flow</h3>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center gap-3">
+          <span class="badge" style="background:#8b5cf620;color:#8b5cf6">1</span>
+          <span><strong>CLI args / GUI inputs</strong> → <code>parse_arguments()</code> sets ~30 instance attributes on <code>Manipulate_files</code></span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="badge" style="background:#3b82f620;color:#3b82f6">2</span>
+          <span><strong>GUI callbacks</strong> (do_hidden, do_type, do_size…) update the same <code>self.p</code> attributes in real time</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="badge" style="background:#f59e0b20;color:#f59e0b">3</span>
+          <span><strong>run_search()</strong> → <code>find_files()</code> returns <code>list[tuple(path, name, bsize, size_str, mod_time, hidden, lines, words, chars)]</code></span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="badge" style="background:#10b98120;color:#10b981">4</span>
+          <span><strong>Sorting</strong> applied on the list (alpha / size / mod / direction) before output</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="badge" style="background:#ef444420;color:#ef4444">5</span>
+          <span><strong>Output</strong> → flat list, tree view, or structured format (json/csv/yaml) via <code>write_out()</code></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Methods -->
+  <div id="tab-methods" class="tab-content hidden">
+    <div class="metric-card mb-4">
+      <h3 class="font-semibold text-base mb-2">Filter Methods</h3>
+      <input type="text" id="method-search" placeholder="Search methods..." oninput="filterMethods()"
+        class="w-full px-3 py-2 rounded-lg text-sm mb-3" style="background:var(--background);border:1px solid var(--border);color:var(--foreground)"/>
+    </div>
+
+    <div id="method-list" class="space-y-2">
+    </div>
+  </div>
+
+  <!-- TAB: Dependencies -->
+  <div id="tab-dependencies" class="tab-content hidden">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="metric-card">
+        <h3 class="font-semibold text-base mb-3">Standard Library Imports</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm"><span><code>tkinter</code></span><span class="text-[var(--muted-foreground)]">GUI framework</span></div>
+          <div class="flex justify-between text-sm"><span><code>stat</code></span><span class="text-[var(--muted-foreground)]">File attributes & type checks</span></div>
+          <div class="flex justify-between text-sm"><span><code>argparse</code></span><span class="text-[var(--muted-foreground)]">CLI argument parsing</span></div>
+          <div class="flex justify-between text-sm"><span><code>os, sys</code></span><span class="text-[var(--muted-foreground)]">Filesystem & system ops</span></div>
+          <div class="flex justify-between text-sm"><span><code>fnmatch</code></span><span class="text-[var(--muted-foreground)]">Glob-style pattern matching</span></div>
+          <div class="flex justify-between text-sm"><span><code>datetime</code></span><span class="text-[var(--muted-foreground)]">Timestamps</span></div>
+          <div class="flex justify-between text-sm"><span><code>subprocess</code></span><span class="text-[var(--muted-foreground)]">External command execution</span></div>
+          <div class="flex justify-between text-sm"><span><code>io, queue, threading</code></span><span class="text-[var(--muted-foreground)]">Async search & output</span></div>
+          <div class="flex justify-between text-sm"><span><code>contextlib</code></span><span class="text-[var(--muted-foreground)]">redirect_stdout/stderr</span></div>
+          <div class="flex justify-between text-sm"><span><code>concurrent.futures</code></span><span class="text-[var(--muted-foreground)]">ThreadPoolExecutor</span></div>
+          <div class="flex justify-between text-sm"><span><code>hashlib</code></span><span class="text-[var(--muted-foreground)]">SHA-256 for dedup (lazy)</span></div>
+          <div class="flex justify-between text-sm"><span><code>json, csv, yaml, re</code></span><span class="text-[var(--muted-foreground)]">Output formats (lazy)</span></div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <h3 class="font-semibold text-base mb-3">Custom / Local Imports</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm"><span><code>quick_tk</code></span><span class="text-[var(--muted-foreground)]">QuickApp, ToolView</span></div>
+          <div class="flex justify-between text-sm"><span><code>local_functions</code></span><span class="text-[var(--muted-foreground)]">run_magnifyer, colorize, Timed, bytes_to_str, str_to_bytes, clean_ansi</span></div>
+          <div class="flex justify-between text-sm"><span><code>send2trash</code></span><span class="text-[var(--muted-foreground)]">Recycle Bin (optional)</span></div>
+        </div>
+        <h3 class="font-semibold text-base mb-3 mt-6">Dependency Graph</h3>
+        <svg width="100%" height="220" viewBox="0 0 400 220">
+          <rect x="140" y="5" width="120" height="30" rx="6" fill="#3b82f620" stroke="#3b82f6" stroke-width="1"/>
+          <text x="200" y="25" text-anchor="middle" fill="currentColor" font-size="12">TkFileTool.py</text>
+
+          <line x1="160" y1="35" x2="80" y2="65" stroke="#3b82f6" stroke-width="1"/>
+          <line x1="200" y1="35" x2="200" y2="65" stroke="#f59e0b" stroke-width="1"/>
+          <line x1="240" y1="35" x2="320" y2="65" stroke="#10b981" stroke-width="1"/>
+
+          <rect x="20" y="65" width="120" height="30" rx="6" fill="#3b82f620" stroke="#3b82f6" stroke-width="1"/>
+          <text x="80" y="85" text-anchor="middle" fill="currentColor" font-size="11">quick_tk</text>
+
+          <rect x="140" y="65" width="120" height="30" rx="6" fill="#f59e0b20" stroke="#f59e0b" stroke-width="1"/>
+          <text x="200" y="85" text-anchor="middle" fill="currentColor" font-size="11">local_functions</text>
+
+          <rect x="260" y="65" width="120" height="30" rx="6" fill="#10b98120" stroke="#10b981" stroke-width="1"/>
+          <text x="320" y="85" text-anchor="middle" fill="currentColor" font-size="11">stdlib (12+)</text>
+
+          <!-- quick_tk provides -->
+          <line x1="50" y1="95" x2="50" y2="120" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3"/>
+          <line x1="110" y1="95" x2="110" y2="120" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3"/>
+          <rect x="10" y="120" width="80" height="24" rx="4" fill="#3b82f615" stroke="#3b82f640" stroke-width="0.5"/>
+          <text x="50" y="136" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">QuickApp</text>
+          <rect x="70" y="120" width="80" height="24" rx="4" fill="#3b82f615" stroke="#3b82f640" stroke-width="0.5"/>
+          <text x="110" y="136" text-anchor="middle" fill="var(--muted-foreground)" font-size="10">ToolView</text>
+
+          <!-- local_functions provides -->
+          <line x1="160" y1="95" x2="160" y2="120" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3"/>
+          <line x1="200" y1="95" x2="200" y2="120" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3"/>
+          <line x1="240" y1="95" x2="240" y2="120" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3"/>
+          <rect x="130" y="120" width="60" height="24" rx="4" fill="#f59e0b15" stroke="#f59e0b40" stroke-width="0.5"/>
+          <text x="160" y="136" text-anchor="middle" fill="var(--muted-foreground)" font-size="9">colorize</text>
+          <rect x="172" y="120" width="56" height="24" rx="4" fill="#f59e0b15" stroke="#f59e0b40" stroke-width="0.5"/>
+          <text x="200" y="136" text-anchor="middle" fill="var(--muted-foreground)" font-size="9">Timed</text>
+          <rect x="210" y="120" width="68" height="24" rx="4" fill="#f59e0b15" stroke="#f59e0b40" stroke-width="0.5"/>
+          <text x="244" y="136" text-anchor="middle" fill="var(--muted-foreground)" font-size="9">bytes_to_str</text>
+
+          <!-- optional -->
+          <rect x="260" y="170" width="120" height="30" rx="6" fill="#ec489920" stroke="#ec4899" stroke-width="1" stroke-dasharray="4"/>
+          <text x="320" y="190" text-anchor="middle" fill="var(--muted-foreground)" font-size="11">send2trash (opt.)</text>
+          <line x1="200" y1="35" x2="320" y2="170" stroke="#ec4899" stroke-width="0.8" stroke-dasharray="4"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Complexity -->
+  <div id="tab-complexity" class="tab-content hidden">
+    <div class="metric-card mb-4">
+      <h3 class="font-semibold text-base mb-4">Largest Methods by Line Count</h3>
+      <div class="space-y-3" id="complexity-bars">
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="metric-card">
+        <h3 class="font-semibold text-base mb-3">Code Patterns Detected</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2"><span style="color:#10b981">✓</span> Threading for non-blocking GUI searches</div>
+          <div class="flex items-center gap-2"><span style="color:#10b981">✓</span> Queue-based GUI↔worker communication</div>
+          <div class="flex items-center gap-2"><span style="color:#10b981">✓</span> 3-pass duplicate detection (size → head-hash → full-hash)</div>
+          <div class="flex items-center gap-2"><span style="color:#10b981">✓</span> ThreadPoolExecutor for parallel command execution</div>
+          <div class="flex items-center gap-2"><span style="color:#10b981">✓</span> Gitignore-compliant rule matching</div>
+          <div class="flex items-center gap-2"><span style="color:#10b981">✓</span> Chunked console output (500 lines/tick)</div>
+          <div class="flex items-center gap-2"><span style="color:#f59e0b">⚠</span> GUI + Engine in single file (2400+ LOC)</div>
+          <div class="flex items-center gap-2"><span style="color:#f59e0b">⚠</span> State stored as flat attributes (~30+) on engine class</div>
+        </div>
+      </div>
+      <div class="metric-card">
+        <h3 class="font-semibold text-base mb-3">Feature Coverage</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex items-center gap-2"><span class="badge" style="background:#3b82f620;color:#3b82f6">Search</span> Recursive glob, partial, case-insensitive</div>
+          <div class="flex items-center gap-2"><span class="badge" style="background:#10b98120;color:#10b981">Filter</span> Extension, type, size range, hidden, gitignore</div>
+          <div class="flex items-center gap-2"><span class="badge" style="background:#f59e0b20;color:#f59e0b">Sort</span> Alpha, size, mod-time, forward/reverse</div>
+          <div class="flex items-center gap-2"><span class="badge" style="background:#8b5cf620;color:#8b5cf6">Output</span> txt, csv, json, jsonl, yaml, tree view</div>
+          <div class="flex items-center gap-2"><span class="badge" style="background:#ef444420;color:#ef4444">Exec</span> Per-file (-x) and batch (-X) commands</div>
+          <div class="flex items-center gap-2"><span class="badge" style="background:#06b6d420;color:#06b6d4">Dedup</span> SHA-256 duplicate finder with keep strategies</div>
+          <div class="flex items-center gap-2"><span class="badge" style="background:#ec489920;color:#ec4899">GUI</span> Dual-mode: CLI & full Tkinter interface</div>
+          <div class="flex items-center gap-2"><span class="badge" style="background:#84cc1620;color:#84cc16">Extra</span> Magnifier tool, dir listing, cat file</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tab switching
+  function switchTab(name) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.remove('hidden');
+    document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
+  }
+
+  // Method data
+  const methods = [
+    { name: "build_ui", cls: "MyFileUtilityTool", line: 57, lines: 58, category: "UI", desc: "Builds main form, console, keybinds; initializes search queue" },
+    { name: "setup_menu", cls: "MyFileUtilityTool", line: 117, lines: 32, category: "UI", desc: "Top-level menu bar: Configuration, Help, Duplicate Finder, Exit" },
+    { name: "open_duplicates_window", cls: "MyFileUtilityTool", line: 159, lines: 70, category: "Feature", desc: "Opens Toplevel window for duplicate file detection with Treeview" },
+    { name: "dup_scan", cls: "MyFileUtilityTool", line: 230, lines: 23, category: "Feature", desc: "Launches threaded duplicate scan using find_duplicates()" },
+    { name: "dup_stop", cls: "MyFileUtilityTool", line: 255, lines: 4, category: "Feature", desc: "Signals the scanning thread to stop early" },
+    { name: "dup_poll", cls: "MyFileUtilityTool", line: 260, lines: 23, category: "Feature", desc: "Polls queue for scan progress/completion, updates UI" },
+    { name: "dup_fill", cls: "MyFileUtilityTool", line: 285, lines: 13, category: "Feature", desc: "Populates Treeview with duplicate file sets" },
+    { name: "dup_files", cls: "MyFileUtilityTool", line: 300, lines: 3, category: "Feature", desc: "Yields (parent, children) for all duplicate sets" },
+    { name: "dup_set_mark", cls: "MyFileUtilityTool", line: 305, lines: 5, category: "Feature", desc: "Toggles [X]/[ ] checkbox for a file row" },
+    { name: "dup_click", cls: "MyFileUtilityTool", line: 312, lines: 7, category: "Feature", desc: "Handles click on delete column in dup tree" },
+    { name: "dup_clear_marks", cls: "MyFileUtilityTool", line: 321, lines: 3, category: "Feature", desc: "Unticks all marked duplicates" },
+    { name: "dup_mark_all", cls: "MyFileUtilityTool", line: 325, lines: 16, category: "Feature", desc: "Auto-marks duplicates keeping newest/oldest/shortest/first" },
+    { name: "dup_delete", cls: "MyFileUtilityTool", line: 342, lines: 38, category: "Feature", desc: "Sends marked files to Recycle Bin via send2trash" },
+    { name: "on_mag", cls: "MyFileUtilityTool", line: 382, lines: 7, category: "UI", desc: "Toggles magnifier overlay (Ctrl+Shift+M)" },
+    { name: "show_help", cls: "MyFileUtilityTool", line: 391, lines: 58, category: "UI", desc: "Displays usage help in the console panel" },
+    { name: "open_floating_window_onoffs", cls: "MyFileUtilityTool", line: 452, lines: 180, category: "UI", desc: "Opens large config popup: toggles, filters, sorts, execute, depth" },
+    { name: "on_topic_selected", cls: "MyFileUtilityTool", line: 634, lines: 22, category: "Handler", desc: "Radio button handler for sort method selection" },
+    { name: "open_floating_window_choices", cls: "MyFileUtilityTool", line: 663, lines: 30, category: "UI", desc: "Opens secondary options popup (mostly placeholder)" },
+    { name: "do_type", cls: "MyFileUtilityTool", line: 694, lines: 5, category: "Handler", desc: "Sets type filter from dropdown" },
+    { name: "do_runcat", cls: "MyFileUtilityTool", line: 701, lines: 2, category: "Handler", desc: "Toggles cat mode" },
+    { name: "do_hidden", cls: "MyFileUtilityTool", line: 704, lines: 2, category: "Handler", desc: "Toggles hidden file visibility" },
+    { name: "do_maxdepth", cls: "MyFileUtilityTool", line: 721, lines: 6, category: "Handler", desc: "Sets max search depth from number input" },
+    { name: "do_showdir", cls: "MyFileUtilityTool", line: 729, lines: 10, category: "Handler", desc: "Shows directory listing of target folder" },
+    { name: "do_do_long", cls: "MyFileUtilityTool", line: 741, lines: 2, category: "Handler", desc: "Toggles long output mode" },
+    { name: "do_treeview", cls: "MyFileUtilityTool", line: 744, lines: 2, category: "Handler", desc: "Toggles tree view output" },
+    { name: "do_ascii", cls: "MyFileUtilityTool", line: 747, lines: 2, category: "Handler", desc: "Toggles ASCII tree rendering" },
+    { name: "do_execute", cls: "MyFileUtilityTool", line: 750, lines: 4, category: "Handler", desc: "Sets per-file command template" },
+    { name: "do_exec_batch", cls: "MyFileUtilityTool", line: 755, lines: 3, category: "Handler", desc: "Sets batch command template" },
+    { name: "do_partial", cls: "MyFileUtilityTool", line: 759, lines: 2, category: "Handler", desc: "Toggles partial matching (*name*)" },
+    { name: "do_verbose", cls: "MyFileUtilityTool", line: 762, lines: 2, category: "Handler", desc: "Toggles verbose output" },
+    { name: "do_igcase", cls: "MyFileUtilityTool", line: 765, lines: 2, category: "Handler", desc: "Toggles case-insensitive matching" },
+    { name: "do_out_format", cls: "MyFileUtilityTool", line: 768, lines: 13, category: "Handler", desc: "Updates output format and rebuilds filename" },
+    { name: "do_outfile_path", cls: "MyFileUtilityTool", line: 782, lines: 10, category: "Handler", desc: "Updates output file directory path" },
+    { name: "do_outfile_name", cls: "MyFileUtilityTool", line: 793, lines: 18, category: "Handler", desc: "Updates output filename, appends format extension" },
+    { name: "do_filename", cls: "MyFileUtilityTool", line: 813, lines: 2, category: "Handler", desc: "Sets search pattern" },
+    { name: "do_directory", cls: "MyFileUtilityTool", line: 816, lines: 2, category: "Handler", desc: "Sets search directory" },
+    { name: "do_sort_dir", cls: "MyFileUtilityTool", line: 819, lines: 2, category: "Handler", desc: "Sets sort direction (forward/reverse)" },
+    { name: "do_size", cls: "MyFileUtilityTool", line: 822, lines: 20, category: "Handler", desc: "Parses min/max size filters from GUI number+unit fields" },
+    { name: "do_exclude", cls: "MyFileUtilityTool", line: 844, lines: 3, category: "Handler", desc: "Parses comma-separated exclude patterns" },
+    { name: "do_extention", cls: "MyFileUtilityTool", line: 849, lines: 17, category: "Handler", desc: "Parses comma-separated extension filters" },
+    { name: "on_run", cls: "MyFileUtilityTool", line: 868, lines: 11, category: "Core", desc: "Execute button handler: spawns search_worker thread" },
+    { name: "search_worker", cls: "MyFileUtilityTool", line: 881, lines: 7, category: "Core", desc: "Background thread: runs p.run_search(is_gui=True)" },
+    { name: "print_chunk", cls: "MyFileUtilityTool", line: 889, lines: 6, category: "Core", desc: "Prints 500 lines per tick for non-blocking output" },
+    { name: "check_results", cls: "MyFileUtilityTool", line: 897, lines: 20, category: "Core", desc: "Polls result queue, triggers print_chunk" },
+    { name: "safe_print_stdout", cls: "(free)", line: 920, lines: 6, category: "Utility", desc: "Writes to stdout with UTF-8 fallback" },
+    { name: "safe_print_stderr", cls: "(free)", line: 928, lines: 6, category: "Utility", desc: "Writes to stderr with UTF-8 fallback" },
+    { name: "is_binary_file", cls: "(free)", line: 941, lines: 10, category: "Utility", desc: "Checks first 1024 bytes for null byte" },
+    { name: "run_for_file", cls: "(free)", line: 952, lines: 20, category: "Exec", desc: "Runs command template for one file via subprocess" },
+    { name: "exec_on_files", cls: "(free)", line: 974, lines: 35, category: "Exec", desc: "Parallel per-file command execution with ThreadPoolExecutor" },
+    { name: "exec_batch_on_files", cls: "(free)", line: 1010, lines: 40, category: "Exec", desc: "Runs single command with all files as arguments + stdin" },
+    { name: "__init__", cls: "Manipulate_files", line: 1077, lines: 36, category: "Core", desc: "Parses args; branches to GUI (QuickApp) or CLI (run_search)" },
+    { name: "run_exec", cls: "Manipulate_files", line: 1118, lines: 5, category: "Core", desc: "Dispatches to exec_on_files or exec_batch_on_files" },
+    { name: "run_search", cls: "Manipulate_files", line: 1124, lines: 98, category: "Core", desc: "Main search orchestrator: validate → find → sort → output" },
+    { name: "parse_arguments", cls: "Manipulate_files", line: 1241, lines: 358, category: "Core", desc: "Full argparse setup for 20+ flags and options" },
+    { name: "_load_gitignore", cls: "Manipulate_files", line: 1627, lines: 104, category: "Git", desc: "Discovers and parses .gitignore with multi-root traversal" },
+    { name: "_gitignored", cls: "Manipulate_files", line: 1733, lines: 14, category: "Git", desc: "Checks if path matches gitignore rules" },
+    { name: "_excluded", cls: "Manipulate_files", line: 1748, lines: 13, category: "Filter", desc: "Checks if path matches -e exclude patterns" },
+    { name: "_match_rules", cls: "Manipulate_files", line: 1763, lines: 41, category: "Git", desc: "Gitignore-style rule matching: anchored, directory, negated" },
+    { name: "count_file_contents", cls: "Manipulate_files", line: 1806, lines: 21, category: "Utility", desc: "Counts lines, words, chars in a text file" },
+    { name: "get_extension", cls: "Manipulate_files", line: 1829, lines: 10, category: "Utility", desc: "Returns lowercased file extension" },
+    { name: "matches_type", cls: "Manipulate_files", line: 1841, lines: 45, category: "Filter", desc: "Checks file type against -t filter (file/dir/symlink/exec/empty/…)" },
+    { name: "_is_hidden_entry", cls: "Manipulate_files", line: 1888, lines: 14, category: "Filter", desc: "Checks dot-prefix or Windows FILE_ATTRIBUTE_HIDDEN" },
+    { name: "find_files", cls: "Manipulate_files", line: 1903, lines: 112, category: "Core", desc: "Recursive os.walk search with all filters applied" },
+    { name: "find_duplicates", cls: "Manipulate_files", line: 2017, lines: 22, category: "Feature", desc: "Public API: sets up directory context and calls _find_duplicates" },
+    { name: "_find_duplicates", cls: "Manipulate_files", line: 2041, lines: 83, category: "Feature", desc: "3-pass dedup: size grouping → head SHA-256 → full SHA-256" },
+    { name: "list_dir", cls: "Manipulate_files", line: 2126, lines: 22, category: "Utility", desc: "Lists directory contents with date and size" },
+    { name: "write_out", cls: "Manipulate_files", line: 2150, lines: 75, category: "Output", desc: "Writes results to stdout/file in chosen format; handles cat mode" },
+    { name: "write_tree_out", cls: "Manipulate_files", line: 2227, lines: 95, category: "Output", desc: "Renders results as directory tree with Unicode/ASCII connectors" },
+    { name: "get_summary", cls: "Manipulate_files", line: 2324, lines: 69, category: "Output", desc: "Builds human-readable summary of search criteria and results" },
+    { name: "main", cls: "(free)", line: 2394, lines: 11, category: "Entry", desc: "Entry point: creates Manipulate_files, prints summary" },
+  ];
+
+  const categoryColors = {
+    "UI": "#3b82f6", "Handler": "#f59e0b", "Core": "#ef4444", "Feature": "#10b981",
+    "Utility": "#06b6d4", "Filter": "#8b5cf6", "Git": "#84cc16", "Exec": "#ec4899",
+    "Output": "#f97316", "Entry": "#8b5cf6"
+  };
+
+  function renderMethods(filter = "") {
+    const container = document.getElementById('method-list');
+    const lf = filter.toLowerCase();
+    const filtered = methods.filter(m =>
+      !filter || m.name.toLowerCase().includes(lf) || m.cls.toLowerCase().includes(lf) ||
+      m.category.toLowerCase().includes(lf) || m.desc.toLowerCase().includes(lf)
+    );
+    container.innerHTML = filtered.map(m => {
+      const color = categoryColors[m.category] || "#888";
+      return `<div class="metric-card py-3 px-4 flex items-center gap-3" style="border-left: 3px solid ${color}">
+        <span class="badge" style="background:${color}20;color:${color};min-width:60px;text-align:center">${m.category}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="font-mono font-semibold text-sm">${m.name}()</span>
+            <span class="text-xs text-[var(--muted-foreground)]">${m.cls}</span>
+          </div>
+          <div class="text-xs text-[var(--muted-foreground)] truncate">${m.desc}</div>
+        </div>
+        <div class="text-right text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+          <div>L${m.line}</div>
+          <div>${m.lines} lines</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filterMethods() {
+    renderMethods(document.getElementById('method-search').value);
+  }
+
+  // Complexity bars
+  const bigMethods = methods.slice().sort((a, b) => b.lines - a.lines).slice(0, 12);
+  const maxLines = bigMethods[0].lines;
+  document.getElementById('complexity-bars').innerHTML = bigMethods.map(m => {
+    const color = categoryColors[m.category] || "#888";
+    const pct = Math.max(2, (m.lines / maxLines) * 100);
+    return `<div>
+      <div class="flex justify-between text-sm mb-1">
+        <span class="font-mono">${m.cls}.${m.name}()</span>
+        <span class="text-[var(--muted-foreground)]">${m.lines} lines · L${m.line}</span>
+      </div>
+      <div class="w-full rounded-full h-4" style="background:var(--border)">
+        <div class="bar h-4" style="width:${pct}%;background:${color}"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Init
+  renderMethods();
+</script>
+</body>
+</html>

@@ -942,4 +942,4 @@ def _weekday_index(day: str) -> int:
         raise ScheduleValueError(
             "Invalid start day (valid start days are {})".format(weekdays)
         )
-    return weekdays.index(da
+    return weekdays.index(day)
