@@ -13,6 +13,7 @@
 """
 
 import logging
+import threading
 from datetime import date, datetime
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
@@ -60,6 +61,9 @@ class RiskManager:
     def __init__(self):
         self._session_date  = None
         self._session       = None
+        # A DB outage after a halt must not reopen this process for trading.
+        self._local_halt_reason: Optional[str] = None
+        self._local_halt_lock = threading.RLock()
         # Symbol cooldown: tracks (timestamp, was_win) for each recently closed symbol.
         # Loss cooldown  = 10 min  (revenge trade prevention)
         # Win  cooldown  =  2 min  (allow momentum re-entry, just not instant)
@@ -71,8 +75,13 @@ class RiskManager:
         The dashboard runs as a separate process from the bot, so in-memory
         state is stale. Always fetch fresh from DB."""
         today = date.today().isoformat()
-        self._session_date = today
-        self._session = db.get_session(today)
+        refreshed_session = db.get_session(today)
+        with self._local_halt_lock:
+            self._session_date = today
+            self._session = refreshed_session
+            if self._local_halt_reason:
+                self._session["trading_halted"] = 1
+                self._session["halt_reason"] = self._local_halt_reason
 
     def _get_capital(self) -> float:
         """
@@ -705,9 +714,18 @@ class RiskManager:
 
     def _halt_trading(self, reason: str):
         session_date = date.today().isoformat()
-        db.update_session(session_date, trading_halted=1, halt_reason=reason)
-        self._session["trading_halted"] = 1
-        self._session["halt_reason"]    = reason
+        with self._local_halt_lock:
+            self._local_halt_reason = reason
+            self._session["trading_halted"] = 1
+            self._session["halt_reason"] = reason
+            try:
+                db.update_session(session_date, trading_halted=1, halt_reason=reason)
+            except Exception:
+                logger.critical(
+                    "[HALT] local fail-closed halt retained after session write failure: %s",
+                    reason,
+                )
+                raise
         logger.critical(f"[HALT] TRADING HALTED: {reason}")
         try:
             if alert_manager:
@@ -720,13 +738,15 @@ class RiskManager:
 
     def manual_resume(self):
         session_date = date.today().isoformat()
-        db.update_session(session_date,
-            trading_halted     = 0,
-            halt_reason        = None,
-            consecutive_losses = 0
-        )
-        self._session["trading_halted"] = 0
-        self._session["halt_reason"]    = None
+        with self._local_halt_lock:
+            db.update_session(session_date,
+                trading_halted     = 0,
+                halt_reason        = None,
+                consecutive_losses = 0
+            )
+            self._local_halt_reason = None
+            self._session["trading_halted"] = 0
+            self._session["halt_reason"]    = None
         logger.info("Trading resumed by manual command.")
 
     # ----------------------------------------------------------
@@ -773,15 +793,17 @@ class RiskManager:
     def reset_session(self):
         """Reset the daily session state (called at end of day)."""
         session_date = date.today().isoformat()
-        db.update_session(session_date,
-            trading_halted          = 0,
-            halt_reason             = None,
-            consecutive_losses      = 0,
-            pnl_today               = 0.0,
-            trades_today            = 0,
-            starting_capital_today  = 0.0
-        )
-        self._session = db.get_session(session_date)
+        with self._local_halt_lock:
+            db.update_session(session_date,
+                trading_halted          = 0,
+                halt_reason             = None,
+                consecutive_losses      = 0,
+                pnl_today               = 0.0,
+                trades_today            = 0,
+                starting_capital_today  = 0.0
+            )
+            self._local_halt_reason = None
+            self._session = db.get_session(session_date)
         logger.info("Session state reset for new trading day.")
 
 

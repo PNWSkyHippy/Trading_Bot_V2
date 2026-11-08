@@ -475,6 +475,7 @@ class KrakenExecutor:
             )
 
         # ── 2. Send margin-aware market close order ───────────────────────────
+        order_id = None
         try:
             close_side = "sell" if side == "buy" else "buy"
             params     = {}
@@ -508,7 +509,8 @@ class KrakenExecutor:
         except Exception as e:
             logger.error(f"Failed to close Kraken {symbol}: {e}")
             return {
-                "status": "submission_failed", "filled_qty": 0.0,
+                "broker_order_id": order_id,
+                "status": "unresolved" if order_id else "submission_failed", "filled_qty": 0.0,
                 "filled_avg_price": 0.0, "resolution_failed": True,
                 "cancellation_ambiguous": False, "leverage": leverage,
             }

@@ -454,6 +454,8 @@ class TradeExecutor:
     """
 
     def __init__(self, db_ref=None, risk_manager_ref=None, broker_manager_ref=None):
+        self._kraken_reconcile_write_failures = set()
+        self._kraken_reconcile_write_failures_lock = threading.Lock()
         self._db           = db_ref or db
         self._risk_manager = risk_manager_ref or risk_manager
         self._broker_manager = (
@@ -1187,7 +1189,12 @@ class TradeExecutor:
         itself raises.
         """
         symbol_key = f"kraken_unresolved_symbol_{symbol}"
-        order_key  = f"kraken_unresolved_order_{order_id}"
+        # A missing broker ID is not an idempotency identity. It must never
+        # collapse separate unresolved submissions into an "order_None" key.
+        order_key = (
+            f"kraken_unresolved_order_{order_id}"
+            if order_id is not None else None
+        )
 
         if hasattr(self._db, "_conn"):
             try:
@@ -1198,11 +1205,12 @@ class TradeExecutor:
                         "VALUES (?, ?, ?)",
                         (symbol_key, json.dumps(marker), _now),
                     )
-                    conn.execute(
-                        "INSERT OR REPLACE INTO bot_state (key, value, updated) "
-                        "VALUES (?, ?, ?)",
-                        (order_key, json.dumps(marker), _now),
-                    )
+                    if order_key is not None:
+                        conn.execute(
+                            "INSERT OR REPLACE INTO bot_state (key, value, updated) "
+                            "VALUES (?, ?, ?)",
+                            (order_key, json.dumps(marker), _now),
+                        )
                 return
             except Exception as _atomic_err:
                 logger.critical(
@@ -1220,13 +1228,14 @@ class TradeExecutor:
                 f"stay blocked if the global halt is later cleared, treat as "
                 f"highest-priority manual intervention"
             )
-        try:
-            self._db.set_state(order_key, marker)
-        except Exception as _ord_err:
-            logger.critical(
-                f"[KRAKEN UNRESOLVED] {symbol}: FAILED to persist the "
-                f"order-ID reconciliation marker ({order_id}): {_ord_err}"
-            )
+        if order_key is not None:
+            try:
+                self._db.set_state(order_key, marker)
+            except Exception as _ord_err:
+                logger.critical(
+                    f"[KRAKEN UNRESOLVED] {symbol}: FAILED to persist the "
+                    f"order-ID reconciliation marker ({order_id}): {_ord_err}"
+                )
 
     def _handle_unresolved_kraken_order(
         self, signal, approval: TradeApproval, broker_result: Dict
@@ -1267,24 +1276,27 @@ class TradeExecutor:
         symbol         = signal.symbol
         now_iso        = datetime.now().isoformat()
 
-        order_key = f"kraken_unresolved_order_{order_id}"
-        try:
-            already_handled = self._db.get_state(order_key)
-        except Exception:
-            already_handled = None
-        if already_handled:
-            logger.critical(
-                f"[KRAKEN UNRESOLVED] {symbol}: order {order_id} already has "
-                f"an unresolved marker — skipping duplicate provisional "
-                f"trade/stop (idempotent no-op); re-asserting halt in case "
-                f"it was cleared without this order being reconciled"
-            )
-            self._risk_manager.manual_halt(
-                f"Kraken order unresolved for {symbol} (order_id={order_id}): "
-                f"manual reconciliation required before trading can resume "
-                f"(duplicate resolution attempt detected)."
-            )
-            return
+        # Only a real broker ID can prove this is the same order. An absent
+        # ID is an ambiguity state, so each symbol needs its own containment.
+        if order_id is not None:
+            order_key = f"kraken_unresolved_order_{order_id}"
+            try:
+                already_handled = self._db.get_state(order_key)
+            except Exception:
+                already_handled = None
+            if already_handled:
+                logger.critical(
+                    f"[KRAKEN UNRESOLVED] {symbol}: order {order_id} already has "
+                    f"an unresolved marker — skipping duplicate provisional "
+                    f"trade/stop (idempotent no-op); re-asserting halt in case "
+                    f"it was cleared without this order being reconciled"
+                )
+                self._risk_manager.manual_halt(
+                    f"Kraken order unresolved for {symbol} (order_id={order_id}): "
+                    f"manual reconciliation required before trading can resume "
+                    f"(duplicate resolution attempt detected)."
+                )
+                return
 
         marker = {
             "symbol":                  symbol,
@@ -1501,6 +1513,11 @@ class TradeExecutor:
                     )
                     close_leverage = min(desired_lev, max_lev) if max_lev > 1 else 0
 
+                with self._kraken_reconcile_write_failures_lock:
+                    if trade_id in self._kraken_reconcile_write_failures:
+                        logger.critical("[KRAKEN FULL HOLD] %s: prior hold write failed; duplicate close blocked", symbol)
+                        return False
+
                 terminal = self.kraken.close_position(
                     symbol, qty, side, leverage=close_leverage
                 )
@@ -1690,11 +1707,18 @@ class TradeExecutor:
         self, trade: Dict, requested_qty: float, result: Dict, reason: str
     ) -> None:
         trade_id = trade["trade_id"]
+        def finite_or_none(value):
+            try:
+                number = float(value)
+            except (TypeError, ValueError, OverflowError):
+                return None
+            return number if math.isfinite(number) else None
+
         marker = {
             "symbol": trade["symbol"],
             "requested_qty": float(requested_qty),
-            "filled_qty": float(result.get("filled_qty") or 0),
-            "filled_avg_price": float(result.get("filled_avg_price") or 0),
+            "filled_qty": finite_or_none(result.get("filled_qty")),
+            "filled_avg_price": finite_or_none(result.get("filled_avg_price")),
             "status": result.get("status"),
             "broker_order_id": result.get("broker_order_id"),
             "cancellation_ambiguous": bool(result.get("cancellation_ambiguous")),
@@ -1704,6 +1728,8 @@ class TradeExecutor:
         try:
             self._db.set_state(f"kraken_full_reconcile_{trade_id}", marker)
         except Exception as exc:
+            with self._kraken_reconcile_write_failures_lock:
+                self._kraken_reconcile_write_failures.add(trade_id)
             logger.critical(
                 f"[KRAKEN FULL RECONCILE] {trade['symbol']}: failed to persist hold: {exc}"
             )
@@ -1761,7 +1787,7 @@ class TradeExecutor:
         symbol = trade["symbol"]
         try:
             filled_qty = float(result.get("filled_qty") or 0)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             filled_qty = float("nan")
         tolerance = max(1e-8, float(requested_qty) * 1e-8)
         resolution_failed = bool(result.get("resolution_failed"))
@@ -1794,7 +1820,7 @@ class TradeExecutor:
             return False, fallback_price
         try:
             fill_price = float(result.get("filled_avg_price") or 0)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             fill_price = 0.0
         if not math.isfinite(fill_price) or fill_price <= 0:
             self._persist_kraken_full_reconcile(

@@ -216,6 +216,19 @@ class FakeSessionDB:
         return []
 
 
+class FailingSessionDB(FakeSessionDB):
+    """Fail only session persistence; never touch the production database."""
+
+    def __init__(self):
+        super().__init__()
+        self.fail_updates = True
+
+    def update_session(self, session_date, **kwargs):
+        if self.fail_updates:
+            raise OSError("simulated session persistence failure")
+        super().update_session(session_date, **kwargs)
+
+
 def make_signal(symbol, direction, current_price, indicators=None):
     return SimpleNamespace(
         symbol=symbol,
@@ -775,6 +788,48 @@ def test_global_halt_blocks_subsequent_approve_trade():
             or "halt" in approval.reason.lower()
 
 
+def test_halt_store_failure_keeps_current_process_fail_closed():
+    """A failed durable halt must not permit another entry in this process."""
+    fake_session_db = FailingSessionDB()
+    with Patch(rm_mod, "db", fake_session_db), Patch(
+        rm_mod.alert_manager, "trading_halted", lambda reason: None
+    ):
+        fresh_rm = rm_mod.RiskManager()
+        try:
+            fresh_rm.manual_halt("simulated unresolved Kraken order")
+        except OSError:
+            pass
+        else:
+            raise AssertionError("manual_halt must surface the persistence failure")
+
+        status = fresh_rm.get_daily_status()
+        allowed, reason = fresh_rm.is_trading_allowed()
+        approval = fresh_rm.approve_trade(
+            symbol="ETH/USD", entry_price=100.0, signal_score=0.99, direction="long"
+        )
+        bmr_approval = fresh_rm.approve_trade(
+            symbol="BTC/USD", entry_price=100.0, signal_score=0.99,
+            direction="long", strategy_name="bmr_357"
+        )
+        assert status.trading_active is False
+        assert allowed is False and "simulated unresolved Kraken order" in reason
+        assert approval.approved is False
+        assert bmr_approval.approved is False
+
+        try:
+            fresh_rm.manual_resume()
+        except OSError:
+            pass
+        else:
+            raise AssertionError("manual_resume must not clear a local halt after write failure")
+        assert fresh_rm.is_trading_allowed()[0] is False
+
+        fake_session_db.fail_updates = False
+        fresh_rm.manual_resume()
+        assert fresh_rm.get_daily_status().trading_active is True
+        assert fresh_rm.is_trading_allowed()[0] is True
+
+
 # ── Requirement 4: no second entry for the affected symbol while unresolved ──
 
 def test_no_second_entry_for_symbol_while_unresolved_marker_exists():
@@ -1167,6 +1222,37 @@ def test_handle_unresolved_kraken_order_is_idempotent_for_same_order_id():
             "halt is safe/idempotent to re-assert, unlike the trade/stop side effects"
 
 
+def test_missing_order_ids_do_not_collide_across_symbols():
+    """An absent ID is an ambiguity, never a shared idempotency key."""
+    with Patch(config, "KRAKEN_ENABLED", True), \
+         Patch(config, "KRAKEN_PAPER_MODE", False):
+        approval = TradeApproval(
+            approved=True, reason="ok", quantity=2.0, position_value=20.0,
+            stop_loss=9.0, take_profit=11.0,
+        )
+        kraken_exec, fake_exchange = _make_unresolved_kraken_exec(order_id="UNUSED")
+        executor, db = build_executor(approval, kraken_exec)
+        unresolved = {
+            "broker_order_id": None, "status": "unresolved",
+            "filled_qty": 2.0, "filled_avg_price": 10.0,
+            "resolution_failed": True, "leverage": 0,
+        }
+
+        executor._handle_unresolved_kraken_order(
+            make_signal("ATOM/USD", "long", 10.0), approval, unresolved
+        )
+        executor._handle_unresolved_kraken_order(
+            make_signal("XRP/USD", "long", 10.0), approval, unresolved
+        )
+
+        assert "kraken_unresolved_order_None" not in db._state
+        assert db.get_state("kraken_unresolved_symbol_ATOM/USD") is not None
+        assert db.get_state("kraken_unresolved_symbol_XRP/USD") is not None
+        assert len(db.opened_trades) == 2
+        assert len(fake_exchange.stop_order_calls) == 2
+        assert len(executor._risk_manager.halt_calls) == 2
+
+
 # ── Leveraged-short stop semantics: exact create_order params ──────────────
 
 def test_place_stop_order_spot_long_no_margin_params():
@@ -1374,12 +1460,14 @@ if __name__ == "__main__":
         test_unresolved_zero_fill_halts_trading_and_writes_db_state,
         test_unresolved_positive_fill_creates_provisional_trade_and_stop,
         test_global_halt_blocks_subsequent_approve_trade,
+        test_halt_store_failure_keeps_current_process_fail_closed,
         test_no_second_entry_for_symbol_while_unresolved_marker_exists,
         test_jsonl_write_failure_does_not_block_db_halt_or_marker,
         test_normal_terminal_fill_does_not_halt_trading,
         test_symbol_marker_persisted_first_survives_order_marker_failure,
         test_atomic_transaction_prevents_partial_marker_state,
         test_handle_unresolved_kraken_order_is_idempotent_for_same_order_id,
+        test_missing_order_ids_do_not_collide_across_symbols,
         test_place_stop_order_spot_long_no_margin_params,
         test_place_stop_order_leveraged_short_includes_leverage_and_reduce_only,
         test_update_stop_order_leveraged_short_preserves_leverage,

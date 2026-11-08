@@ -319,6 +319,94 @@ def test_reconciliation_hold_blocks_duplicate_full_close_submission():
     assert database.closed == []
 
 
+def test_invalid_full_fill_values_hold_and_block_retry_even_if_marker_write_fails():
+    class FailingMarkerDB(FullExitDB):
+        def set_state(self, key, value):
+            if key == "kraken_full_reconcile_T-FULL":
+                raise OSError("simulated marker storage failure")
+            super().set_state(key, value)
+
+    for field, value in (("filled_qty", "bad"), ("filled_avg_price", "bad"),
+                         ("filled_qty", float("nan")), ("filled_avg_price", float("inf")),
+                         ("filled_qty", 10**400), ("filled_avg_price", 10**400)):
+        for fail_write in (False, True):
+            result = {"status": "closed", "filled_qty": 10.0, "filled_avg_price": 12.0,
+                      "resolution_failed": False, "cancellation_ambiguous": False}
+            result[field] = value
+            executor, database = executor_for_result(result)
+            if fail_write:
+                database = FailingMarkerDB()
+                executor._db = database
+            trade = full_trade()
+            assert executor.close_trade(trade, 12.0, "take_profit") is False
+            assert executor.close_trade(trade, 12.0, "take_profit") is False
+            assert len(executor.kraken.close_calls) == 1
+            assert database.closed == []
+            hold = database.states.get("kraken_full_reconcile_T-FULL")
+            if fail_write:
+                assert hold is None
+            else:
+                assert hold[field] is None
+                assert hold["reason"]
+                assert __import__("json").dumps(hold, allow_nan=False)
+            if field == "filled_qty":
+                assert database.states["kraken_stop_unprotected_T-FULL"]["manual_reconciliation_required"]
+
+
+def test_zero_fill_failed_marker_write_blocks_later_retry():
+    class FailingMarkerDB(FullExitDB):
+        def set_state(self, key, value):
+            if key == "kraken_full_reconcile_T-FULL":
+                raise OSError("simulated marker storage failure")
+            super().set_state(key, value)
+
+    executor, _ = executor_for_result({"status": "closed", "filled_qty": 0.0,
+        "filled_avg_price": 0.0, "resolution_failed": False, "cancellation_ambiguous": False})
+    database = FailingMarkerDB()
+    executor._db = database
+    trade = full_trade()
+    assert executor.close_trade(trade, 12.0, "take_profit") is False
+    assert executor.close_trade(trade, 12.0, "take_profit") is False
+    assert len(executor.kraken.close_calls) == 1
+    assert "kraken_full_reconcile_T-FULL" not in database.states
+    assert database.closed == []
+
+
+
+def test_actual_adapter_exception_preserves_known_order_id_in_hold():
+    exchange = FakeExchange(market={"id": "ORDER-123", "status": "closed",
+                                    "filled": 10.0, "average": "bad"})
+    executor, database = executor_for_result({})
+    executor.kraken = live_executor(exchange)
+    trade = full_trade()
+    assert executor.close_trade(trade, 12.0, "take_profit") is False
+    hold = database.states["kraken_full_reconcile_T-FULL"]
+    assert hold["broker_order_id"] == "ORDER-123"
+    assert hold["status"] == "unresolved"
+    assert executor.close_trade(trade, 12.0, "take_profit") is False
+    assert len(exchange.market_calls) == 1
+    assert database.closed == []
+
+
+def test_actual_adapter_missing_id_and_submission_exception_hold():
+    class ThrowingExchange(FakeExchange):
+        def create_market_order(self, symbol, side, qty, params=None):
+            self.market_calls.append((symbol, side, qty, params))
+            raise OSError("ambiguous submission")
+
+    for exchange in (FakeExchange(market={"status": "closed", "filled": 10.0,
+                                          "average": "bad"}), ThrowingExchange()):
+        executor, database = executor_for_result({})
+        executor.kraken = live_executor(exchange)
+        trade = full_trade()
+        assert executor.close_trade(trade, 12.0, "take_profit") is False
+        hold = database.states["kraken_full_reconcile_T-FULL"]
+        assert hold["broker_order_id"] is None
+        assert executor.close_trade(trade, 12.0, "take_profit") is False
+        assert len(exchange.market_calls) == 1
+        assert database.closed == []
+
+
 if __name__ == "__main__":
     tests = [value for name, value in globals().items() if name.startswith("test_")]
     for test in tests:
