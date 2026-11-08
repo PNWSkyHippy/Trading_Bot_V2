@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React Reference</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 24px 32px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    h1 {
+      color: #569cd6;
+      border-bottom: 2px solid #569cd6;
+      padding-bottom: 8px;
+      margin-bottom: 4px;
+      font-size: 1.5em;
+    }
+    .intro {
+      color: #808080;
+      font-size: 0.85em;
+      margin-bottom: 28px;
+    }
+    h2 {
+      color: #4ec9b0;
+      margin: 28px 0 8px 0;
+      border-left: 4px solid #4ec9b0;
+      padding-left: 10px;
+      font-size: 1.05em;
+      letter-spacing: 0.03em;
+    }
+    details {
+      margin: 3px 0;
+    }
+    summary {
+      cursor: pointer;
+      padding: 3px 6px;
+      border-radius: 3px;
+      list-style: none;
+      display: flex;
+      align-items: baseline;
+      user-select: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: '+';
+      color: #569cd6;
+      font-weight: bold;
+      margin-right: 8px;
+      min-width: 10px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    details[open] > summary::before { content: '\2212'; }
+    summary:hover { background: #2a2a2a; }
+    .one { color: #ce9178; }
+    .cm  { color: #6a9955; }
+    .detail-body {
+      margin: 5px 0 9px 22px;
+      border-left: 2px solid #3c3c3c;
+      padding-left: 14px;
+    }
+    .opt {
+      margin: 5px 0;
+      color: #9cdcfe;
+    }
+    .opt::before { content: '\2022  '; color: #569cd6; }
+    .sub {
+      margin: 4px 0 4px 18px;
+      color: #9cdcfe;
+    }
+    .sub::before { content: '\25e6  '; color: #569cd6; }
+    code { color: #ce9178; font-family: inherit; }
+    pre {
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 4px;
+      padding: 9px 14px;
+      margin: 8px 0 4px 0;
+      overflow-x: auto;
+      font-size: 0.92em;
+      color: #d4d4d4;
+      tab-size: 4;
+    }
+    .kw  { color: #569cd6; }
+    .fn  { color: #dcdcaa; }
+    .st  { color: #ce9178; }
+    .co  { color: #6a9955; }
+    .nu  { color: #b5cea8; }
+    .warn {
+      color: #f14c4c;
+      font-size: 0.88em;
+      margin: 5px 0;
+    }
+    .warn::before { content: '\26a0  '; }
+  
+    /* Navigation Bar, Quick Filter & Section Jump Chips */
+    .controls-panel {
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: #252526;
+      border: 1px solid #3c3c3c;
+      border-radius: 6px;
+    }
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    #quick-search {
+      flex: 1;
+      padding: 7px 12px;
+      background: #1e1e1e;
+      border: 1px solid #4ec9b0;
+      border-radius: 4px;
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.95em;
+      outline: none;
+    }
+    #quick-search:focus {
+      border-color: #569cd6;
+      box-shadow: 0 0 6px rgba(86, 156, 214, 0.4);
+    }
+    .ctrl-btn {
+      background: #333333;
+      color: #d4d4d4;
+      border: 1px solid #474747;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85em;
+      transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: #444444; color: #ffffff; }
+    .nav-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .nav-label {
+      color: #808080;
+      font-size: 0.82em;
+      margin-right: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .nav-link {
+      color: #9cdcfe;
+      text-decoration: none;
+      font-size: 0.82em;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: #1e1e1e;
+      border: 1px solid #3c3c3c;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .nav-link:hover {
+      background: #094771;
+      color: #ffffff;
+      border-color: #569cd6;
+    }
+    .nav-link.oop {
+      background: #193327;
+      color: #4ec9b0;
+      border-color: #2e7d62;
+      font-weight: bold;
+    }
+    .nav-link.oop:hover {
+      background: #135d46;
+      color: #ffffff;
+      border-color: #4ec9b0;
+    }
+    .nav-link.oop-traps {
+      background: #3d1a1a;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+      font-weight: bold;
+    }
+    .nav-link.oop-traps:hover {
+      background: #7f1d1d;
+      color: #ffffff;
+    }
+    .back-top {
+      display: inline-block;
+      margin-top: 14px;
+      font-size: 0.8em;
+      color: #569cd6;
+      text-decoration: none;
+    }
+    .back-top:hover { text-decoration: underline; }
+
+  
+    h1 { color: #5b9bd5; border-bottom-color: #5b9bd5; }
+    table.xlat { border-collapse: collapse; margin: 6px 0; width: 100%; max-width: 900px; }
+    table.xlat th { text-align: left; color: #4ec9b0; border-bottom: 1px solid #3c3c3c; padding: 4px 10px; }
+    table.xlat td { padding: 3px 10px; border-bottom: 1px solid #2d2d2d; vertical-align: top; }
+    table.xlat th:first-child, table.xlat td:first-child { border-right: 1px solid #3c3c3c; }
+    a.ref { color:#9cdcfe; }
+    .back-top { display:inline-block; margin:20px 0; color:#569cd6; }
+  </style>
+</head>
+<body>
+
+<h1>&#x1F535; React Reference &#8212; React 19 Refresher</h1>
+<p class="intro">Click <span style="color:#569cd6;font-weight:bold">+</span> on any entry to expand options, descriptions, and examples &nbsp;|&nbsp; Built from the W3Schools React tutorial (53 pages) &nbsp;|&nbsp; Corrected for React 19 where the tutorial is out of date &nbsp;|&nbsp; Includes React &#8596; plain JS translations &nbsp;|&nbsp; Started November 2026</p>
+
+<div class="controls-panel">
+  <div class="search-row">
+    <input type="text" id="quick-search" placeholder="🔍 Quick Search Reference (e.g. useState, useEffect, props, key, router, form)..." oninput="filterDetails(this.value)">
+    <button class="ctrl-btn" onclick="toggleAll(true)">➕ Expand All</button>
+    <button class="ctrl-btn" onclick="toggleAll(false)">➖ Collapse All</button>
+  </div>
+  <div class="nav-chips">
+    <span class="nav-label">React:</span>
+    <a href="#sec-start" class="nav-link">Start</a>
+    <a href="#sec-es6" class="nav-link">ES6</a>
+    <a href="#sec-jsx" class="nav-link">JSX</a>
+    <a href="#sec-comp" class="nav-link">Components</a>
+    <a href="#sec-events" class="nav-link">Lists &amp; Events</a>
+    <a href="#sec-forms" class="nav-link">Forms</a>
+    <a href="#sec-hooks" class="nav-link">Hooks</a>
+    <a href="#sec-style" class="nav-link">Styling</a>
+    <a href="#sec-router" class="nav-link">Router</a>
+  </div>
+  <div class="nav-chips" style="margin-top: 8px;">
+    <span class="nav-label" style="color:#4ec9b0;">Extras:</span>
+    <a href="#sec-cmp" class="nav-link oop">React &#8596; JS</a>
+    <a href="#sec-traps" class="nav-link oop-traps">&#9888;&#65039; Traps</a>
+    <a href="#sec-refs" class="nav-link">Links</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-start">&#x1F680; Getting Started &amp; Upgrading</h2>
+
+<details open>
+<summary><span class="one">What is React</span>&nbsp; <span class="cm"># front-end library for UI components</span></summary>
+<div class="detail-body">
+  <div class="opt">A JavaScript **library** for building user interfaces out of reusable **components** (made by Facebook/Jordan Walke; public release 2013; current series 19.x)</div>
+  <div class="opt">Keeps a **virtual DOM** in memory, compares old vs new, and changes only what differs in the real DOM</div>
+  <div class="opt">You describe *what the UI should look like for the current data*; React works out the DOM updates (declarative)</div>
+  <div class="opt">Needs: HTML, CSS and JavaScript basics (see ES6 section)</div>
+  <div class="opt">Used to build single-page apps (SPAs); a router library adds multiple 'pages'</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">Create an app (Vite)</span>&nbsp; <span class="cm"># Node.js + npm + build tool</span></summary>
+<div class="detail-body">
+  <pre>node -v                                         # need Node.js installed
+npm create vite@latest my-react-app -- --template react
+cd my-react-app
+npm install
+npm run dev                                     # dev server at http://localhost:5173/
+npm run build                                   # production build into dist/</pre>
+  <div class="opt">Vite is the build tool used here (Create React App is retired)</div>
+  <div class="opt">Typical layout: <code>index.html</code> (has <code>&lt;div id="root"&gt;</code>), <code>src/main.jsx</code> (entry), <code>src/App.jsx</code>, <code>package.json</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Render to the page</span>&nbsp; <span class="cm"># createRoot</span></summary>
+<div class="detail-body">
+  <pre>import { createRoot } from 'react-dom/client';
+
+createRoot(document.getElementById('root')).render(
+  &lt;h1&gt;Hello React!&lt;/h1&gt;
+);
+
+// with an app component and StrictMode (Vite default)
+import { StrictMode } from 'react';
+import App from './App.jsx';
+createRoot(document.getElementById('root')).render(
+  &lt;StrictMode&gt;&lt;App /&gt;&lt;/StrictMode&gt;
+);</pre>
+  <div class="opt"><code>render()</code> replaces whatever is inside the root element; call <code>createRoot</code> once</div>
+  <div class="opt"><code>StrictMode</code> runs extra checks in development (renders and effects run twice on purpose)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Upgrade to React 19</span>&nbsp; <span class="cm"># two steps</span></summary>
+<div class="detail-body">
+  <pre>npm i react@latest react-dom@latest
+
+// Before (old API)
+import ReactDOM from 'react-dom';
+ReactDOM.render(&lt;h1&gt;Hello React!&lt;/h1&gt;, document.getElementById('root'));
+
+// After
+import { createRoot } from 'react-dom/client';
+createRoot(document.getElementById('root')).render(&lt;h1&gt;Hello React!&lt;/h1&gt;);</pre>
+  <div class="warn">The W3Schools page says old <code>ReactDOM.render</code> still runs 'like React 17' & that was true for React 18; React 19 REMOVED <code>ReactDOM.render</code>, so switch to <code>createRoot</code></div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-es6">&#x1F9EC; ES6 Refresher (what React leans on)</h2>
+
+<details>
+<summary><span class="one">let &nbsp;const &nbsp;var</span>&nbsp; <span class="cm"># variables</span></summary>
+<div class="detail-body">
+  <pre>var a = 1;          // function-scoped, hoisted - avoid
+let b = 2;          // block-scoped, reassignable
+const c = 3;        // block-scoped, cannot be reassigned
+
+const arr = [1, 2];
+arr.push(3);        // OK - the array itself may change; only the binding is fixed</pre>
+  <div class="opt">Default to <code>const</code>; use <code>let</code> only when you must reassign. React state is never mutated & you replace it</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Arrow functions</span>&nbsp; <span class="cm"># =&gt;</span></summary>
+<div class="detail-body">
+  <pre>const hello = () =&gt; 'Hello World!';             // implicit return
+const add = (a, b) =&gt; a + b;
+const sq = x =&gt; x * x;                          // one param: parens optional
+const make = () =&gt; ({ id: 1 });                 // object literal needs parens
+const big = (a, b) =&gt; {                         // braces = write 'return'
+  return a + b;
+};</pre>
+  <div class="opt">Arrows have no own <code>this</code> & they use the surrounding <code>this</code> (why class handlers can be arrows)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Destructuring</span>&nbsp; <span class="cm"># unpack arrays and objects</span></summary>
+<div class="detail-body">
+  <pre>const [first, second] = ['red', 'green', 'blue'];     // by position
+const [, , third] = ['red', 'green', 'blue'];         // skip with commas
+const { name, age } = person;                         // by key
+const { name: n, age = 18 } = person;                 // rename, default value
+const { address: { city } } = person;                 // nested
+
+function Greet({ name, age }) { ... }                 // destructure props right in the parameter
+const [count, setCount] = useState(0);               // you will see this constantly</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Spread &nbsp;...</span>&nbsp; <span class="cm"># copy and merge</span></summary>
+<div class="detail-body">
+  <pre>const both = [...arr1, ...arr2];                      // new array
+const copy = [...arr];
+const merged = { ...a, ...b };                        // later keys win
+const updated = { ...user, age: 31 };                 // copy + change one field
+function sum(...nums) { }                             // rest: gather arguments
+const [head, ...rest] = list;                         // rest in destructuring
+&lt;Child {...props} /&gt;                                  // pass all props along</pre>
+  <div class="opt">This is how you update state immutably: <code>setItems([...items, newItem])</code>, <code>setUser({...user, name})</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Template strings</span>&nbsp; <span class="cm"># backticks</span></summary>
+<div class="detail-body">
+  <pre>const msg = `Hello ${name}, you are ${age + 1} next year`;
+const multi = `line one
+line two`;</pre>
+  <div class="opt"><code>${...}</code> takes any expression; used for dynamic class names: <code>className={&btn ${active ? 'on' : ''}&}</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Ternary && ||</span>&nbsp; <span class="cm"># inline conditionals</span></summary>
+<div class="detail-body">
+  <pre>const label = age &gt;= 18 ? 'Adult' : 'Minor';
+isLoggedIn &amp;&amp; &lt;Dashboard /&gt;        // renders Dashboard only if true
+const shown = name || 'Guest';      // first truthy
+const safe = name ?? 'Guest';       // only null/undefined fall back
+user?.address?.city                 // optional chaining</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Array map() &nbsp;filter() &nbsp;reduce()</span>&nbsp; <span class="cm"># the React list toolkit</span></summary>
+<div class="detail-body">
+  <pre>const doubled = nums.map(n =&gt; n * 2);
+const evens   = nums.filter(n =&gt; n % 2 === 0);
+const total   = nums.reduce((sum, n) =&gt; sum + n, 0);
+const found   = users.find(u =&gt; u.id === 3);
+nums.some(n =&gt; n &gt; 5);  nums.every(n =&gt; n &gt; 0);  nums.includes(4);
+
+// render a list
+cars.map(car =&gt; &lt;li key={car.id}&gt;{car.name}&lt;/li&gt;)</pre>
+  <div class="opt"><code>map</code> returns a NEW array & exactly what JSX needs to render a list</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Modules &nbsp;import &nbsp;export</span>&nbsp; <span class="cm"># split code into files</span></summary>
+<div class="detail-body">
+  <pre>// Car.js
+export const color = 'red';
+export function honk() { }
+export default function Car() { }          // one default per file
+
+// elsewhere
+import Car from './Car';                   // default: any name
+import { color, honk } from './Car';       // named: exact names
+import { color as c } from './Car';        // rename
+import * as Utils from './Car';            // everything
+import './style.css';                      // side-effect import (CSS)</pre>
+  <div class="opt">Paths starting with <code>./</code> or <code>../</code> are your files; bare names come from <code>node_modules</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Classes (ES6)</span>&nbsp; <span class="cm"># needed only for old class components</span></summary>
+<div class="detail-body">
+  <pre>class Car {
+  constructor(name) { this.name = name; }
+  present() { return 'I have a ' + this.name; }
+}
+class Model extends Car {
+  constructor(name, model) { super(name); this.model = model; }   // super() FIRST
+  show() { return this.present() + ', it is a ' + this.model; }
+}</pre>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-jsx">&#x1F4DD; JSX</h2>
+
+<details open>
+<summary><span class="one">JSX basics</span>&nbsp; <span class="cm"># HTML-like syntax inside JavaScript</span></summary>
+<div class="detail-body">
+  <pre>const el = &lt;h1&gt;Hello&lt;/h1&gt;;                       // JSX
+const el2 = React.createElement('h1', null, 'Hello');   // what it compiles to</pre>
+  <div class="opt">Must return ONE parent element & wrap in a <code>&lt;div&gt;</code> or a fragment <code>&lt;&gt;...&lt;/&gt;</code> (no extra DOM node)</div>
+  <div class="opt">Every tag must be closed: <code>&lt;input /&gt;</code>, <code>&lt;br /&gt;</code>, <code>&lt;img src="a.png" /&gt;</code></div>
+  <div class="opt">Component names start with a Capital letter (<code>&lt;Car /&gt;</code>); lower case means a plain HTML tag</div>
+  <pre>return (
+  &lt;&gt;
+    &lt;h1&gt;Title&lt;/h1&gt;
+    &lt;p&gt;Text&lt;/p&gt;
+  &lt;/&gt;
+);</pre>
+  <div class="opt">Comments inside JSX: <code>{/* like this */}</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">JSX expressions &nbsp;{ }</span>&nbsp; <span class="cm"># JavaScript inside markup</span></summary>
+<div class="detail-body">
+  <pre>const name = 'Ada';
+&lt;h1&gt;Hello {name}!&lt;/h1&gt;
+&lt;p&gt;{5 + 5}&lt;/p&gt;
+&lt;p&gt;{user.first + ' ' + user.last}&lt;/p&gt;
+&lt;p&gt;{items.length &gt; 0 ? 'Has items' : 'Empty'}&lt;/p&gt;
+&lt;img src={photo.url} alt={photo.alt} /&gt;</pre>
+  <div class="opt">Curly braces hold any JS EXPRESSION (value-producing): variables, math, calls, ternaries & not statements like <code>if</code>/<code>for</code></div>
+  <div class="opt">Objects can't be rendered directly (<code>{user}</code> & error); render a field or <code>JSON.stringify</code></div>
+  <div class="opt"><code>true</code>, <code>false</code>, <code>null</code>, <code>undefined</code> render nothing; <code>0</code> DOES render</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">JSX attributes</span>&nbsp; <span class="cm"># camelCase and the renames</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>HTML</th><th>JSX</th></tr>
+    <tr><td><code>class</code></td><td><code>className</code></td></tr>
+    <tr><td><code>for</code> (label)</td><td><code>htmlFor</code></td></tr>
+    <tr><td><code>onclick</code></td><td><code>onClick</code></td></tr>
+    <tr><td><code>onchange</code></td><td><code>onChange</code></td></tr>
+    <tr><td><code>tabindex</code></td><td><code>tabIndex</code></td></tr>
+    <tr><td><code>maxlength</code></td><td><code>maxLength</code></td></tr>
+    <tr><td><code>readonly</code></td><td><code>readOnly</code></td></tr>
+    <tr><td><code>style="color:red"</code></td><td><code>style={{ color: 'red' }}</code></td></tr>
+    <tr><td><code>checked</code> (boolean)</td><td><code>checked={true}</code></td></tr>
+  </table>
+  <pre>&lt;div className="box" id={`item-${id}`} style={{ backgroundColor: 'navy', fontSize: 20 }}&gt;
+&lt;label htmlFor="n"&gt;Name&lt;/label&gt; &lt;input id="n" disabled /&gt;
+const style = { color: 'red', padding: 10 };      // numbers = px
+&lt;p style={style}&gt;Styled&lt;/p&gt;</pre>
+  <div class="opt"><code>style</code> takes an OBJECT with camelCase keys: <code>backgroundColor</code>, not <code>background-color</code> (hence the double braces: outer = expression, inner = object)</div>
+  <div class="opt"><code>data-*</code> and <code>aria-*</code> attributes keep their dashes</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">Conditional rendering in JSX</span>&nbsp; <span class="cm"># if / && / ternary</span></summary>
+<div class="detail-body">
+  <pre>// 1. if with early return
+function Goal({ isGoal }) {
+  if (isGoal) return &lt;MadeGoal /&gt;;
+  return &lt;MissedGoal /&gt;;
+}
+
+// 2. &amp;&amp; : render something or nothing
+{cars.length &gt; 0 &amp;&amp; &lt;h2&gt;You have {cars.length} cars&lt;/h2&gt;}
+
+// 3. ternary : this or that
+{isLoggedIn ? &lt;Logout /&gt; : &lt;Login /&gt;}
+
+// 4. variable holding JSX
+let content = &lt;Login /&gt;;
+if (user) content = &lt;Welcome /&gt;;
+return &lt;div&gt;{content}&lt;/div&gt;;</pre>
+  <div class="warn"><code>{count &amp;&amp; &lt;X /&gt;}</code> renders a literal <code>0</code> when count is 0 & use <code>{count &gt; 0 &amp;&amp; &lt;X /&gt;}</code></div>
+  <div class="opt">A component can <code>return null;</code> to render nothing</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-comp">&#x1F9F1; Components, Props &amp; Children</h2>
+
+<details open>
+<summary><span class="one">Function components</span>&nbsp; <span class="cm"># the modern default</span></summary>
+<div class="detail-body">
+  <div class="opt">A function whose name starts with a capital letter and that returns JSX</div>
+  <pre>function Car() {
+  return &lt;h2&gt;Hi, I am a Car!&lt;/h2&gt;;
+}
+const Car2 = () =&gt; &lt;h2&gt;Arrow works too&lt;/h2&gt;;
+
+// use it like a tag
+&lt;Car /&gt;
+
+// nest components
+function Garage() {
+  return (
+    &lt;&gt;
+      &lt;h1&gt;Who lives in my Garage?&lt;/h1&gt;
+      &lt;Car /&gt;
+    &lt;/&gt;
+  );
+}</pre>
+  <div class="opt">One component per file; <code>export default Car;</code> then <code>import Car from './Car';</code></div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">Props</span>&nbsp; <span class="cm"># inputs, read-only</span></summary>
+<div class="detail-body">
+  <pre>function Car(props) {
+  return &lt;h2&gt;I am a {props.color} Car!&lt;/h2&gt;;
+}
+&lt;Car color="red" /&gt;                       // string
+&lt;Car year={2024} electric={true} /&gt;       // non-strings need { }
+&lt;Car brand={{ name: 'Ford', model: 'Mustang' }} /&gt;    // object: props.brand.name
+&lt;Car onHonk={() =&gt; alert('beep')} /&gt;      // function as a prop (child -&gt; parent messages)
+
+// pass a value from a variable
+const c = 'blue';  &lt;Car color={c} /&gt;</pre>
+  <div class="opt">Props flow DOWN (parent & child). To send data UP, the parent passes a callback function as a prop</div>
+  <div class="warn">Props are read-only & never write <code>props.x = ...</code>; to change something use state</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Destructuring props &nbsp;defaults</span>&nbsp; <span class="cm"># cleaner parameters</span></summary>
+<div class="detail-body">
+  <pre>function Car({ color, year = 2020 }) {      // default if not passed
+  return &lt;p&gt;{color} {year}&lt;/p&gt;;
+}
+function Card({ title, ...rest }) {         // rest = all other props
+  return &lt;div {...rest}&gt;&lt;h3&gt;{title}&lt;/h3&gt;&lt;/div&gt;;
+}</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">props.children</span>&nbsp; <span class="cm"># content between the tags</span></summary>
+<div class="detail-body">
+  <pre>function Card({ children }) {
+  return &lt;div className="card"&gt;{children}&lt;/div&gt;;
+}
+&lt;Card&gt;
+  &lt;h2&gt;Anything in here&lt;/h2&gt;
+  &lt;p&gt;becomes children&lt;/p&gt;
+&lt;/Card&gt;</pre>
+  <div class="opt">Great for wrappers: layouts, modals, panels, themes</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Class components</span>&nbsp; <span class="cm"># legacy style (still works)</span></summary>
+<div class="detail-body">
+  <pre>import { Component } from 'react';
+
+class Car extends Component {
+  constructor(props) {
+    super(props);                       // always first
+    this.state = { color: 'red' };
+  }
+  componentDidMount() { /* after first render: fetch data, subscribe */ }
+  componentDidUpdate(prevProps, prevState) { /* after a re-render */ }
+  componentWillUnmount() { /* cleanup */ }
+  changeColor = () =&gt; this.setState({ color: 'blue' });    // arrow keeps `this`
+  render() {
+    return (
+      &lt;div&gt;
+        &lt;h2&gt;My {this.state.color} {this.props.brand}&lt;/h2&gt;
+        &lt;button onClick={this.changeColor}&gt;Change&lt;/button&gt;
+      &lt;/div&gt;
+    );
+  }
+}</pre>
+  <div class="opt">State only changes via <code>this.setState({...})</code> (merges into the old state); props via <code>this.props</code></div>
+  <div class="opt">Lifecycle: **mount** (constructor, render, componentDidMount) & **update** (render, componentDidUpdate) & **unmount** (componentWillUnmount)</div>
+  <div class="opt">New code should use function components + Hooks; hooks do NOT work inside classes</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Higher-Order Components</span>&nbsp; <span class="cm"># function that takes a component, returns one</span></summary>
+<div class="detail-body">
+  <pre>function withLoading(Wrapped) {
+  return function WithLoading({ loading, ...props }) {
+    if (loading) return &lt;p&gt;Loading...&lt;/p&gt;;
+    return &lt;Wrapped {...props} /&gt;;
+  };
+}
+const UserListWithLoading = withLoading(UserList);
+&lt;UserListWithLoading loading={isLoading} users={users} /&gt;</pre>
+  <div class="opt">Pattern for sharing behaviour; today custom Hooks usually do this job more simply</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-events">&#x1F5B1;&#xFE0F; Lists, Keys &amp; Events</h2>
+
+<details open>
+<summary><span class="one">Lists &nbsp;map() &nbsp;key</span>&nbsp; <span class="cm"># render arrays</span></summary>
+<div class="detail-body">
+  <pre>function Garage() {
+  const cars = [
+    { id: 1, brand: 'Ford' },
+    { id: 2, brand: 'BMW' },
+    { id: 3, brand: 'Audi' },
+  ];
+  return (
+    &lt;ul&gt;
+      {cars.map(car =&gt; &lt;li key={car.id}&gt;{car.brand}&lt;/li&gt;)}
+    &lt;/ul&gt;
+  );
+}</pre>
+  <div class="opt"><code>key</code> goes on the OUTERMOST element returned by <code>map</code>; must be unique among siblings and stable (a database id)</div>
+  <div class="warn">Avoid the array index as key if the list can reorder, insert or delete & state gets attached to the wrong item</div>
+  <div class="opt"><code>key</code> is not passed down as a prop & pass a separate <code>id</code> prop if the child needs it</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">Events</span>&nbsp; <span class="cm"># camelCase handlers, functions not strings</span></summary>
+<div class="detail-body">
+  <pre>function Ball() {
+  const shoot = () =&gt; alert('Great Shot!');
+  const shootWith = (msg) =&gt; alert(msg);
+  return (
+    &lt;&gt;
+      &lt;button onClick={shoot}&gt;Take the shot!&lt;/button&gt;
+      &lt;button onClick={() =&gt; shootWith('Goal!')}&gt;With argument&lt;/button&gt;
+      &lt;input onChange={(e) =&gt; console.log(e.target.value)} /&gt;
+      &lt;form onSubmit={(e) =&gt; { e.preventDefault(); /* ... */ }}&gt;
+    &lt;/&gt;
+  );
+}</pre>
+  <div class="opt">Common: <code>onClick</code>, <code>onChange</code>, <code>onSubmit</code>, <code>onKeyDown</code>, <code>onFocus</code>, <code>onBlur</code>, <code>onMouseEnter</code>, <code>onMouseLeave</code></div>
+  <div class="opt">Handler receives an event object <code>e</code> (<code>e.target</code>, <code>e.target.value</code>, <code>e.preventDefault()</code>)</div>
+  <div class="warn"><code>onClick={shoot()}</code> CALLS it during render; pass the function: <code>onClick={shoot}</code> or wrap <code>() =&gt; shoot(x)</code></div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-forms">&#x1F4CB; Forms</h2>
+
+<details open>
+<summary><span class="one">Controlled input</span>&nbsp; <span class="cm"># state is the single source of truth</span></summary>
+<div class="detail-body">
+  <pre>import { useState } from 'react';
+
+function MyForm() {
+  const [name, setName] = useState('');
+  const handleSubmit = (e) =&gt; {
+    e.preventDefault();                    // stop the page reload
+    alert(`The name you entered was: ${name}`);
+  };
+  return (
+    &lt;form onSubmit={handleSubmit}&gt;
+      &lt;label&gt;Enter your name:
+        &lt;input type="text" value={name} onChange={(e) =&gt; setName(e.target.value)} /&gt;
+      &lt;/label&gt;
+      &lt;input type="submit" /&gt;
+    &lt;/form&gt;
+  );
+}</pre>
+  <div class="opt">Pattern: <code>value={state}</code> + <code>onChange</code> that updates state. React, not the DOM, owns the value</div>
+  <div class="warn"><code>value</code> without <code>onChange</code> makes the field read-only</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Multiple fields, one handler</span>&nbsp; <span class="cm"># key by name attribute</span></summary>
+<div class="detail-body">
+  <pre>const [inputs, setInputs] = useState({});
+const handleChange = (e) =&gt; {
+  const { name, value } = e.target;
+  setInputs(values =&gt; ({ ...values, [name]: value }));     // [name] = computed key
+};
+&lt;input type="text" name="username" value={inputs.username || ''} onChange={handleChange} /&gt;
+&lt;input type="number" name="age" value={inputs.age || ''} onChange={handleChange} /&gt;</pre>
+  <div class="opt">Initialize with <code>{}</code>, and use <code>|| ''</code> so inputs start controlled</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">textarea &nbsp;select</span>&nbsp; <span class="cm"># use value, not children</span></summary>
+<div class="detail-body">
+  <pre>const [text, setText] = useState('Some starting text');
+&lt;textarea value={text} onChange={(e) =&gt; setText(e.target.value)} /&gt;
+
+const [car, setCar] = useState('Volvo');
+&lt;select value={car} onChange={(e) =&gt; setCar(e.target.value)}&gt;
+  &lt;option value="Ford"&gt;Ford&lt;/option&gt;
+  &lt;option value="Volvo"&gt;Volvo&lt;/option&gt;
+&lt;/select&gt;</pre>
+  <div class="opt">Unlike HTML, <code>&lt;textarea&gt;</code> takes <code>value</code> (self-closing), and <code>&lt;select&gt;</code> takes <code>value</code> on the <code>select</code> instead of <code>selected</code> on an option</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">checkbox &nbsp;radio</span>&nbsp; <span class="cm"># checked vs value</span></summary>
+<div class="detail-body">
+  <pre>const [on, setOn] = useState(false);
+&lt;input type="checkbox" checked={on} onChange={(e) =&gt; setOn(e.target.checked)} /&gt;
+
+const [pick, setPick] = useState('');
+&lt;input type="radio" name="car" value="Ford"  checked={pick === 'Ford'}  onChange={(e) =&gt; setPick(e.target.value)} /&gt; Ford
+&lt;input type="radio" name="car" value="Volvo" checked={pick === 'Volvo'} onChange={(e) =&gt; setPick(e.target.value)} /&gt; Volvo</pre>
+  <div class="opt">Checkbox reads <code>e.target.checked</code> (boolean); radio group reads <code>e.target.value</code> and compares to its own value</div>
+  <div class="opt">Several checkboxes & one state object like <code>{ ford: false, volvo: true }</code>, updated by <code>name</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Submit</span>&nbsp; <span class="cm"># onSubmit on the form</span></summary>
+<div class="detail-body">
+  <div class="opt">Put the handler on <code>&lt;form onSubmit&gt;</code>, not on the button & Enter key then works too</div>
+  <div class="opt">Always call <code>e.preventDefault()</code> unless you want the browser to reload</div>
+  <pre>const handleSubmit = (e) =&gt; {
+  e.preventDefault();
+  console.log(inputs);        // send to your API here
+};</pre>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-hooks">&#x1FA9D; Hooks</h2>
+
+<details open>
+<summary><span class="one">Hooks overview &nbsp;rules</span>&nbsp; <span class="cm"># functions that start with use</span></summary>
+<div class="detail-body">
+  <div class="opt">Hooks let function components use state, side effects, context, refs& (React 16.8+)</div>
+  <table class="xlat">
+    <tr><th>Hook</th><th>For</th></tr>
+    <tr><td><code>useState</code></td><td>a value that re-renders the component when it changes</td></tr>
+    <tr><td><code>useEffect</code></td><td>side effects: fetching, timers, subscriptions, manual DOM</td></tr>
+    <tr><td><code>useRef</code></td><td>a mutable box that survives renders / a DOM element handle</td></tr>
+    <tr><td><code>useContext</code></td><td>read shared data without passing props down</td></tr>
+    <tr><td><code>useReducer</code></td><td>complex state via (state, action) & newState</td></tr>
+    <tr><td><code>useCallback</code></td><td>keep the same function between renders</td></tr>
+    <tr><td><code>useMemo</code></td><td>keep the same computed value between renders</td></tr>
+    <tr><td><code>useTransition</code></td><td>mark an update non-urgent</td></tr>
+  </table>
+  <div class="warn">Rules: call Hooks only at the TOP LEVEL of a component or custom Hook & never inside <code>if</code>, loops or nested functions; only from React function components or other Hooks</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">useState</span>&nbsp; <span class="cm"># remember a value</span></summary>
+<div class="detail-body">
+  <pre>import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);                 // [value, setter] = useState(initial)
+  return (
+    &lt;&gt;
+      &lt;p&gt;Clicked {count} times&lt;/p&gt;
+      &lt;button onClick={() =&gt; setCount(count + 1)}&gt;+1&lt;/button&gt;
+      &lt;button onClick={() =&gt; setCount(c =&gt; c + 1)}&gt;+1 (safe)&lt;/button&gt;   // updater form
+    &lt;/&gt;
+  );
+}
+
+const [user, setUser] = useState({ name: 'Ada', age: 30 });
+setUser(prev =&gt; ({ ...prev, age: 31 }));                 // objects: spread + change
+const [items, setItems] = useState([]);
+setItems(prev =&gt; [...prev, newItem]);                    // add
+setItems(prev =&gt; prev.filter(i =&gt; i.id !== id));         // remove
+setItems(prev =&gt; prev.map(i =&gt; i.id === id ? { ...i, done: true } : i));   // edit</pre>
+  <div class="opt">The setter schedules a re-render; the new value shows up on the NEXT render (the variable you hold doesn't change mid-function)</div>
+  <div class="opt">When the new value depends on the old, use the updater form <code>setX(prev =&gt; ...)</code></div>
+  <div class="opt">Expensive initial value? Pass a function: <code>useState(() =&gt; compute())</code> (runs once)</div>
+  <div class="warn">Never mutate state (<code>items.push(x)</code>, <code>user.age = 31</code>) & React sees the same reference and may not re-render</div>
+</div>
+</details>
+
+<details open>
+<summary><span class="one">useEffect</span>&nbsp; <span class="cm"># side effects after render</span></summary>
+<div class="detail-body">
+  <pre>import { useEffect } from 'react';
+
+useEffect(() =&gt; { /* runs after EVERY render */ });
+useEffect(() =&gt; { /* runs once, after first render */ }, []);
+useEffect(() =&gt; { /* runs when count changes */ }, [count]);
+
+useEffect(() =&gt; {
+  const id = setInterval(() =&gt; setCount(c =&gt; c + 1), 1000);
+  return () =&gt; clearInterval(id);          // cleanup: before re-run and on unmount
+}, []);
+
+// fetching
+useEffect(() =&gt; {
+  let ignore = false;
+  fetch(`https://jsonplaceholder.typicode.com/todos?userId=${id}`)
+    .then(r =&gt; r.json())
+    .then(data =&gt; { if (!ignore) setTodos(data); });
+  return () =&gt; { ignore = true; };
+}, [id]);</pre>
+  <div class="opt">Dependency array: <code>none</code> = every render; <code>[]</code> = mount only; <code>[a, b]</code> = when a or b change</div>
+  <div class="opt">List EVERY reactive value (props, state, derived functions) the effect uses in the array</div>
+  <div class="warn"><code>setState</code> in an effect with no/incorrect deps & infinite render loop</div>
+  <div class="opt">In StrictMode dev, effects run mount & cleanup & mount once to expose missing cleanup (not a bug)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">useRef</span>&nbsp; <span class="cm"># persistent box, DOM handle</span></summary>
+<div class="detail-body">
+  <pre>import { useRef } from 'react';
+
+const inputRef = useRef(null);
+&lt;input ref={inputRef} /&gt;
+&lt;button onClick={() =&gt; inputRef.current.focus()}&gt;Focus&lt;/button&gt;
+
+const renders = useRef(0);          // value that survives renders WITHOUT triggering one
+renders.current = renders.current + 1;
+
+const prev = useRef();              // previous value pattern
+useEffect(() =&gt; { prev.current = value; }, [value]);</pre>
+  <div class="opt">Change <code>.current</code> freely & it does NOT cause a re-render (unlike state)</div>
+  <div class="opt">Don't read/write <code>ref.current</code> during rendering; do it in handlers and effects</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">useContext</span>&nbsp; <span class="cm"># shared data without prop drilling</span></summary>
+<div class="detail-body">
+  <pre>import { createContext, useContext, useState } from 'react';
+
+const UserContext = createContext(null);                // 1. create
+
+function App() {
+  const [user, setUser] = useState('Ada');
+  return (
+    &lt;UserContext.Provider value={user}&gt;                 // 2. provide
+      &lt;Layout /&gt;
+    &lt;/UserContext.Provider&gt;
+  );
+}
+
+function Profile() {
+  const user = useContext(UserContext);                 // 3. consume anywhere below
+  return &lt;p&gt;Hello {user}&lt;/p&gt;;
+}</pre>
+  <div class="opt">Every consumer re-renders when the Provider's <code>value</code> changes; pass <code>{ user, setUser }</code> to share the setter too</div>
+  <div class="opt">Good for: theme, current user, language. Not a replacement for all state</div>
+  <div class="opt">React 19 also allows <code>&lt;UserContext value={user}&gt;</code> without <code>.Provider</code></div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">useReducer</span>&nbsp; <span class="cm"># state + an update function you write</span></summary>
+<div class="detail-body">
+  <pre>import { useReducer } from 'react';
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'add':    return [...state, action.todo];
+    case 'toggle': return state.map(t =&gt; t.id === action.id ? { ...t, done: !t.done } : t);
+    case 'remove': return state.filter(t =&gt; t.id !== action.id);
+    default:       return state;
+  }
+}
+
+const [todos, dispatch] = useReducer(reducer, []);      // (reducer, initialState)
+dispatch({ type: 'toggle', id: 3 });</pre>
+  <div class="opt">Use when state is an object/array with many update kinds; the reducer must be pure and never mutate</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">useCallback</span>&nbsp; <span class="cm"># cache a function</span></summary>
+<div class="detail-body">
+  <pre>import { useCallback } from 'react';
+import { memo } from 'react';
+
+const Todos = memo(function Todos({ todos, addTodo }) { ... });   // skips re-render if props same
+
+const addTodo = useCallback(() =&gt; {
+  setTodos(t =&gt; [...t, 'New Todo']);
+}, []);                                  // same function every render
+&lt;Todos todos={todos} addTodo={addTodo} /&gt;</pre>
+  <div class="opt">A new function is created on every render, so child props change; <code>useCallback</code> + <code>React.memo</code> stops needless child re-renders</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">useMemo</span>&nbsp; <span class="cm"># cache a computed value</span></summary>
+<div class="detail-body">
+  <pre>import { useMemo } from 'react';
+
+const total = useMemo(() =&gt; expensiveCalc(count), [count]);   // recompute only when count changes</pre>
+  <div class="opt"><code>useMemo</code> caches a VALUE, <code>useCallback</code> caches a FUNCTION (<code>useCallback(fn, deps)</code> & <code>useMemo(() =&gt; fn, deps)</code>)</div>
+  <div class="warn">Optimization only & reach for it when you actually measure slowness</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Custom Hooks</span>&nbsp; <span class="cm"># reuse stateful logic</span></summary>
+<div class="detail-body">
+  <div class="opt">A function whose name starts with <code>use</code> that calls other Hooks. Put it in its own file e.g. <code>useFetch.js</code></div>
+  <pre>// useFetch.js
+import { useState, useEffect } from 'react';
+const useFetch = (url) =&gt; {
+  const [data, setData] = useState(null);
+  useEffect(() =&gt; {
+    fetch(url).then(res =&gt; res.json()).then(setData);
+  }, [url]);
+  return [data];
+};
+export default useFetch;
+
+// Home.jsx
+import useFetch from './useFetch';
+const Home = () =&gt; {
+  const [data] = useFetch('https://jsonplaceholder.typicode.com/todos');
+  return &lt;&gt;{data &amp;&amp; data.map(item =&gt; &lt;p key={item.id}&gt;{item.title}&lt;/p&gt;)}&lt;/&gt;;
+};</pre>
+  <div class="opt">Each component calling the Hook gets its OWN copy of the state (logic is shared, data is not)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">useTransition</span>&nbsp; <span class="cm"># keep the UI responsive</span></summary>
+<div class="detail-body">
+  <pre>import { useState, useTransition } from 'react';
+
+const [input, setInput] = useState('');
+const [query, setQuery] = useState('');
+const [isPending, startTransition] = useTransition();
+
+const handleChange = (e) =&gt; {
+  setInput(e.target.value);                         // urgent: input updates immediately
+  startTransition(() =&gt; setQuery(e.target.value));  // non-urgent: heavy list can lag
+};
+{isPending &amp;&amp; &lt;p&gt;Loading results...&lt;/p&gt;}</pre>
+  <div class="opt">Returns <code>[isPending, startTransition]</code>; use for filtering big lists, not for typing itself</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">forwardRef &nbsp;ref as a prop</span>&nbsp; <span class="cm"># let a parent reach a child's DOM node</span></summary>
+<div class="detail-body">
+  <pre>// React 18 and earlier
+import { forwardRef, useRef } from 'react';
+const MyInput = forwardRef((props, ref) =&gt; &lt;input ref={ref} {...props} /&gt;);
+
+function App() {
+  const inputRef = useRef();
+  return (
+    &lt;&gt;
+      &lt;MyInput ref={inputRef} placeholder="Type here..." /&gt;
+      &lt;button onClick={() =&gt; inputRef.current.focus()}&gt;Focus Input&lt;/button&gt;
+    &lt;/&gt;
+  );
+}
+
+// React 19: ref is just a normal prop on function components
+function MyInput2({ ref, ...props }) { return &lt;input ref={ref} {...props} /&gt;; }</pre>
+  <div class="opt">Only when you need direct DOM access (focus, measure, animate, 3rd-party widgets); prefer props/state otherwise</div>
+  <div class="warn">In React 19 <code>forwardRef</code> is no longer needed and is slated for deprecation</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Suspense &nbsp;lazy</span>&nbsp; <span class="cm"># loading fallbacks and code splitting</span></summary>
+<div class="detail-body">
+  <pre>import { Suspense, lazy } from 'react';
+
+const Cars = lazy(() =&gt; import('./Cars'));      // loaded only when first rendered
+
+function App() {
+  return (
+    &lt;Suspense fallback={&lt;div&gt;Loading...&lt;/div&gt;}&gt;
+      &lt;Cars /&gt;
+      &lt;Sidebar /&gt;          {/* one Suspense can wrap several lazy components */}
+    &lt;/Suspense&gt;
+  );
+}</pre>
+  <div class="opt"><code>lazy()</code> loads a component dynamically; <code>Suspense</code> shows the <code>fallback</code> (any JSX) until it is ready</div>
+  <div class="opt">Also used with Suspense-enabled data fetching (frameworks, <code>use()</code> in React 19)</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Portals</span>&nbsp; <span class="cm"># render outside the parent DOM node</span></summary>
+<div class="detail-body">
+  <pre>import { createPortal } from 'react-dom';
+
+function Modal({ children }) {
+  return createPortal(
+    &lt;div className="modal"&gt;{children}&lt;/div&gt;,
+    document.body                                  // where it really lands
+  );
+}</pre>
+  <div class="opt"><code>createPortal(children, domNode)</code>; great for modals, tooltips, dialogs that must escape <code>overflow:hidden</code> or z-index traps</div>
+  <div class="opt">Events still bubble through the React tree as if the portal were a normal child</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-style">&#x1F3A8; Styling</h2>
+
+<details>
+<summary><span class="one">Inline style</span>&nbsp; <span class="cm"># object with camelCase</span></summary>
+<div class="detail-body">
+  <pre>&lt;h1 style={{ color: 'hotpink', backgroundColor: 'black', fontSize: 24 }}&gt;Hello&lt;/h1&gt;
+const box = { padding: 10, border: '1px solid red' };
+&lt;div style={box}&gt;...&lt;/div&gt;</pre>
+  <div class="opt">No pseudo-classes (<code>:hover</code>) or media queries inline</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CSS stylesheet</span>&nbsp; <span class="cm"># import a plain .css file</span></summary>
+<div class="detail-body">
+  <pre>/* App.css */
+.card { padding: 10px; }
+
+// App.jsx
+import './App.css';
+&lt;div className="card"&gt;...&lt;/div&gt;</pre>
+  <div class="warn">Plain CSS is GLOBAL & same class name in two files collides</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CSS Modules</span>&nbsp; <span class="cm"># locally scoped class names</span></summary>
+<div class="detail-body">
+  <pre>/* my-style.module.css */
+.bigblue { color: DodgerBlue; padding: 40px; }
+
+// Component
+import styles from './my-style.module.css';
+&lt;h1 className={styles.bigblue}&gt;Hello&lt;/h1&gt;
+&lt;h1 className={`${styles.bigblue} ${styles.rounded}`}&gt;Two classes&lt;/h1&gt;</pre>
+  <div class="opt">File name must end in <code>.module.css</code>; the bundler rewrites class names to unique ones</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Sass</span>&nbsp; <span class="cm"># variables, nesting, mixins</span></summary>
+<div class="detail-body">
+  <pre>npm install sass
+
+/* MyStyle.scss */
+$myColor: red;
+h1 { color: $myColor; }
+
+import './MyStyle.scss';</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">CSS-in-JS (styled-components)</span>&nbsp; <span class="cm"># styles in template literals</span></summary>
+<div class="detail-body">
+  <pre>npm install styled-components
+
+import styled from 'styled-components';
+
+const MyHeader = styled.h1`
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+`;
+
+const Button = styled.button`
+  background-color: ${props =&gt; props.btntype === 'primary' ? '#007bff' : '#6c757d'};
+  color: white;
+`;
+&lt;MyHeader&gt;Welcome!&lt;/MyHeader&gt;
+&lt;Button btntype="primary"&gt;Primary&lt;/Button&gt;</pre>
+  <div class="opt">Not part of React itself; scoped per component, dynamic by props</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-router">&#x1F9ED; React Router</h2>
+
+<details open>
+<summary><span class="one">Basic routing</span>&nbsp; <span class="cm"># Link, Routes, Route</span></summary>
+<div class="detail-body">
+  <pre>npm install react-router-dom
+
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+
+function App() {
+  return (
+    &lt;BrowserRouter&gt;
+      &lt;nav&gt;
+        &lt;Link to="/"&gt;Home&lt;/Link&gt; | &lt;Link to="/about"&gt;About&lt;/Link&gt;
+      &lt;/nav&gt;
+      &lt;Routes&gt;
+        &lt;Route path="/" element={&lt;Home /&gt;} /&gt;
+        &lt;Route path="/about" element={&lt;About /&gt;} /&gt;
+        &lt;Route path="*" element={&lt;NotFound /&gt;} /&gt;      {/* catch-all */}
+      &lt;/Routes&gt;
+    &lt;/BrowserRouter&gt;
+  );
+}</pre>
+  <div class="opt"><code>BrowserRouter</code> wraps the app; <code>Link</code> changes the URL WITHOUT a page reload (don't use <code>&lt;a href&gt;</code> for in-app links)</div>
+  <div class="warn">Version 7 also exports everything from the <code>react-router</code> package; <code>react-router-dom</code> still works</div>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Nested routes &nbsp;Outlet</span>&nbsp; <span class="cm"># pages inside pages</span></summary>
+<div class="detail-body">
+  <pre>import { Outlet } from 'react-router-dom';
+
+function Products() {
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Products&lt;/h1&gt;
+      &lt;Link to="/products/car"&gt;Cars&lt;/Link&gt; | &lt;Link to="/products/bike"&gt;Bikes&lt;/Link&gt;
+      &lt;Outlet /&gt;                       {/* child route renders here */}
+    &lt;/div&gt;
+  );
+}
+
+&lt;Route path="/products" element={&lt;Products /&gt;}&gt;
+  &lt;Route path="car"  element={&lt;CarProducts /&gt;} /&gt;
+  &lt;Route path="bike" element={&lt;BikeProducts /&gt;} /&gt;
+  &lt;Route index element={&lt;p&gt;Pick a category&lt;/p&gt;} /&gt;    {/* default child */}
+&lt;/Route&gt;</pre>
+</div>
+</details>
+
+<details>
+<summary><span class="one">Params &nbsp;navigate</span>&nbsp; <span class="cm"># dynamic paths</span></summary>
+<div class="detail-body">
+  <pre>import { useParams, useNavigate, NavLink } from 'react-router-dom';
+
+&lt;Route path="/users/:id" element={&lt;User /&gt;} /&gt;
+function User() {
+  const { id } = useParams();                  // from /users/42
+  const navigate = useNavigate();
+  return &lt;button onClick={() =&gt; navigate('/')}&gt;Home&lt;/button&gt;;
+}
+&lt;NavLink to="/about" className={({ isActive }) =&gt; isActive ? 'on' : ''}&gt;About&lt;/NavLink&gt;</pre>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-cmp">&#x1F501; React &#8596; Vanilla JS</h2>
+
+<details open>
+<summary><span class="one">Side-by-side</span>&nbsp; <span class="cm"># same job, DOM way vs React way</span></summary>
+<div class="detail-body">
+  <table class="xlat">
+    <tr><th>Idea</th><th>Vanilla JS (DOM)</th><th>React</th></tr>
+    <tr><td>Put content on page</td><td><code>el.innerHTML = '...'</code></td><td><code>createRoot(el).render(&lt;App /&gt;)</code></td></tr>
+    <tr><td>Variable in markup</td><td><code></code> <code>&lt;p&gt;${x}&lt;/p&gt;</code> <code></code></td><td><code>&lt;p&gt;{x}&lt;/p&gt;</code></td></tr>
+    <tr><td>CSS class</td><td><code>el.className = 'a'</code></td><td><code>&lt;div className="a"&gt;</code></td></tr>
+    <tr><td>Click handler</td><td><code>btn.addEventListener('click', fn)</code></td><td><code>&lt;button onClick={fn}&gt;</code></td></tr>
+    <tr><td>Read an input</td><td><code>input.value</code></td><td>controlled: <code>value={v} onChange</code></td></tr>
+    <tr><td>Change text on screen</td><td><code>el.textContent = n</code></td><td><code>setN(n)</code> & re-render</td></tr>
+    <tr><td>Loop to build a list</td><td><code>for</code> + <code>appendChild</code></td><td><code>items.map(i =&gt; &lt;li key={i.id}&gt;..&lt;/li&gt;)</code></td></tr>
+    <tr><td>Show / hide</td><td><code>el.style.display = 'none'</code></td><td><code>{show &amp;&amp; &lt;X /&gt;}</code></td></tr>
+    <tr><td>Focus an element</td><td><code>el.focus()</code></td><td><code>ref.current.focus()</code></td></tr>
+    <tr><td>Run code on load</td><td><code>DOMContentLoaded</code></td><td><code>useEffect(fn, [])</code></td></tr>
+    <tr><td>Global variable</td><td><code>window.theme</code></td><td>Context: <code>useContext</code></td></tr>
+    <tr><td>Reusable chunk</td><td>function that returns an element</td><td>component function returning JSX</td></tr>
+    <tr><td>Arguments</td><td>function parameters</td><td>props</td></tr>
+    <tr><td>Prevent form reload</td><td><code>e.preventDefault()</code></td><td><code>e.preventDefault()</code> (same)</td></tr>
+    <tr><td>Fetch data</td><td><code>fetch(url).then(...)</code></td><td><code>useEffect</code> + <code>setData</code>, or a custom Hook</td></tr>
+    <tr><td>Class on condition</td><td><code>el.classList.toggle('on', c)</code></td><td><code>className={c ? 'on' : ''}</code></td></tr>
+  </table>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-traps">&#x26A0;&#xFE0F; React Traps &amp; Gotchas</h2>
+
+<details>
+<summary><span class="one">Classic mistakes</span>&nbsp; <span class="cm"># check this list when something misbehaves</span></summary>
+<div class="detail-body">
+  <div class="warn">Mutating state (<code>push</code>, <code>obj.x = 1</code>) & always make a new array/object</div>
+  <div class="warn"><code>onClick={fn()}</code> calls immediately on render; use <code>onClick={fn}</code> or <code>() =&gt; fn()</code></div>
+  <div class="warn">State updates are asynchronous: <code>setCount(count+1); console.log(count)</code> shows the OLD value</div>
+  <div class="warn">Several <code>setCount(count + 1)</code> in one handler only add 1; use <code>setCount(c =&gt; c + 1)</code></div>
+  <div class="warn">Missing <code>key</code> (or index as key on reorderable lists) & warnings and wrong UI state</div>
+  <div class="warn"><code>useEffect</code> with no dependency array runs every render; setting state inside it loops forever</div>
+  <div class="warn">Stale closures: an effect/callback with missing deps keeps old values</div>
+  <div class="warn">Forgetting effect cleanup (timers, listeners, subscriptions) & leaks and double events</div>
+  <div class="warn">Hooks inside <code>if</code>/loops/nested functions & 'rendered fewer hooks' errors</div>
+  <div class="warn">Lower-case component names (<code>&lt;car /&gt;</code>) are treated as HTML tags</div>
+  <div class="warn">Returning two siblings without a wrapper & use <code>&lt;&gt;...&lt;/&gt;</code></div>
+  <div class="warn"><code>class</code> / <code>for</code> / <code>onclick</code> in JSX & <code>className</code> / <code>htmlFor</code> / <code>onClick</code></div>
+  <div class="warn">Style as a string (<code>style="color:red"</code>) & must be an object <code>style={{color:'red'}}</code></div>
+  <div class="warn"><code>{count &amp;&amp; &lt;X/&gt;}</code> renders <code>0</code> when count is 0</div>
+  <div class="warn">Rendering an object as a child & 'Objects are not valid as a React child'</div>
+  <div class="warn">Controlled input switching from <code>undefined</code> to a value & give it an initial <code>''</code></div>
+  <div class="warn">Forgot <code>e.preventDefault()</code> in a form submit & page reloads and state is lost</div>
+  <div class="warn">StrictMode double-invoking renders/effects in dev is intentional, not a bug</div>
+  <div class="warn">Props are read-only; to change them the parent must change its state</div>
+  <div class="warn"><code>ReactDOM.render</code> is gone in React 19; use <code>createRoot</code></div>
+  <div class="warn">Using <code>&lt;a href&gt;</code> instead of <code>&lt;Link&gt;</code> reloads the whole app</div>
+</div>
+</details>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<h2 id="sec-refs">&#x1F517; References &amp; Links</h2>
+
+<details>
+<summary><span class="one">Where to look things up</span>&nbsp; <span class="cm"># online docs</span></summary>
+<div class="detail-body">
+  <div class="opt"><a class="ref" href="https://www.w3schools.com/react/default.asp" target="_blank">W3Schools &mdash; React tutorial</a> (source of this page)</div>
+  <div class="opt"><a class="ref" href="https://react.dev" target="_blank">react.dev</a> &mdash; official docs (Learn + Reference)</div>
+  <div class="opt"><a class="ref" href="https://reactrouter.com" target="_blank">reactrouter.com</a> &mdash; React Router docs</div>
+  <div class="opt"><a class="ref" href="https://vite.dev" target="_blank">vite.dev</a> &mdash; build tool</div>
+  <div class="opt">Browser add-on: React Developer Tools (inspect components, props, state)</div>
+</div>
+</details>
+
+
+
+<a href="#" class="back-top">&uarr; Back to top</a>
+
+<script>
+  function toggleAll(openState) {
+    document.querySelectorAll('details').forEach(d => { d.open = openState; });
+  }
+  function filterDetails(query) {
+    const q = query.trim().toLowerCase();
+    document.querySelectorAll('details').forEach(d => {
+      if (!q) { d.style.display = ''; return; }
+      const match = d.innerText.toLowerCase().includes(q);
+      d.style.display = match ? '' : 'none';
+      if (match) d.open = true;
+    });
+  }
+  // syntax-highlight every <pre> (JS/JSX)
+  (function () {
+    const KW = new RegExp('^(?:const|let|var|function|return|if|else|for|while|switch|case|break|continue|default|new|class|extends|super|this|import|export|from|as|of|in|typeof|instanceof|async|await|try|catch|finally|throw|true|false|null|undefined|void|delete|static|yield|npm|install|create|cd|node)$');
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|(<\/?[A-Z]\w*)|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)(\s*\()?/g;
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    document.querySelectorAll('pre').forEach(pre => {
+      const t = pre.textContent;
+      let out = '', last = 0, m;
+      re.lastIndex = 0;
+      while ((m = re.exec(t))) {
+        out += esc(t.slice(last, m.index));
+        if (m[1]) out += '<span class="co">' + esc(m[1]) + '</span>';
+        else if (m[2]) out += '<span class="nu">' + esc(m[2]) + '</span>';
+        else if (m[3]) out += '<span class="st">' + esc(m[3]) + '</span>';
+        else if (m[4]) out += '<span class="nu">' + m[4] + '</span>';
+        else if (KW.test(m[5])) out += '<span class="kw">' + m[5] + '</span>' + esc(m[6] || '');
+        else if (m[6]) out += '<span class="fn">' + m[5] + '</span>' + esc(m[6]);
+        else out += esc(m[5]);
+        last = re.lastIndex;
+      }
+      pre.innerHTML = out + esc(t.slice(last));
+    });
+  })();
+</script>
+
+</body>
+</html>
