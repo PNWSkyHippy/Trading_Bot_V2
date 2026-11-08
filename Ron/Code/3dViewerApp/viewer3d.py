@@ -6072,6 +6072,10 @@ class App:
                 "eye": np.asarray(cam["eye"], float), "target": np.asarray(cam["target"], float),
                 "fov": math.degrees(2 * math.atan((h / 2) / (self.scale * self.dist))),
                 "center": center, "radius": max(float(np.linalg.norm(hi - lo)) / 2, 1.0),
+                # how big the actual objects are (no grid / axes / camera path / director markers),
+                # so the fly speed follows the scene, not the overlay around it
+                "move_radius": (max(float(np.linalg.norm(V.max(0) - V.min(0))) / 2, 0.01)
+                                if len(V) else max(float(np.linalg.norm(hi - lo)) / 2, 1.0)),
                 "cam_id": getattr(self, "_ti_cam", 0), "play_id": getattr(self, "_ti_play", 0),
                 "moves_done": getattr(self, "_ti_moves", 0),
                 "start_play": bool(getattr(self, "_ti_start_play", False)),

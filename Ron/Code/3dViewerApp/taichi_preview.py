@@ -505,6 +505,8 @@ def main():
     cam = ti.ui.Camera()
     tris, lines, hmark = Buf(), Buf(), Buf()   # hmark: the live marker while dragging a director handle
     data, stamp, cam_id, play_id, radius = None, None, None, None, 1.0
+    move_r = [1.0]                           # size of the real objects only (no grid/axes/camera path/director markers)
+    spd = [1.0]                              # user fly-speed multiplier: , slower  . faster  / reset
     play = [None]                            # time the camera path started playing, or None
     fov = [45.0]                             # vertical, degrees (the Camera doesn't report it back)
     test = os.environ.get("TI_PICK_TEST")    # self-test: compare picks against the drawn image
@@ -878,6 +880,10 @@ def main():
         nav[0] = {"how": how, "button": button, "at": (cx, cy), "eye": eye, "f": f,
                   "pivot": eye + f * dist, "dist": dist}
 
+    def turn_scale():
+        """The move-scale keys also fine-tune turning, but x10 of a turn is just spinning: cap it."""
+        return float(np.clip(spd[0], 0.01, 3.0))
+
     def do_nav():
         n = nav[0]
         if not win.is_pressed(n["button"]):
@@ -888,20 +894,43 @@ def main():
         dx, dy = (cx - n["at"][0]) * w, (cy - n["at"][1]) * h          # pixels, y up
         if n["how"] == "orbit":                  # right: turn the scene right; up: see it from lower
             az, el = angles(n["eye"] - n["pivot"])
-            eye = n["pivot"] + n["dist"] * direction(az - dx * 0.006, np.clip(el - dy * 0.006, -1.55, 1.55))
+            eye = n["pivot"] + n["dist"] * direction(az - dx * 0.006 * turn_scale(), np.clip(el - dy * 0.006 * turn_scale(), -1.55, 1.55))
             look = n["pivot"]
         else:                                    # pan: the point you grabbed stays under the mouse
             r = np.cross(n["f"], [0.0, 0.0, 1.0])
             r = r / np.linalg.norm(r) if np.linalg.norm(r) > 1e-9 else np.array([1.0, 0, 0])
             u = np.cross(r, n["f"])
             s = n["dist"] * 2 * np.tan(np.radians(fov[0]) / 2) / h
-            shift = -(dx * r + dy * u) * s
+            shift = -(dx * r + dy * u) * s * spd[0]
             eye, look = n["eye"] + shift, n["pivot"] + shift
         cam.position(*eye)
         cam.lookat(*look)
         cam.up(0.0, 0.0, 1.0)
 
     walk = {"t": None, "mouse": None}
+
+    focus = {"t": -9.0, "d": None}
+    last_step = [0.0]                        # world units moved per frame (at 60 fps), for the HUD
+
+    def focus_step():
+        """Per-frame move step that follows how far away what you're looking at is (so close up
+        it's fine, zoomed out it's quick); falls back to the scene's size. Re-measured ~4x/sec
+        only while a move key is held - the ray test is too slow for every frame."""
+        eye, f = eye_look()
+        lo_s, hi_s = move_r[0] * 2e-4, move_r[0] * 0.05
+        keys = any(win.is_pressed(k) for k in "wasdqe")
+        now = time.perf_counter()
+        if keys and now - focus["t"] > 0.25 and data is not None and "tri_obj" in data:
+            focus["t"] = now
+            try:
+                _k, dd = pick(view[0] or data, eye, f, 0.002)
+            except Exception:                        # noqa: BLE001 - keep flying on any pick problem
+                dd = np.inf
+            if not np.isfinite(dd):
+                dd = float(np.linalg.norm(data["center"] - eye))
+            focus["d"] = dd
+        dd = focus["d"] if focus["d"] is not None else move_r[0]
+        return float(np.clip(dd * 0.006, lo_s, hi_s))
 
     def walk_look(speed):
         """WASD QE move, right-drag look. Taichi's own track_user_inputs scales both by the
@@ -923,8 +952,9 @@ def main():
             walk["ui"] = on_ui(*cur)
         if rmb and walk["mouse"] is not None and not walk.get("ui"):
             az, el = angles(f)
-            f = direction(az - (cur[0] - walk["mouse"][0]) * 2.0,
-                          np.clip(el + (cur[1] - walk["mouse"][1]) * 2.0, -1.55, 1.55))
+            ts = turn_scale()
+            f = direction(az - (cur[0] - walk["mouse"][0]) * 2.0 * ts,
+                          np.clip(el + (cur[1] - walk["mouse"][1]) * 2.0 * ts, -1.55, 1.55))
         walk["mouse"] = cur if rmb else None
         cam.position(*eye)
         cam.lookat(*(eye + f))
@@ -934,7 +964,7 @@ def main():
         yaw = int(win.is_pressed(ti.ui.LEFT)) - int(win.is_pressed(ti.ui.RIGHT))
         pitch = int(win.is_pressed(ti.ui.UP)) - int(win.is_pressed(ti.ui.DOWN))
         if yaw or pitch:
-            step = np.radians(1.2 * (3.0 if win.is_pressed(ti.ui.SHIFT) else 1.0))
+            step = np.radians(1.2 * (3.0 if win.is_pressed(ti.ui.SHIFT) else 1.0) * turn_scale())
             eye, f = eye_look()
             az, el = angles(f)
             cam.lookat(*(eye + direction(az + yaw * step, np.clip(el + pitch * step, -1.55, 1.55))))
@@ -1367,6 +1397,7 @@ def main():
                     if drag and len(drag["mask"]) != len(d["obj_iids"]):
                         drag = None                                    # scene changed under the drag
                     radius = float(d["radius"])
+                    move_r[0] = float(d.get("move_radius", radius))
                     cam.z_near(radius * 1e-4)
                     cam.z_far(radius * 20)
                     if int(d["cam_id"]) != cam_id:     # viewer asked to jump to its view
@@ -1386,7 +1417,9 @@ def main():
         if _del_edge() and drag is None:                  # the Delete key (GGUI never reports it)
             print("KEY delete", flush=True)
         for e in win.get_events(ti.ui.PRESS):
-            if e.key == "p" and n_path():                 # (re)play the camera path
+            if e.key in (",", ".", "/"):                  # fly speed: slower / faster / reset
+                spd[0] = 1.0 if e.key == "/" else float(np.clip(spd[0] * (0.1 if e.key == "," else 10.0), 1e-4, 1e4))
+            elif e.key == "p" and n_path():                 # (re)play the camera path
                 toggle_play()
             elif e.key == "r" and data is not None:
                 play[0] = fly[0] = None
@@ -1650,7 +1683,8 @@ def main():
             if data is not None and "tri_obj" in data and (pending or drag or shown[0] is not None):
                 show_offsets()
             fast = 5.0 if win.is_pressed(ti.ui.SHIFT) else 1.0
-            walk_look(radius * 0.004 * fast)
+            last_step[0] = focus_step() * fast * spd[0]
+            walk_look(last_step[0])
             if nav[0] is not None:
                 do_nav()
             elif fly[0] is not None:
@@ -1720,7 +1754,7 @@ def main():
         with gui.sub_window("preview", 0.01, 0.01, 0.52, 0.15) as g:
             g.text(f"{tris.n // 3:,} triangles   GPU: {ARCH}")
             g.text("right-drag / arrows look | WASD QE move | left-drag empty: orbit (Ctrl / middle: pan)")
-            g.text("Shift fast | F fly to selected | R viewer's view | Tab menu")
+            g.text(f"Shift fast | , /10  . x10  / reset (move scale x{spd[0]:g} = {last_step[0]:.4g} units/frame) | F fly to selected | R viewer's view | Tab menu")
             if data is not None and len(data.get("dir_hpts", [])):
                 g.text("DIRECTOR:  cone = a camera  |  cyan +  = its LOOK-AT (the spot it's aimed at, floats in mid-air)")
                 g.text("green cone = move START  |  red cone = move END  |  orange line = flight path  |  burst = light")
