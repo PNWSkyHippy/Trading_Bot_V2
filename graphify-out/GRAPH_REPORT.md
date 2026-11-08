@@ -1,16 +1,16 @@
-# Graph Report - Trading_Bot_V2  (2026-11-07)
+# Graph Report - Trading_Bot_V2  (2026-11-08)
 
 ## Corpus Check
-- 1446 files · ~14,557,504 words
+- 1446 files · ~14,557,293 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 39125 nodes · 86034 edges · 1637 communities (1297 shown, 340 thin omitted)
+- 39125 nodes · 86034 edges · 1633 communities (1294 shown, 339 thin omitted)
 - Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 6650 edges (avg confidence: 0.69)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `d437ae65`
+- Built from commit: `d59fde2f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -36,7 +36,7 @@
 - copy
 - RSIDipSpikeV4Strategy
 - BreakoutSender
-- PhotonShootingTask
+- frame.h
 - BrokerManager
 - se
 - TradovateExecutor
@@ -75,7 +75,7 @@
 - EMTStrategyTests
 - strategy_matrix.py
 - Scripts/remove_trade.py
-- viewer3d_before_sky.py
+- .collect
 - .__init__
 - test_web_dashboard_backtest_behavior_profile.py
 - Prism3d
@@ -109,7 +109,7 @@
 - analyze_trade_dump.py
 - .poly2d
 - Job
-- Parser::Parse_Obj
+- Perturb_Normal
 - en
 - PythonEMTBridge
 - POVSceneStudio
@@ -124,7 +124,7 @@
 - Scripts/market_scanner.py
 - TaskQueue
 - Torus3d
-- povdebug.h
+- ExprNode
 - stbi__context
 - app.jsx
 - hittable
@@ -142,7 +142,7 @@
 - AdaptiveRegime
 - Prism3d
 - The Blueprint: 3D Ray Tracing Technical Reference & Roadmap
-- .updateProjectionMatrix
+- us
 - Game Design Document: Project Astral Drift (Working Title)
 - Trading Dashboard — Technical Reference
 - App
@@ -163,9 +163,9 @@
 - viewer3d_before_parity.py
 - App
 - Trace
-- TechnicalAnalysis
+- Backtester
 - App
-- Perturb_Normal
+- povdebug.h
 - import_log_events.py
 - sync_candle_store.py
 - test_junction_bubble_endpoint_admission.js
@@ -176,13 +176,13 @@
 - BotEngine
 - .redraw
 - .collect
-- viewer3d_before_selpanel.py
+- .collect
 - data.jsx
 - window-manager.jsx
 - CameraPathEditor
 - RtwImage
 - Director
-- TheRestOfYourLife/external/stb_image.h
+- STBIDEF
 - test_rect_junction_corner_handoff.js
 - quarterly_hourly_log_scan.py
 - setup_encryption.py
@@ -194,7 +194,7 @@
 - stbi__malloc
 - HistoricalFuturesExporter
 - test_gullet_exact_room_containment.js
-- NonlinearGrayImage
+- NonlinearRGBImage
 - POVMS_Object
 - test_breakout_event_durability.py
 - ._xyz
@@ -278,8 +278,8 @@
 - test_webgl_cap_depth_path.js
 - parser_materials.cpp
 - App
-- .get_radius
-- .redraw
+- SphericalCap3d
+- .refresh
 - SceneData
 - test_sweep_wall_scrape_padding.js
 - test_backtester_crypto_history_pagination.py
@@ -312,7 +312,7 @@
 - .collect
 - insertion_sort
 - fnintern.cpp
-- blob.cpp
+- MInvTransPoint
 - rtw_image
 - PILDriver
 - .refresh
@@ -331,20 +331,20 @@
 - stbi__jpeg
 - .redraw
 - sweep_tube_webgl.js
-- frame.h
+- string
 - sphere
 - ._xyz
 - Hashable
 - Manipulate_files
 - TheNextWeek/main.cc
 - vdmr_strategy.py
-- stbi_uc
+- stbi__malloc
 - interval
 - sphere
 - bvh_node
 - interval
 - hittable_list
-- GrayImage
+- NonlinearGrayImage
 - stbi__err
 - stbi__zbuf
 - stbi__err
@@ -363,12 +363,12 @@
 - perlin
 - SolarSystem
 - tn
-- Vector3d
+- _Geometry3d
 - .refresh
 - Point3d
 - .changed
 - .do_pop
-- vfeCriticalError
+- Wn
 - Cone
 - ray
 - test_candle_manager_session_hourly_resample.py
@@ -379,12 +379,12 @@
 - pattern.cpp
 - CurvedCylinder3d
 - ImageConverterTool
-- scanners/market_scanner.py
+- TechnicalAnalysis
 - Fractal
 - .refresh
 - trading_bot_v2 — Project State Summary
 - .refresh
-- randomsequence.h
+- HybridNumberGenerator
 - ScheduleError
 - BSPIntersectCondFunctor
 - ImageConvertFrontEnd
@@ -491,7 +491,7 @@
 - viewer3d_before_typedtf.py
 - BSPTree
 - GeometryTests
-- MInvTransPoint
+- Sor
 - test_kraken_scanner_partial.py
 - coretypes.h
 - Finish_Struct
@@ -529,7 +529,7 @@
 - TrueType
 - .toJSON
 - Intersection
-- .fill_light
+- ._use
 - Disc
 - TrueTypeInfo
 - GapScanner
@@ -607,7 +607,7 @@
 - watchdog_bot_engine.py
 - vfecontrol.cpp
 - RSIDipSimpleStrategy
-- ._paint
+- fmt
 - Current Queue
 - Sym_Table_Entry
 - pov_mem.cpp
@@ -645,7 +645,7 @@
 - ecb_strategy.py
 - .render_pov
 - OpOverloaded
-- FunctionCode
+- PhotonShootingTask
 - .refresh
 - CustomTkinterShowcase
 - .sel_entry
@@ -660,10 +660,10 @@
 - .anim_transform
 - IsoSurface
 - ._wrap
-- _Geometry3d
+- Cube3d
 - RCRMeanReversionStrategy
 - test_missile_homing_visuals_and_damage.js
-- .refresh
+- Sphere
 - Lt
 - .render_pov
 - .rebuild
@@ -712,7 +712,7 @@
 - Backtester Live-Parity Audit — Read Only
 - Docs/trades_list.py
 - .changed
-- lightsource.cpp
+- Ovus
 - Type
 - GetOutputFilename
 - Director
@@ -723,7 +723,7 @@
 - App
 - Square3d
 - ._ask
-- stbi_uc
+- TheRestOfYourLife/external/stb_image.h
 - Director
 - Line3d
 - .changed
@@ -765,7 +765,7 @@
 - CurvedCylinder3d
 - viewer3d_before_zoom.py
 - RadiosityCache
-- jt
+- bl
 - Ellipsoid3d
 - taichi_preview_before_selpanel.py
 - Timer
@@ -775,7 +775,7 @@
 - ._build_ui
 - .run_script
 - Any
-- PhotonSortingTask
+- PhotonShootingStrategy
 - .redraw
 - .apply_material_to_element
 - imageutil.cpp
@@ -787,7 +787,7 @@
 - Scene
 - Manipulate_files
 - Mesh3d
-- Entry
+- viewer3d_before_selpanel.py
 - .collect
 - .collect
 - ._paint
@@ -826,7 +826,7 @@
 - pov_export_before_mac.py
 - TimelineEngine
 - pov_export_before_solids.py
-- call
+- .anim_transform
 - .sel_entry
 - IndustrialRobot
 - .floordiv
@@ -843,7 +843,7 @@
 - EAT Strategy — Draft Spec
 - Parser
 - render
-- Interior
+- stbi_uc
 - .run_script
 - PyMag
 - .is_
@@ -871,7 +871,7 @@
 - .truediv
 - .is_
 - _Geometry3d
-- Cube3d
+- .run_script
 - Sphere3d
 - run_magnifyer
 - .getitem
@@ -940,7 +940,7 @@
 - .collect
 - warp.cpp
 - .dir_item
-- test_candle_store_incremental_retention.py
+- .open_preview
 - .draw_timeline
 - taichi_preview_before_panel.py
 - test
@@ -1003,11 +1003,11 @@
 - num
 - DitherStrategy::ColourOffset
 - ._snap_key
-- ._build_ui
+- viewer3d_before_sky.py
 - ISO_ThreadData
 - Buf
 - BlackHoleWarp
-- jn
+- T
 - .draw_timeline
 - EMT Hostinger Runbook
 - .animation_text
@@ -1057,21 +1057,21 @@
 - director3d_before_clouds.py
 - paint
 - .say
-- BSPProgress
+- boundingtask.cpp
 - ensure_yearly_db_exists
 - Durable Event Identity Patch — Status (2026-07-17)
 - run_pipeline.sh
-- .frame_text
+- Display
 - .changed
 - .render_pov
 - TracePixel::FocalBlurData::FocalBlurData
 - Car
-- run_tf
+- test_bmr357_no_live_state.py
 - ColourOffset
 - .truth
 - SafeUnsignedProduct
 - stbi__malloc
-- HybridNumberGenerator
+- Halton2dBasedGenerator
 - Dog
 - Employee
 - mac_before_sync_20261102/viewer3d.py
@@ -1079,7 +1079,7 @@
 - Modern Web Automation With Python and Selenium
 - .posed
 - make_sky_panos.py
-- Project_Tree_Node_Struct
+- mr_03_fbs_strategy.py
 - PaintCanvas
 - .truth
 - .__init__
@@ -1094,7 +1094,7 @@
 - tema_crossover.py
 - .draw_in_viewer
 - box
-- .sel_entry
+- num
 - TheNextWeek/external/stb_image.h
 - backtest_contrarian_replay.py
 - bbox
@@ -1177,7 +1177,7 @@
 - .add
 - .ge
 - .cam_d
-- ._paint
+- WT_AVG
 - .anim_transform
 - fix_trades.py
 - .add
@@ -1230,7 +1230,7 @@
 - InitializePatternGenerators
 - .le
 - .lfshift
-- .run_script
+- ObjectDebugHelper
 - .matmul
 - .mod
 - .mul
@@ -1344,7 +1344,7 @@
 - bbox
 - SphericalWarp
 - decorators.py
-- configparser.h
+- FloydSteinbergDither
 - vfepovms.h
 - Code/query_db.py
 - make_scene1
@@ -1352,7 +1352,6 @@
 - .anim_transform
 - .anim_transform
 - .run_script
-- ViewThreadData
 - Noise
 - _unit
 - .animation_text
@@ -1362,12 +1361,10 @@
 - num
 - bbox
 - bc
-- .analyze
 - ._use
 - .item_center
 - _bend_tris
 - AVXFMA4Noise
-- Project_Struct
 - cos_density.cc
 - dependencies
 - .set_fc
@@ -1384,7 +1381,6 @@
 - .drop_parts
 - .drop_parts
 - project/test.js
-- ._on_code_modified
 - .tree_items
 - mcp-client
 - Circle
@@ -1422,7 +1418,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (1637 total, 340 thin omitted)
+## Communities (1633 total, 339 thin omitted)
 
 ### Community 0 - "{"
 Cohesion: 0.00
@@ -1485,12 +1481,12 @@ Cohesion: 0.06
 Nodes (23): get_feed(), init_feed(), _make_frame(), _parse_bar(), Tradovate real-time market data feed via WebSocket. Connects to Tradovate's md…, Start the background WebSocket thread., Stop the feed and WebSocket connection., Clear the auth-failed flag and update token so the feed can restart. Call this… (+15 more)
 
 ### Community 15 - "pt"
-Cohesion: 0.04
-Nodes (4): eh, pt(), _s(), updateMatrixWorld()
+Cohesion: 0.03
+Nodes (4): eh, jt(), pt(), updateMatrixWorld()
 
 ### Community 16 - "Docs/three.min.js"
 Cohesion: 0.01
-Nodes (105): _a, Aa, _allocateTargets(), _applyPMREM(), Ba, _blur(), br(), $c() (+97 more)
+Nodes (110): _a, Aa, _allocateTargets(), _applyPMREM(), Ba, bind(), _blur(), br() (+102 more)
 
 ### Community 17 - "ScanCutoff"
 Cohesion: 0.06
@@ -1508,9 +1504,9 @@ Nodes (30): make(), RSI Dip & Spike v4c audit — activity + filter sweep Run: p
 Cohesion: 0.08
 Nodes (16): BreakoutSender, Path, Live kill switch. The standalone scanner can keep running for alerts, but bot…, Return only an explicit valid direction. Direction inference belongs to the…, Non-blocking send in background thread. signal: BreakoutSignal from…, Build the API payload. Data priority for candle / analytical fields: 1.…, Return the best non-zero volume ratio plus raw volume diagnostics., Return a detached normalized payload, or None when unsafe to send. (+8 more)
 
-### Community 21 - "PhotonShootingTask"
-Cohesion: 0.04
-Nodes (57): CooperateFunction, DBL, PhotonEstimationTask, cooperate, photonCountEstimate, Stopped, DBL, LightSource (+49 more)
+### Community 21 - "frame.h"
+Cohesion: 0.02
+Nodes (96): Octree, PROJECT, PROJECT_TREE_NODE, BackendSceneData, POVMSAddress, SceneId, ViewId, MessageFactory::MessageFactory() (+88 more)
 
 ### Community 22 - "BrokerManager"
 Cohesion: 0.08
@@ -1526,11 +1522,11 @@ Nodes (16): bar(), EMTLiveTests, FakeExecutor, RecordingTradovate, stamp(), Brok
 
 ### Community 25 - "Parser"
 Cohesion: 0.02
-Nodes (380): BraceStackEntry, CS_ENTRY, DebugTextStreamBuffer, DefaultsVersion, InputFileData, Macro, POV_ARRAY, BOUNDS_VOLUME() (+372 more)
+Nodes (373): BraceStackEntry, CS_ENTRY, DebugTextStreamBuffer, DefaultsVersion, InputFileData, Macro, POV_ARRAY, BOUNDS_VOLUME() (+365 more)
 
 ### Community 26 - "App"
 Cohesion: 0.02
-Nodes (116): App, Entry, fmt(), gsegs(), load_scene(), num(), _pivot_fields(), Number -> short CSV text. (+108 more)
+Nodes (124): App, bbox(), Entry, fmt(), gsegs(), load_scene(), measure_text(), num() (+116 more)
 
 ### Community 27 - "EMTStrategyEngine"
 Cohesion: 0.09
@@ -1601,8 +1597,8 @@ Cohesion: 0.13
 Nodes (14): date, Fetch a fresh window from Alpaca's get_calendar(), validate it for completeness…, True if `d` is a confirmed non-trading date per a fresh refresh, None if…, Walk backward from `start_date` (inclusive) up to `max_days` calendar days,…, Mirror of `_walk_back_to_prior_session`, walking forward. Used by…, Return (open_epoch, close_epoch) for date `d` if a fresh (per the configured…, Public accessor for the confirmed-closed-date fact. Returns None (unknown)…, True/False if the schedule for `cutoff`'s date is fresh enough to answer… (+6 more)
 
 ### Community 44 - "nl"
-Cohesion: 0.05
-Nodes (8): clone(), il(), kl, ml, nl, Rl, us(), Wl
+Cohesion: 0.04
+Nodes (8): clone(), il(), ml, nl, Rl, Tt, Wl, zl
 
 ### Community 45 - "OpOverloaded"
 Cohesion: 0.04
@@ -1610,7 +1606,7 @@ Nodes (45): main(), OpOverloaded, Any, OpOverloaded - A Universal, Inheritable P
 
 ### Community 46 - "Ce"
 Cohesion: 0.04
-Nodes (11): bs, Ce, dispose(), Et, ft(), parseObject(), qn, Tt (+3 more)
+Nodes (15): bs, Ce, dispose(), Et, ft(), ni, parseObject(), pi() (+7 more)
 
 ### Community 47 - ".get_x"
 Cohesion: 0.05
@@ -1653,7 +1649,7 @@ Cohesion: 0.08
 Nodes (21): BooleanVar, Adds a top-level menu dropdown (e.g. 'File', 'Edit') and returns MenuNode for…, Adds a top-level menu dropdown (e.g. 'File', 'Edit', 'Help') and returns…, MenuNode, Any, Menu, Tk, Adds a menu action that automatically opens a file browser and passes the… (+13 more)
 
 ### Community 57 - "EMTStrategyTests"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (4): bar(), EMTStrategyTests, FakeMirrorDB, stamp()
 
 ### Community 58 - "strategy_matrix.py"
@@ -1664,9 +1660,9 @@ Nodes (23): _get_cached_symbols(), main(), =====================================
 Cohesion: 0.13
 Nodes (23): connect(), get_alpaca_orders(), get_alpaca_positions(), get_db_open_trades(), main(), normalize_symbol(), reconcile_positions.py — Cross-reference DB open trades against actual broker…, Return dict of symbol -> position info from Alpaca. (+15 more)
 
-### Community 60 - "viewer3d_before_sky.py"
-Cohesion: 0.04
-Nodes (95): _bend_samples(), bool_need(), bool_scene(), _box_basis(), build(), center_of(), chunks3(), color_of() (+87 more)
+### Community 60 - ".collect"
+Cohesion: 0.07
+Nodes (49): _bend_samples(), _box_basis(), center_of(), color_of(), cube_faces(), entry_from_obj(), _frame(), hollow_inner() (+41 more)
 
 ### Community 61 - ".__init__"
 Cohesion: 0.03
@@ -1677,12 +1673,12 @@ Cohesion: 0.10
 Nodes (19): _FakeBacktester, _NoDataBacktester, Deterministic API/UI contract tests for versioned backtest behavior., _run(), test_api_defaults_to_legacy_profile_and_returns_it(), test_api_forwards_live_parity_profile_and_returns_it(), test_api_rejects_unknown_profile_before_starting_a_run(), test_api_reports_data_failure_instead_of_misleading_empty_result() (+11 more)
 
 ### Community 63 - "Prism3d"
-Cohesion: 0.03
+Cohesion: 0.02
 Nodes (44): DecagonalPrism3d, DodecagonalPrism3d, Dodecahedron3d, EnneadecagonalPrism3d, Hemisphere3d, HendecagonalPrism3d, HeptadecagonalPrism3d, HexadecagonalPrism3d (+36 more)
 
 ### Community 64 - "TraceThreadData"
 Cohesion: 0.02
-Nodes (129): FORCEINLINE, TraceThreadData, ObjectPattern::ObjectPattern(), PotentialPattern::PotentialPattern(), CompoundObject, children, Invert, ContainedByBox (+121 more)
+Nodes (168): FORCEINLINE, TraceThreadData, Attenuate_Light(), DBL, Intersection, IStack, LightSource, ObjectPtr (+160 more)
 
 ### Community 65 - "archive_db_rollover.py"
 Cohesion: 0.22
@@ -1690,7 +1686,7 @@ Nodes (23): archive_breakout_event_execution(), archive_scanner_alerts(), archiv
 
 ### Community 66 - "BoundingBox"
 Cohesion: 0.02
-Nodes (150): ConstBBoxTreePtr, Plane, Qelem, BBox_Tree_Struct, BBox, Entries, Infinite, Node (+142 more)
+Nodes (142): ConstBBoxTreePtr, Plane, Qelem, BBox_Tree_Struct, BBox, Entries, Infinite, Node (+134 more)
 
 ### Community 67 - "SettlementTracker"
 Cohesion: 0.13
@@ -1706,7 +1702,7 @@ Nodes (22): 1. EXIT WARNING, 2. TAKE PROFIT SUGGESTED, 3. MOVE STOP UP, 4. DO NO
 
 ### Community 70 - "parser_tokenizer.cpp"
 Cohesion: 0.03
-Nodes (93): COND_TYPE, IMemStream, UCS2String, InferFileTypeFromExt(), Internal_Font_File(), FILE, OStream, UCS2String (+85 more)
+Nodes (89): COND_TYPE, FILE, OStream, UCS2String, DefaultPlatformBase, AllowLocalFileAccess, CreateTemporaryFile, DeleteLocalFile (+81 more)
 
 ### Community 71 - "vfe.cpp"
 Cohesion: 0.02
@@ -1781,8 +1777,8 @@ Cohesion: 0.16
 Nodes (16): BacktestRunContext, clear_cancel(), Isolated cancel state for one backtest run. Two contexts never share an…, Signal the running backtest to stop at the next cancel checkpoint. Cancels the…, Reset the default context's cancel flag — call at the start of every new…, request_cancel(), main(), _make_synthetic_df() (+8 more)
 
 ### Community 89 - "Task"
-Cohesion: 0.03
-Nodes (78): CALLABLE_T, BoundingTask, AppendObject, boundingThreshold, Finish, Run, sceneData, SendFatalError (+70 more)
+Cohesion: 0.05
+Nodes (54): CALLABLE_T, GenericMessenger, POVMSAddress, SceneId, ViewId, MessageFactory, destinationAddress, sceneId (+46 more)
 
 ### Community 90 - "traderdev_day_trader_v3.py"
 Cohesion: 0.24
@@ -1800,13 +1796,13 @@ Nodes (5): Draw the real scene on another canvas through a director camera. view
 Cohesion: 0.10
 Nodes (7): IntervalError, Job, A periodic job as used by :class:`Scheduler`. :param interval: A quantity of a…, PeriodicJobs are sortable based on the scheduled time they run next., Schedule the job to run at an irregular (randomized) interval. The job's…, An improper interval was used, :return: ``True`` if the job should be run now.
 
-### Community 94 - "Parser::Parse_Obj"
-Cohesion: 0.08
-Nodes (33): Copy_Material(), Interior, InteriorPtr, MATERIAL, TRANSFORM, Create_Material(), Destroy_Interior(), Destroy_Material() (+25 more)
+### Community 94 - "Perturb_Normal"
+Cohesion: 0.09
+Nodes (43): BlendMap, Blend_Map_Entries, Set, Type, BlendMapTypeId, Vector, DNoise(), Vector3d (+35 more)
 
 ### Community 95 - "en"
-Cohesion: 0.02
-Nodes (44): Ah, ao(), ar(), bo, ca, ci, cl, Da (+36 more)
+Cohesion: 0.03
+Nodes (39): Ah, ao(), ar(), bo, ca, ci, cl, Da (+31 more)
 
 ### Community 96 - "PythonEMTBridge"
 Cohesion: 0.13
@@ -1853,16 +1849,16 @@ Cohesion: 0.17
 Nodes (18): coingecko_get(), fetch_kraken_funding_rates(), fetch_stock_universe(), main(), print_table(), DataFrame, Series, Daily Market Scanner — Stocks + Crypto =======================================… (+10 more)
 
 ### Community 107 - "TaskQueue"
-Cohesion: 0.05
-Nodes (64): recursive_mutex, PhotonMap, getMediaPhotonMap, getSurfacePhotonMap, BBOX_TREE, BlockIdSet, shared_ptr, Vector3d (+56 more)
+Cohesion: 0.06
+Nodes (56): recursive_mutex, BlockIdSet, shared_ptr, ViewData, ViewId, Mailbox, thread, RTRData::RTRData() (+48 more)
 
 ### Community 108 - "Torus3d"
 Cohesion: 0.02
 Nodes (58): setter, Return the color. Returns: object: The color., Set the color. Args: val (object): The new color., Return the color. Returns: object: The color., Set the color. Args: val (object): The new color., Return the origin point. Returns: Point3d: The origin., Return the direction point (the end point). Returns: Point3d: The direction., Replace the direction point. Args: val (Point3d): The new direction. (+50 more)
 
-### Community 109 - "povdebug.h"
-Cohesion: 0.03
-Nodes (98): Param_Block, Parser, SceneData, Camera, GenericColour<ColourChannel>, GenericColour<PreciseColourChannel>, Image, IStream (+90 more)
+### Community 109 - "ExprNode"
+Cohesion: 0.04
+Nodes (95): Parser, SceneData, Camera, acosh(), asinh(), atanh(), DBL, DBL (+87 more)
 
 ### Community 110 - "stbi__context"
 Cohesion: 0.11
@@ -1886,7 +1882,7 @@ Nodes (18): const point3& origin() const, const vec3& direction() const, point3 
 
 ### Community 115 - "parser_expressions.cpp"
 Cohesion: 0.04
-Nodes (88): ColourBlendMapData, GenericPigmentBlendMapPtr, NormalBlendMapData, PigmentBlendMapData, MathColour, MathColour, RGBColour, RGBFTColour (+80 more)
+Nodes (86): ColourBlendMapData, GenericPigmentBlendMapPtr, NormalBlendMapData, PigmentBlendMapData, MathColour, MathColour, RGBColour, RGBFTColour (+78 more)
 
 ### Community 116 - "ObjGroup3d"
 Cohesion: 0.05
@@ -1910,7 +1906,7 @@ Nodes (10): HTMLParser, choose_example(), choose_key(), code_block(), concept_te
 
 ### Community 121 - "stbi__context"
 Cohesion: 0.11
-Nodes (50): stbi__context, stbi__gif, stbi__uint16, stbi__bitcount(), stbi__bmp_info(), stbi__bmp_load(), stbi__bmp_test(), stbi__bmp_test_raw() (+42 more)
+Nodes (56): stbi__context, stbi__gif, stbi__uint16, stbi__at_eof(), stbi__bmp_info(), stbi__bmp_test(), stbi__bmp_test_raw(), stbi__check_png_header() (+48 more)
 
 ### Community 123 - "xc"
 Cohesion: 0.05
@@ -1932,9 +1928,9 @@ Nodes (31): DecagonalPrism3d, DodecagonalPrism3d, EnneadecagonalPrism3d, Hendeca
 Cohesion: 0.05
 Nodes (36): 1. Dot Product ($\mathbf{a} \cdot \mathbf{b}$), 1. The Core Mental Model: How Ray Tracing Works, 1. Translation (Moving) by $(\Delta x, \Delta y, \Delta z)$:, 2.1 Vectors vs. Points, 2.2 The Two Essential Vector Operations, 2.3 4x4 Transformation Matrices (Homogeneous Coordinates), 2. 3D Linear Algebra & Transformation Reference, 2. Cross Product ($\mathbf{a} \times \mathbf{b}$) (+28 more)
 
-### Community 128 - ".updateProjectionMatrix"
-Cohesion: 0.12
-Nodes (3): Jl, Kn, vl()
+### Community 128 - "us"
+Cohesion: 0.08
+Nodes (5): Jl, kl, Kn, us(), vl()
 
 ### Community 129 - "Game Design Document: Project Astral Drift (Working Title)"
 Cohesion: 0.12
@@ -1946,7 +1942,7 @@ Nodes (15): Action wiring (buttons → Python), Architecture in one paragraph, C
 
 ### Community 131 - "App"
 Cohesion: 0.04
-Nodes (23): App, Closing this window quits the whole program (it's the main window in Taichi…, Taichi is the main window. Launch the GPU preview and minimise this Tk menu; it…, fn() as a one-step job (runs after the jobs already queued)., Camera director's keys, aims and lights as tree rows (while the director is…, Cut / overlap tools draw as dashed wire only (the viewer can't carve faces)., Widest side of the box around every object except infinite planes., Run path as __main__, capture prints, record transforms, harvest objects. (+15 more)
+Nodes (17): App, Closing this window quits the whole program (it's the main window in Taichi…, Cut / overlap tools draw as dashed wire only (the viewer can't carve faces)., Widest side of the box around every object except infinite planes., Run path as __main__, capture prints, record transforms, harvest objects., Generator: apply tf in small steps via the library, one frame per step., World-space forward (view dir), level forward, and right vectors., Two-finger trackpad scroll (Tk 9): vertical swipe zooms. (+9 more)
 
 ### Community 132 - "BreakoutScannerSafetyTests"
 Cohesion: 0.22
@@ -2012,17 +2008,17 @@ Nodes (14): App, Entry, fn() as a one-step job (runs after the jobs already queu
 Cohesion: 0.07
 Nodes (112): LightColorCacheListList, TPATTERN, UnWarp_Normal(), Warp_EPoint(), Warp_Normal(), dot(), COLC, ColourChannel (+104 more)
 
-### Community 149 - "TechnicalAnalysis"
-Cohesion: 0.12
-Nodes (12): Series, Pure technical indicator calculations. No external dependencies., TechnicalAnalysis, Backtester, BacktestResult, BacktestTrade, DataFrame, ============================================================= BACKTESTING… (+4 more)
+### Community 149 - "Backtester"
+Cohesion: 0.18
+Nodes (9): Backtester, BacktestResult, BacktestTrade, DataFrame, ============================================================= BACKTESTING…, Score a single bar for backtest entry signals. Uses relaxed thresholds suited…, Run a full backtest for one symbol., Simulates your exact trading strategy on historical data. Uses the same… (+1 more)
 
 ### Community 150 - "App"
 Cohesion: 0.05
 Nodes (16): App, Entry, load_scene(), main(), Camera director's keys, aims and lights as tree rows (while the director is…, base_2, base_3... (any _N already on the end is dropped first); claims it in…, Every position in a camera_path shot x f (about the origin, so either axis…, Lathe tool: edits the selected lathe, or makes a new one. (+8 more)
 
-### Community 151 - "Perturb_Normal"
-Cohesion: 0.03
-Nodes (92): DATA_T, AVXPortableDNoise(), AVXPortableNoise(), DBL, Vector3d, PIGMENT, TEXTURE, BlendMap (+84 more)
+### Community 151 - "povdebug.h"
+Cohesion: 0.02
+Nodes (88): IMemStream, Param_Block, AVXPortableDNoise(), AVXPortableNoise(), DBL, Vector3d, GenericColour<ColourChannel>, GenericColour<PreciseColourChannel> (+80 more)
 
 ### Community 152 - "import_log_events.py"
 Cohesion: 0.30
@@ -2058,15 +2054,15 @@ Nodes (42): BotEngine, _et_now_str(), _paper_brokers_in_capital_breakdown(), Ret
 
 ### Community 161 - ".redraw"
 Cohesion: 0.05
-Nodes (29): Start a blank scene in a new timestamped file; the current scene file is left…, Open a specific scene .csv and work in it from now on (autosave + undo follow…, Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., The selected director tree item (iid), or None., Bends that continue off the end of e: move them rigidly so they stay attached…, Chop entry e at the plane through c with normal nd: the half the normal points…, Make entry e the plain mesh3d of manifold man (position, name, colors, group… (+21 more)
+Nodes (30): Start a blank scene in a new timestamped file; the current scene file is left…, Rebuild tree + combobox choices + grid size, then redraw., Camera director's keys, aims and lights as tree rows (while the director is…, The selected director tree item (iid), or None., CMD quickcut [keep] [stay]: the selected solid is the scissors. Every other…, CMD slice <cx cy cz nx ny nz flip> [more planes...]: all cuts, one undo step., Every layer in use, Default always first., Rebuild the Layer combobox and the show/hide checkboxes after the scene changed. (+22 more)
 
 ### Community 162 - ".collect"
 Cohesion: 0.12
 Nodes (27): _box_basis(), center_of(), color_of(), entry_from_obj(), is_lib_plane(), is_round(), lib_plane_normal(), points_of() (+19 more)
 
-### Community 163 - "viewer3d_before_selpanel.py"
-Cohesion: 0.06
-Nodes (71): _bend_samples(), _box_basis(), build(), center_of(), chunks3(), color_of(), cube_faces(), entry_center() (+63 more)
+### Community 163 - ".collect"
+Cohesion: 0.09
+Nodes (40): _bend_samples(), _box_basis(), center_of(), color_of(), entry_from_obj(), _frame(), hollow_inner(), is_lib_plane() (+32 more)
 
 ### Community 164 - "data.jsx"
 Cohesion: 0.17
@@ -2088,9 +2084,9 @@ Nodes (12): color, Perlin, RtwImage, random_int(), perlin, Perlin, CheckerTextur
 Cohesion: 0.07
 Nodes (17): app_pov_dir(), basis(), default_shot(), Director, director3d.py - the RayTrace Camera Director, inside viewer3d. Camera moves…, After any edit: re-sample, redraw both views, remember the shot., Write one point and keep neighbouring moves joined (start of i == end of i-1)., The director camera for one frame, in the form App.draw_through wants. (+9 more)
 
-### Community 169 - "TheRestOfYourLife/external/stb_image.h"
-Cohesion: 0.12
-Nodes (37): FILE, stbi_io_callbacks, STBIDEF, stbi__clamp(), stbi_convert_iphone_png_to_rgb(), stbi__do_zlib(), stbi_failure_reason(), stbi__fopen() (+29 more)
+### Community 169 - "STBIDEF"
+Cohesion: 0.11
+Nodes (33): FILE, stbi_io_callbacks, STBIDEF, stbi_convert_iphone_png_to_rgb(), stbi__do_zlib(), stbi_failure_reason(), stbi__fopen(), stbi_hdr_to_ldr_gamma() (+25 more)
 
 ### Community 170 - "test_rect_junction_corner_handoff.js"
 Cohesion: 0.22
@@ -2136,9 +2132,9 @@ Nodes (5): AddOnBase, NinjaTrader.NinjaScript.AddOns, Bars, string, HistoricalFu
 Cohesion: 0.18
 Nodes (8): context, cube, floorShaft, fs, html, powerDurations, sideHall, vm
 
-### Community 181 - "NonlinearGrayImage"
+### Community 181 - "NonlinearRGBImage"
 Cohesion: 0.02
-Nodes (16): GammaCurvePtr, IntEncode(), RGBFTColour, RGBTColour, T, SetRGBFTIndexedValue, NonlinearGrayImage, gamma (+8 more)
+Nodes (14): GammaCurvePtr, IntEncode(), RGBFTColour, RGBTColour, T, GrayImage, pixels, SetRGBFTIndexedValue (+6 more)
 
 ### Community 182 - "POVMS_Object"
 Cohesion: 0.06
@@ -2177,8 +2173,8 @@ Cohesion: 0.42
 Nodes (8): _connect(), _json_value(), main(), _print_rows(), Connection, Path, _scan_log(), _tail_lines()
 
 ### Community 191 - "TraceTask"
-Cohesion: 0.05
-Nodes (75): LightTargetCombo, LightSource, ObjectPtr, EstimatePhotonsForObjectAndLight, Run, SearchThroughObjectsEstimatePhotons, randgen, Run (+67 more)
+Cohesion: 0.04
+Nodes (86): LightTargetCombo, Finish, LightSource, ObjectPtr, ViewData, CooperateFunction, DBL, PhotonEstimationTask (+78 more)
 
 ### Community 192 - "camera"
 Cohesion: 0.06
@@ -2222,7 +2218,7 @@ Nodes (34): bytes_to_str(), Converts an integer to its PetaByte, GigaByte, Megab
 
 ### Community 203 - "sn"
 Cohesion: 0.03
-Nodes (13): an, Ea(), fa, fi(), Ga, ln, ls(), Mh (+5 more)
+Nodes (14): an, Ea(), fa, fi(), Ga, ln, ls(), Mh (+6 more)
 
 ### Community 204 - "Ray"
 Cohesion: 0.05
@@ -2265,8 +2261,8 @@ Cohesion: 0.83
 Nodes (3): classify_signal(), continuation_probability(), determine_direction()
 
 ### Community 218 - "src/external/stb_image.h"
-Cohesion: 0.10
-Nodes (47): FILE, stbi_io_callbacks, STBIDEF, stbi__clamp(), stbi_convert_iphone_png_to_rgb(), stbi__do_zlib(), stbi_failure_reason(), stbi__float_postprocess() (+39 more)
+Cohesion: 0.12
+Nodes (37): FILE, stbi_io_callbacks, STBIDEF, stbi__clamp(), stbi_convert_iphone_png_to_rgb(), stbi__do_zlib(), stbi_failure_reason(), stbi__fopen() (+29 more)
 
 ### Community 221 - "EATStrategyIndicator"
 Cohesion: 0.23
@@ -2321,8 +2317,8 @@ Cohesion: 0.10
 Nodes (18): checker_texture, even, inv_scale, odd, color, perlin, point3, rtw_image (+10 more)
 
 ### Community 316 - "stbi__jpeg"
-Cohesion: 0.16
-Nodes (31): stbi__huffman, stbi_inline, stbi__int16, stbi__jpeg, load_jpeg_image(), stbi__bitreverse16(), stbi__build_fast_ac(), stbi__build_huffman() (+23 more)
+Cohesion: 0.26
+Nodes (22): stbi__huffman, stbi_inline, stbi__int16, stbi__jpeg, stbi__bitreverse16(), stbi__build_fast_ac(), stbi__build_huffman(), stbi__decode_jpeg_header() (+14 more)
 
 ### Community 317 - "TheNextWeek/texture.h"
 Cohesion: 0.11
@@ -2338,19 +2334,19 @@ Nodes (8): context, fs, html, mesh, texCoords, uploads, vertices, vm
 
 ### Community 320 - "parser_materials.cpp"
 Cohesion: 0.04
-Nodes (153): IntVector3d, PATTERN_T, PavementPattern, Pattern, Copy_Blend_Map(), MAP_T, shared_ptr, Copy_Tnormal() (+145 more)
+Nodes (151): IntVector3d, PATTERN_T, PavementPattern, Pattern, Copy_Blend_Map(), MAP_T, shared_ptr, Copy_Tnormal() (+143 more)
 
 ### Community 321 - "App"
 Cohesion: 0.04
-Nodes (21): App, main(), fn() as a one-step job (runs after the jobs already queued)., Camera director's keys, aims and lights as tree rows (while the director is…, Cut / overlap tools draw as dashed wire only (the viewer can't carve faces)., base_2, base_3... (any _N already on the end is dropped first); claims it in…, Boxes = where the 3D view is (or the selected director camera key)., Every position in a camera_path shot x f (about the origin, so either axis… (+13 more)
+Nodes (22): App, Entry, fn() as a one-step job (runs after the jobs already queued)., One Properties window; it follows the tree selection while open., (Re)build the fields from the selected object's current geometry., Lathe tool: edits the selected lathe, or makes a new one., Select the tree row of the object under the cursor (Shift/Ctrl adds to the…, World-space forward (view dir), level forward, and right vectors. (+14 more)
 
-### Community 322 - ".get_radius"
-Cohesion: 0.07
-Nodes (17): Cone3d, Regular N-sided frustum: a pyramid with its point cut off flat. The top is the…, True when the top has shrunk to a single apex point., Side length of the top polygon., Height of one side face, measured up its middle., Widest distance across the wider end., [bottom cap, top cap, side0 .. sideN-1]; when pointed: [bottom cap, triangle0…, Circle base plus a stored _top apex point (center + normal * height). (+9 more)
+### Community 322 - "SphericalCap3d"
+Cohesion: 0.05
+Nodes (19): Regular N-sided frustum: a pyramid with its point cut off flat. The top is the…, True when the top has shrunk to a single apex point., Side length of the top polygon., Height of one side face, measured up its middle., Widest distance across the wider end., [bottom cap, top cap, side0 .. sideN-1]; when pointed: [bottom cap, triangle0…, Cone with its point cut off flat (a frustum). Cylinder base plus a stored…, Part of a sphere cut off by a flat plane (a dome), flat side included.… (+11 more)
 
-### Community 323 - ".redraw"
+### Community 323 - ".refresh"
 Cohesion: 0.07
-Nodes (24): fmt(), gsegs(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Which of e's groups 'whole group' works on: the one named in the Group box,…, e plus its group mates (e first) when group mode is on, else just e., Selected entries in pick order, each grown to its whole group (group mode), no… (+16 more)
+Nodes (21): gsegs(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Camera director's keys, aims and lights as tree rows (while the director is…, Bends that continue off the end of e: move them rigidly so they stay attached…, Cut / overlap tools draw as dashed wire only (the viewer can't carve faces)., Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Which of e's groups 'whole group' works on: the one named in the Group box,… (+13 more)
 
 ### Community 324 - "SceneData"
 Cohesion: 0.02
@@ -2426,7 +2422,7 @@ Nodes (48): Acquire_Spline_Reference(), catmull_rom_interpolate(), CatmullRomSpl
 
 ### Community 353 - "Prism3d"
 Cohesion: 0.04
-Nodes (23): DecagonalPrism3d, DodecagonalPrism3d, EnneadecagonalPrism3d, HendecagonalPrism3d, HeptadecagonalPrism3d, HexadecagonalPrism3d, HexagonalPrism3d, IcosagonalPrism3d (+15 more)
+Nodes (22): DecagonalPrism3d, DodecagonalPrism3d, EnneadecagonalPrism3d, HendecagonalPrism3d, HeptadecagonalPrism3d, HexadecagonalPrism3d, HexagonalPrism3d, IcosagonalPrism3d (+14 more)
 
 ### Community 354 - "GenericRGBColour"
 Cohesion: 0.10
@@ -2452,9 +2448,9 @@ Nodes (3): insertion_sort(), main(), Takes a list and sorts a copy of it susing 
 Cohesion: 0.07
 Nodes (79): DBL, FPUContext, f_algbr_cyl1(), f_algbr_cyl2(), f_algbr_cyl3(), f_algbr_cyl4(), f_bicorn(), f_bifolia() (+71 more)
 
-### Community 367 - "blob.cpp"
-Cohesion: 0.07
-Nodes (78): Blob_Interval_Struct, Blob, All_Intersections, build_bounding_hierarchy, calculate_element_field, calculate_field_value, Compute_BBox, Create_Blob_Element_Texture_List (+70 more)
+### Community 367 - "MInvTransPoint"
+Cohesion: 0.05
+Nodes (103): Blob_Interval_Struct, BasicRay, TRANSFORM, Vector3d, MInvTransDirection(), MInvTransNormal(), MInvTransPoint(), MInvTransRay() (+95 more)
 
 ### Community 368 - "rtw_image"
 Cohesion: 0.14
@@ -2462,7 +2458,7 @@ Nodes (9): stbi_loadf(), string, rtw_image, bdata, bytes_per_pixel, bytes_per_sc
 
 ### Community 369 - "PILDriver"
 Cohesion: 0.12
-Nodes (9): PILDriver, object, usage: swap Swap the top-of-stack item with the next one down., usage: blend <image:pic1> <image:pic2> <float:alpha> Replace two images and an…, usage: copy <image:pic1> Make and push a true copy of the top image., usage: show <image:pic1> Display and pop the top image., usage: size <image:pic1> Push the image size on the stack as (y, x)., usage: verbose <int:num> Set verbosity flag from top of stack. (+1 more)
+Nodes (9): PILDriver, object, usage: swap Swap the top-of-stack item with the next one down., usage: copy <image:pic1> Make and push a true copy of the top image., usage: extrema Push minimum and maximum pixel values of the top image., usage: save <string:filename> <image:pic1> Save image with default options., usage: show <image:pic1> Display and pop the top image., usage: size <image:pic1> Push the image size on the stack as (y, x). (+1 more)
 
 ### Community 370 - ".refresh"
 Cohesion: 0.06
@@ -2521,24 +2517,24 @@ Cohesion: 0.16
 Nodes (31): stbi__huffman, stbi_inline, stbi__int16, stbi__jpeg, load_jpeg_image(), stbi__bitreverse16(), stbi__build_fast_ac(), stbi__build_huffman() (+23 more)
 
 ### Community 384 - ".redraw"
-Cohesion: 0.07
-Nodes (24): fmt(), gsegs(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Which of e's groups 'whole group' works on: the one named in the Group box,…, e plus its group mates (e first) when group mode is on, else just e., Selected entries in pick order, each grown to its whole group (group mode), no… (+16 more)
+Cohesion: 0.08
+Nodes (23): fmt(), gsegs(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Which of e's groups 'whole group' works on: the one named in the Group box,…, e plus its group mates (e first) when group mode is on, else just e., Selected entries in pick order, each grown to its whole group (group mode), no… (+15 more)
 
 ### Community 385 - "sweep_tube_webgl.js"
 Cohesion: 0.24
 Nodes (20): buildSweepPathSamples(), buildSweepTubeGpuMesh(), collectCorridorSweepChunks(), collectDistanceSweepChunks(), collectSweepChainFrom(), emitSweepFillet(), emitSweepStraight(), planSweepFillet() (+12 more)
 
-### Community 386 - "frame.h"
-Cohesion: 0.06
-Nodes (40): Octree, BoundingTask::BoundingTask(), shared_ptr, BackendSceneData, POVMSAddress, SceneId, ViewId, MessageFactory::MessageFactory() (+32 more)
+### Community 386 - "string"
+Cohesion: 0.07
+Nodes (26): thread, View, condition, Exception, list, string, intrusive_ptr, format (+18 more)
 
 ### Community 387 - "sphere"
 Cohesion: 0.17
 Nodes (14): aabb, hit_record, hittable, interval, material, point3, ray, shared_ptr (+6 more)
 
 ### Community 388 - "._xyz"
-Cohesion: 0.03
-Nodes (17): Circle3d, cross(), Cylinder3d, Bottom ring = 0..N-1, top ring = N..2N-1 (top i sits above bottom i). When…, Circle stored as real Point3d objects so inherited move/rot/scale work. _cent,…, Circle base plus a stored _top point (center + normal * height)., Cone with its point cut off flat (a frustum). Cylinder base plus a stored…, Outward unit normal of the slanted side, angle radians round from the edge… (+9 more)
+Cohesion: 0.04
+Nodes (15): Circle3d, Cone3d, cross(), Cylinder3d, Bottom ring = 0..N-1, top ring = N..2N-1 (top i sits above bottom i). When…, Circle stored as real Point3d objects so inherited move/rot/scale work. _cent,…, Circle base plus a stored _top point (center + normal * height)., Circle base plus a stored _top apex point (center + normal * height). (+7 more)
 
 ### Community 389 - "Hashable"
 Cohesion: 0.15
@@ -2556,9 +2552,9 @@ Nodes (27): apply_options(), bouncing_spheres(), camera_options, debug, format, 
 Cohesion: 0.18
 Nodes (16): backtest(), fetch_ohlcv_ccxt(), generate_signals(), print_stats(), DataFrame, Series, VDMR — Velocity-Deceleration Mean Reversion…, Minimal event-driven backtest. Returns (trades, equity_curve). commission_pct… (+8 more)
 
-### Community 393 - "stbi_uc"
-Cohesion: 0.10
-Nodes (42): stbi__png, stbi__pngchunk, stbi_uc, stbi__uint32, resample_row_1(), stbi__at_eof(), stbi__compute_transparency(), stbi__compute_y() (+34 more)
+### Community 393 - "stbi__malloc"
+Cohesion: 0.16
+Nodes (25): stbi__png, stbi__pngchunk, stbi__uint32, stbi__compute_transparency(), stbi__convert_format(), stbi__create_png_image(), stbi__create_png_image_raw(), stbi__de_iphone() (+17 more)
 
 ### Community 394 - "interval"
 Cohesion: 0.14
@@ -2580,9 +2576,9 @@ Nodes (6): interval, empty, max, min, universe, operator+()
 Cohesion: 0.18
 Nodes (11): aabb, hit_record, hittable, interval, point3, ray, shared_ptr, vec3 (+3 more)
 
-### Community 399 - "GrayImage"
+### Community 399 - "NonlinearGrayImage"
 Cohesion: 0.04
-Nodes (4): BitMapImage, pixels, GrayImage, pixels
+Nodes (6): BitMapImage, pixels, NonlinearGrayImage, gamma, gammaLUT, pixels
 
 ### Community 400 - "stbi__err"
 Cohesion: 0.32
@@ -2597,8 +2593,8 @@ Cohesion: 0.32
 Nodes (17): stbi__zbuf, stbi__zhuffman, stbi__bit_reverse(), stbi__compute_huffman_codes(), stbi__err(), stbi__fill_bits(), stbi__init_zdefaults(), stbi__parse_huffman_block() (+9 more)
 
 ### Community 403 - "Point3d"
-Cohesion: 0.07
-Nodes (14): Point3d, normal: optional facing direction (3 numbers); None picks one perpendicular to…, :param center_point: Point3d representing the center of the torus hole :param…, Generates a chained list of pre-initialized Cylinder3d objects approximating…, Store and manipulate a 3d X,Y,Z coordinate methods: get_x, get_y, get_z return…, Rotate in place about X through pivot (default: world origin). pivot accepts…, Rotate in place about Y through pivot; see xrot for pivot options., Rotate in place about Z through pivot; see xrot for pivot options. (+6 more)
+Cohesion: 0.04
+Nodes (19): Line3d, Point3d, Store and manipulate a 3d line segment methods: get_start, get_end return start…, Store and manipulate a 3d vector methods: get_direction returns direction of…, normal: optional facing direction (3 numbers); None picks one perpendicular to…, :param center_point: Point3d representing the center of the torus hole :param…, Generates a chained list of pre-initialized Cylinder3d objects approximating…, Extrude a closed rectangular face with four ordered boundary edges. (+11 more)
 
 ### Community 404 - ".collect"
 Cohesion: 0.10
@@ -2610,7 +2606,7 @@ Nodes (13): constant_medium, boundary, neg_inv_density, phase_function, aabb, co
 
 ### Community 406 - ".push"
 Cohesion: 0.12
-Nodes (8): usage: filter <string:filtername> <image:pic1> Process the top image with the…, usage: resize <int:xsize> <int:ysize> <image:pic1> Resize the top image., usage: invert <image:pic1> Invert the top image., usage: multiply <image:pic1> <image:pic2> Pop the two top images, push the…, usage: add <image:pic1> <image:pic2> <int:offset> <float:scale> Pop the two top…, usage: sharpness <image:pic1> Enhance sharpness in the top image., Push an argument onto the evaluation stack., usage: dup Duplicate the top-of-stack item.
+Nodes (8): usage: blend <image:pic1> <image:pic2> <float:alpha> Replace two images and an…, usage: filter <string:filtername> <image:pic1> Process the top image with the…, usage: resize <int:xsize> <int:ysize> <image:pic1> Resize the top image., usage: invert <image:pic1> Invert the top image., usage: multiply <image:pic1> <image:pic2> Pop the two top images, push the…, usage: sharpness <image:pic1> Enhance sharpness in the top image., Push an argument onto the evaluation stack., usage: dup Duplicate the top-of-stack item.
 
 ### Community 407 - ".collect"
 Cohesion: 0.12
@@ -2656,9 +2652,9 @@ Nodes (5): data_oriented, main(), func, kernel, SolarSystem
 Cohesion: 0.07
 Nodes (6): dt(), $e(), Ke(), Qe(), tn, ut()
 
-### Community 418 - "Vector3d"
-Cohesion: 0.03
-Nodes (24): Cube3d, _Geometry3d, Line3d, ObjGroup3d, OpOverloaded, Store and manipulate a 3d line segment methods: get_start, get_end return start…, Store and manipulate a 3d vector methods: get_direction returns direction of…, Six rectangular boundary faces of a cube or rectangular box. (+16 more)
+### Community 418 - "_Geometry3d"
+Cohesion: 0.04
+Nodes (18): Cube3d, _Geometry3d, ObjGroup3d, OpOverloaded, Six rectangular boundary faces of a cube or rectangular box., Rotate in place about X through pivot (default: world origin). pivot accepts…, Rotate in place about Y through pivot; see xrot for pivot options., Rotate in place about Z through pivot; see xrot for pivot options. (+10 more)
 
 ### Community 419 - ".refresh"
 Cohesion: 0.09
@@ -2670,11 +2666,11 @@ Nodes (5): After any edit: re-sample, redraw both views, remember the shot., Wri
 
 ### Community 422 - ".do_pop"
 Cohesion: 0.12
-Nodes (8): usage: crop <int:left> <int:upper> <int:right> <int:lower> <image:pic1> Crop…, usage: extrema Push minimum and maximum pixel values of the top image., usage: save <string:filename> <image:pic1> Save image with default options., usage: save2 <string:filename> <string:options> <image:pic1> Save image with…, usage: difference <image:pic1> <image:pic2> Pop the two top images, push the…, usage: contrast <image:pic1> Enhance contrast in the top image., usage: brightness <image:pic1> Enhance brightness in the top image., usage: pop Discard the top element on the stack.
+Nodes (8): usage: crop <int:left> <int:upper> <int:right> <int:lower> <image:pic1> Crop…, usage: save2 <string:filename> <string:options> <image:pic1> Save image with…, usage: difference <image:pic1> <image:pic2> Pop the two top images, push the…, usage: add <image:pic1> <image:pic2> <int:offset> <float:scale> Pop the two top…, usage: contrast <image:pic1> Enhance contrast in the top image., usage: brightness <image:pic1> Enhance brightness in the top image., usage: verbose <int:num> Set verbosity flag from top of stack., usage: pop Discard the top element on the stack.
 
-### Community 423 - "vfeCriticalError"
-Cohesion: 0.23
-Nodes (7): runtime_error, string, vfeCriticalError, m_Filename, m_Line, vfeException, vfeInvalidDataError
+### Community 423 - "Wn"
+Cohesion: 0.08
+Nodes (6): ei, ms(), ns(), rt, Wn, yc
 
 ### Community 424 - "Cone"
 Cohesion: 0.10
@@ -2716,9 +2712,9 @@ Nodes (9): CurvedCylinder3d, CurvedTorus3d, A tube bent around a circular arc (a
 Cohesion: 0.24
 Nodes (5): create_demo_image(), ImageConverterTool, Called when a new input file is picked., Automatically updates the output filename extension when format dropdown…, Creates a sample test image if the user doesn't have one ready.
 
-### Community 435 - "scanners/market_scanner.py"
-Cohesion: 0.06
-Nodes (26): get_inverse(), get_leverage_factor(), get_leveraged(), is_leveraged_etf(), map_signal(), ============================================================= INVERSE ETF…, Map a stock signal to its inverse/leveraged ETF equivalent. Returns:…, Get the inverse ETF for a symbol, or None if not mapped. (+18 more)
+### Community 435 - "TechnicalAnalysis"
+Cohesion: 0.05
+Nodes (29): get_inverse(), get_leverage_factor(), get_leveraged(), is_leveraged_etf(), map_signal(), ============================================================= INVERSE ETF…, Map a stock signal to its inverse/leveraged ETF equivalent. Returns:…, Get the inverse ETF for a symbol, or None if not mapped. (+21 more)
 
 ### Community 436 - "Fractal"
 Cohesion: 0.08
@@ -2736,9 +2732,9 @@ Nodes (37): 1. scalp_master.py — CRITICAL f-string crash, 2. bollinger_squeeze
 Cohesion: 0.07
 Nodes (25): fmt(), gsegs(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., The selected director tree item (iid), or None., Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Which of e's groups 'whole group' works on: the one named in the Group box,…, e plus its group mates (e first) when group mode is on, else just e. (+17 more)
 
-### Community 440 - "randomsequence.h"
-Cohesion: 0.17
-Nodes (11): Generator, shared_ptr, Type, IndexedNumberGenerator, MaxIndex, operator[], NumberSequenceFactory<Type>::NumberSequenceFactory(), SeedableNumberGenerator (+3 more)
+### Community 440 - "HybridNumberGenerator"
+Cohesion: 0.09
+Nodes (22): Generator, shared_ptr, Type, HaltonGenerator, base, minval, operator[], scale (+14 more)
 
 ### Community 441 - "ScheduleError"
 Cohesion: 0.40
@@ -2825,8 +2821,8 @@ Cohesion: 0.25
 Nodes (6): containmentSource, context, fs, html, seg, vm
 
 ### Community 492 - "viewer3d_before_lathe.py"
-Cohesion: 0.08
-Nodes (32): _box_basis(), build(), call(), chunks3(), load_scene(), main(), make_cube(), make_square() (+24 more)
+Cohesion: 0.09
+Nodes (30): _box_basis(), build(), call(), chunks3(), load_scene(), main(), make_cube(), make_square() (+22 more)
 
 ### Community 493 - "pov_export_before_sky.py"
 Cohesion: 0.07
@@ -2834,7 +2830,7 @@ Nodes (50): add_light_photons(), bend_pov(), block(), camera_pov(), combine(), d
 
 ### Community 494 - "configcore.h"
 Cohesion: 0.04
-Nodes (72): BSphere_Tree_Struct, C, Entries, Node, r2, BSPHERE_TREE, DBL, Vector3d (+64 more)
+Nodes (69): DATA_T, BSphere_Tree_Struct, C, Entries, Node, r2, BSPHERE_TREE, DBL (+61 more)
 
 ### Community 495 - "test_sentry_horde_style.js"
 Cohesion: 0.25
@@ -2845,8 +2841,8 @@ Cohesion: 0.08
 Nodes (22): fmt(), gsegs(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Camera director's keys, aims and lights as tree rows (while the director is…, Bends that continue off the end of e: move them rigidly so they stay attached…, Cut / overlap tools draw as dashed wire only (the viewer can't carve faces)., Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made… (+14 more)
 
 ### Community 497 - "BicubicPatch"
-Cohesion: 0.10
-Nodes (59): BEZIER_CHILDREN, BEZIER_VERTICES, BEZIER_WEIGHTS, midpoint(), BicubicPatch, accuracy, All_Intersections, bezier_bounding_sphere (+51 more)
+Cohesion: 0.09
+Nodes (61): BEZIER_CHILDREN, BEZIER_VERTICES, BEZIER_WEIGHTS, Matrix3x3, MInvers3(), midpoint(), BicubicPatch, accuracy (+53 more)
 
 ### Community 499 - "ProcessOptions"
 Cohesion: 0.10
@@ -2861,8 +2857,8 @@ Cohesion: 0.05
 Nodes (71): PRISM_SPLINE, PRISM_SPLINE_ENTRY, buildsturm(), DBL, difficult_coeffs(), modp(), numchanges(), polyeval() (+63 more)
 
 ### Community 502 - "SphereSweep"
-Cohesion: 0.07
-Nodes (50): BasicRay, DBL, Intersection, SPHSWEEP_SEG, SPHSWEEP_SPH, TraceThreadData, TRANSFORM, Vector3d (+42 more)
+Cohesion: 0.06
+Nodes (53): BasicRay, DBL, Intersection, IStack, Ray, SPHSWEEP_SEG, SPHSWEEP_SPH, TraceThreadData (+45 more)
 
 ### Community 503 - "UnixOptionsProcessor"
 Cohesion: 0.08
@@ -2897,8 +2893,8 @@ Cohesion: 0.07
 Nodes (47): GenericMessage, MessageBase, vfeSession::RenderStopped(), vfeSession::StartRender(), Display, format, MessageType, shared_ptr (+39 more)
 
 ### Community 511 - "fmt"
-Cohesion: 0.07
-Nodes (22): fmt(), gsegs(), Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Which of e's groups 'whole group' works on: the one named in the Group box,…, e plus its group mates (e first) when group mode is on, else just e., Selected entries in pick order, each grown to its whole group (group mode), no…, Remember the order objects were clicked: Align moves the later ones to the…, Middle of the box around the members' centers (one object: its own center). (+14 more)
+Cohesion: 0.06
+Nodes (26): entry_center(), fmt(), gsegs(), Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Which of e's groups 'whole group' works on: the one named in the Group box,…, e plus its group mates (e first) when group mode is on, else just e., Selected entries in pick order, each grown to its whole group (group mode), no…, Remember the order objects were clicked: Align moves the later ones to the… (+18 more)
 
 ### Community 512 - "Lc"
 Cohesion: 0.09
@@ -2906,7 +2902,7 @@ Nodes (3): getInput(), getOutput(), Lc
 
 ### Community 513 - "Parametric"
 Cohesion: 0.07
-Nodes (46): DBL, GenericScalarFunctionInstance, Intersection, PRECOMP_PAR_DATA, TraceThreadData, TRANSFORM, Vector2d, Vector3d (+38 more)
+Nodes (49): DBL, GenericScalarFunctionInstance, Intersection, IStack, PRECOMP_PAR_DATA, Ray, TraceThreadData, TRANSFORM (+41 more)
 
 ### Community 514 - "test_prune_disconnected_segments.js"
 Cohesion: 0.25
@@ -2941,8 +2937,8 @@ Cohesion: 0.07
 Nodes (20): Display, Path, ShelloutProcessing, string, UCS2String, IOPath, m_Path, m_Recursive (+12 more)
 
 ### Community 522 - "radiosity.cpp"
-Cohesion: 0.09
-Nodes (30): CooperateFunctor, DBL, MathColour, shared_ptr, TraceThreadData, TraceTicket, Vector3d, FindReusableBlock (+22 more)
+Cohesion: 0.12
+Nodes (24): ot_block_struct, ot_node_struct, CooperateFunctor, DBL, MathColour, shared_ptr, TraceThreadData, TraceTicket (+16 more)
 
 ### Community 523 - "jpeg.cpp"
 Cohesion: 0.05
@@ -2973,8 +2969,8 @@ Cohesion: 0.16
 Nodes (7): Draw the real scene on another canvas through a director camera. view: {"eye",…, Distance in front of the camera (same math as project())., Clip a 3D polygon to the part in front of the camera., (depth, flat screen coords) of a 3D polygon cut at the near plane, or None if…, True when a shape lies wholly past one canvas edge (no point making a Tk item)., (depth, x0, y0, x1, y1) of a 3D segment cut at the near plane, or None., Clip a 2D polygon to the canvas (+margin) so huge coords never reach Tk.
 
 ### Community 531 - "Entry"
-Cohesion: 0.07
-Nodes (19): add_nums(), Entry, num(), _pivot_fields(), Number -> short CSV text., One click: drop a dispersive glass prism + a bright narrow white spotlight…, One Properties window; it follows the tree selection while open., (Re)build the fields from the selected object's current geometry. (+11 more)
+Cohesion: 0.09
+Nodes (14): add_nums(), Entry, One click: drop a dispersive glass prism + a bright narrow white spotlight…, One Properties window; it follows the tree selection while open., (Re)build the fields from the selected object's current geometry., Lathe tool: edits the selected lathe, or makes a new one., Select the tree row of the object under the cursor (Shift/Ctrl adds to the…, Read an STL/OBJ off disk, copy it into the meshes/ folder, and return a new… (+6 more)
 
 ### Community 532 - "MovieMakerStudio"
 Cohesion: 0.19
@@ -3005,11 +3001,11 @@ Cohesion: 0.11
 Nodes (7): matmul(self, other) is equivalent to self @ other, Return either the raw computed value or wrapped in the caller's class., lshift(self, other) is equivalent to self << other, rshift(self, other) is equivalent to self >> other, and_(self, other) is equivalent to self & other, xor(self, other) is equivalent to self ^ other, or_(self, other) is equivalent to self | other
 
 ### Community 539 - "povmain.cpp"
-Cohesion: 0.05
-Nodes (35): ProcessOptions, Console, Initialise, lineoutput, Output, TextStreamBuffer, RGBA8, Display (+27 more)
+Cohesion: 0.06
+Nodes (23): ProcessOptions, Console, Initialise, lineoutput, Output, TextStreamBuffer, Path, SceneData (+15 more)
 
 ### Community 540 - "CurvedCylinder3d"
-Cohesion: 0.04
+Cohesion: 0.05
 Nodes (9): CurvedCylinder3d, CurvedTorus3d, A tube bent around a circular arc (a slice of a torus) - the "banana". Stored…, Unit vector from the bend center toward the spine at fraction t (0..1)., Unit direction the tube is heading at fraction t (0..1)., Point3d on the tube's center line at fraction t (0..1)., Point3d on the tube surface: t along the bend (0..1), phi around the tube…, New CurvedCylinder3d that continues smoothly from this one's end. angle how far… (+1 more)
 
 ### Community 541 - "ShelloutProcessing"
@@ -3033,8 +3029,8 @@ Cohesion: 0.12
 Nodes (33): BasicRay, BBoxDirection, BBoxScalar, BBoxVector3d, DBL, Intersection, IStack, Ray (+25 more)
 
 ### Community 546 - "fnpovfpu.cpp"
-Cohesion: 0.10
-Nodes (37): DBL, FPUContext, FUNCTION, FUNCTION_PTR, FunctionVM, GenericFunctionContextPtr, GenericScalarFunctionPtr, TraceThreadData (+29 more)
+Cohesion: 0.06
+Nodes (55): FNCODE_PRIVATE_COPY_METHOD, FNCODE_PRIVATE_DESTROY_METHOD, FNCode::FNCode(), DBL, FPUContext, FUNCTION, FUNCTION_PTR, FunctionVM (+47 more)
 
 ### Community 547 - "VTMRStrategy"
 Cohesion: 0.33
@@ -3056,17 +3052,17 @@ Nodes (42): Node, operator(), BSPTree, baseAccessCost, bmax, bmin, build, BuildR
 Cohesion: 0.16
 Nodes (4): Return a new origin-anchored unit Vector3d; reject a zero direction., unit_vector(), box(), GeometryTests
 
-### Community 552 - "MInvTransPoint"
-Cohesion: 0.03
-Nodes (124): BasicRay, TRANSFORM, Vector3d, MInvTransDirection(), MInvTransNormal(), MInvTransPoint(), MInvTransRay(), MTransDirection() (+116 more)
+### Community 552 - "Sor"
+Cohesion: 0.07
+Nodes (45): BCyl_Struct, BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM (+37 more)
 
 ### Community 553 - "test_kraken_scanner_partial.py"
 Cohesion: 0.12
 Nodes (20): PartialCloseOutcome, Confirmed result returned to the scanner partial-close coordinator., FakeBrokerManager, FakeExchange, FakeRiskManager, make_database(), make_kraken(), make_trade_executor() (+12 more)
 
 ### Community 554 - "coretypes.h"
-Cohesion: 0.05
-Nodes (40): BasicPattern, Finish_Struct, Fractal, GenericFunctionContext, GenericFunctionContextFactory, CreateFunctionContext, mRefCounter, ConstObjectPtr (+32 more)
+Cohesion: 0.04
+Nodes (45): BasicPattern, Finish_Struct, Fractal, GenericFunctionContext, GenericFunctionContextFactory, CreateFunctionContext, mRefCounter, ConstObjectPtr (+37 more)
 
 ### Community 555 - "Finish_Struct"
 Cohesion: 0.06
@@ -3113,8 +3109,8 @@ Cohesion: 0.08
 Nodes (50): Search, ColourBlendMap, ColourBlendMap::ColourBlendMap(), Compute, ComputeAverage, ComputeUVMapped, Post, Compute_Pigment() (+42 more)
 
 ### Community 566 - "Polygon"
-Cohesion: 0.11
-Nodes (31): POLYGON_DATA, BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM (+23 more)
+Cohesion: 0.15
+Nodes (26): POLYGON_DATA, BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM (+18 more)
 
 ### Community 567 - ".refresh"
 Cohesion: 0.06
@@ -3133,8 +3129,8 @@ Cohesion: 0.05
 Nodes (44): Camera, Angle, Aperture, Blur_Samples, Blur_Samples_Min, Bokeh, Camera::Camera(), Confidence (+36 more)
 
 ### Community 571 - "randomsequence.cpp"
-Cohesion: 0.04
-Nodes (48): IndexedDoubleGeneratorPtr, ParameterStruct, RadiosityFunction::SampleDirectionGenerator::Reset(), CosWeighted3dOnHemisphere(), DBL, SequentialDoubleGeneratorPtr, SequentialVectorGeneratorPtr, Vector2d (+40 more)
+Cohesion: 0.05
+Nodes (37): IndexedDoubleGeneratorPtr, ParameterStruct, RadiosityFunction::SampleDirectionGenerator::Reset(), DBL, SequentialVectorGeneratorPtr, GetIndexedRandomDoubleGenerator(), GetRandomIntGenerator(), GetSubRandomCosWeightedDirectionGenerator() (+29 more)
 
 ### Community 572 - "BasicPattern"
 Cohesion: 0.06
@@ -3189,8 +3185,8 @@ Cohesion: 0.09
 Nodes (23): OPENEXR_INT64, pixel_type, BlockCommitted(), POV_OFF_T, size_type, UCS2String, FileBackedPixelContainer, m_Blocksize (+15 more)
 
 ### Community 585 - "Point3d"
-Cohesion: 0.08
-Nodes (9): Point3d, normal: optional facing direction (3 numbers); None picks one perpendicular to…, :param center_point: Point3d representing the center of the torus hole :param…, Generates a chained list of pre-initialized Cylinder3d objects approximating…, Store and manipulate a 3d X,Y,Z coordinate methods: get_x, get_y, get_z return…, Defines a generic regular N-sided 3D Prism. :param center_point: Point3d…, Squared radius (center to edge vertex)., ray_color() (+1 more)
+Cohesion: 0.07
+Nodes (8): Line3d, Point3d, Store and manipulate a 3d line segment methods: get_start, get_end return start…, Generates a chained list of pre-initialized Cylinder3d objects approximating…, Store and manipulate a 3d X,Y,Z coordinate methods: get_x, get_y, get_z return…, Squared radius (center to edge vertex)., ray_color(), write_color()
 
 ### Community 586 - "RadiosityFunction"
 Cohesion: 0.07
@@ -3207,10 +3203,6 @@ Nodes (9): ac, Al, el, fl, go, sc, tc, ts() (+1 more)
 ### Community 589 - "Intersection"
 Cohesion: 0.09
 Nodes (23): BasicRay, Direction, Origin, DBL, ObjectPtr, Vector2d, Vector3d, Intersection (+15 more)
-
-### Community 590 - ".fill_light"
-Cohesion: 0.15
-Nodes (3): default_shot(), Load a scene's camera work back in. Called by the viewer when a scene opens., An arc sweeping round the front of whatever the viewer is looking at.
 
 ### Community 591 - "Disc"
 Cohesion: 0.12
@@ -3229,8 +3221,8 @@ Cohesion: 0.19
 Nodes (24): configure script, ac_fn_c_check_func(), ac_fn_c_check_header_compile(), ac_fn_c_check_header_mongrel(), ac_fn_c_find_intX_t(), ac_fn_c_try_compile(), ac_fn_c_try_cpp(), ac_fn_c_try_link() (+16 more)
 
 ### Community 595 - "Vector3d"
-Cohesion: 0.05
-Nodes (16): cross(), dot(), Hit_Record, hit_sphere(), Line3d, Store and manipulate a 3d line segment methods: get_start, get_end return start…, Store and manipulate a 3d vector methods: get_direction returns direction of…, Extrude a closed rectangular face with four ordered boundary edges. (+8 more)
+Cohesion: 0.06
+Nodes (17): cross(), dot(), Hit_Record, hit_sphere(), Store and manipulate a 3d vector methods: get_direction returns direction of…, normal: optional facing direction (3 numbers); None picks one perpendicular to…, :param center_point: Point3d representing the center of the torus hole :param…, Extrude a closed rectangular face with four ordered boundary edges. (+9 more)
 
 ### Community 596 - "Path"
 Cohesion: 0.15
@@ -3265,8 +3257,8 @@ Cohesion: 0.02
 Nodes (119): Any, Exception, Frame, Toplevel, Widget, QuickApp, Main QuickApp and BaseTool class definitions for QuickTk. Handles application…, Helper to create an ImagePanel for displaying scaled image previews. (+111 more)
 
 ### Community 604 - "GenericCustomFunction"
-Cohesion: 0.13
-Nodes (19): ARG_T, RETURN_T, Evaluate(), GenericCustomFunction, AcquireContext, Clone, Execute, InitArguments (+11 more)
+Cohesion: 0.08
+Nodes (27): ARG_T, RETURN_T, Evaluate(), GenericCustomFunction, AcquireContext, Clone, Execute, InitArguments (+19 more)
 
 ### Community 605 - "Scheduler"
 Cohesion: 0.13
@@ -3330,7 +3322,7 @@ Nodes (22): DBL, MathColour, OT_BLOCK, OT_ID, OT_NODE, IStream, OStream, ot_id_s
 
 ### Community 621 - "Mesh"
 Cohesion: 0.09
-Nodes (64): Matrix3x3, MESH_DATA, MInvers3(), Mesh_Index, BasicRay, DBL, HASH_TABLE, Intersection (+56 more)
+Nodes (62): MESH_DATA, Mesh_Index, BasicRay, DBL, HASH_TABLE, Intersection, IStack, MESH_TRIANGLE (+54 more)
 
 ### Community 622 - "ray_tracer9_spatial.py"
 Cohesion: 0.16
@@ -3353,8 +3345,8 @@ Cohesion: 0.11
 Nodes (12): _Geometry3d, Rotate in place about X through pivot (default: world origin). pivot accepts…, Rotate in place about Y through pivot; see xrot for pivot options., Rotate in place about Z through pivot; see xrot for pivot options., Common in-place transforms for shapes made from Point3d objects., Return the current midpoint or geometric center., Rotate about world X through pivot; radians, in place, returns self. pivot=None…, Rotate about world Y through pivot; see xrot for pivot options. (+4 more)
 
 ### Community 627 - "Point3d"
-Cohesion: 0.08
-Nodes (8): Hit_Record, hit_sphere(), Point3d, Generates a chained list of pre-initialized Cylinder3d objects approximating…, Store and manipulate a 3d X,Y,Z coordinate methods: get_x, get_y, get_z return…, Helper method to extract the base radius, single side length, and base area., ray_color(), write_color()
+Cohesion: 0.07
+Nodes (9): Hit_Record, hit_sphere(), Point3d, Generates a chained list of pre-initialized Cylinder3d objects approximating…, Store and manipulate a 3d X,Y,Z coordinate methods: get_x, get_y, get_z return…, Helper method to extract the base radius, single side length, and base area., Calculates and generates the vertex array and index mapping for rendering., ray_color() (+1 more)
 
 ### Community 628 - "._schedule_next_run"
 Cohesion: 0.18
@@ -3419,10 +3411,6 @@ Nodes (18): App, main(), Camera director's keys, aims and lights as tree rows (w
 ### Community 643 - "GenericTransColour"
 Cohesion: 0.14
 Nodes (6): GenericTransColour, mColour, mFilter, mTransm, ColourChannel, T2
-
-### Community 644 - "jc"
-Cohesion: 0.06
-Nodes (5): bind(), getValue(), jc, setValue(), vc
 
 ### Community 645 - "RunLedger"
 Cohesion: 0.07
@@ -3493,8 +3481,8 @@ Cohesion: 0.01
 Nodes (348): add_nums(), App, bbox(), _bend_samples(), bool_need(), bool_scene(), _box_basis(), call() (+340 more)
 
 ### Community 662 - "TradeSignal"
-Cohesion: 0.02
-Nodes (106): make(), Hammer Reversal audit — baseline + filter relaxation sweep Run: python…, make_fels_short(), Short-Timeframe Mean Reversion Audit -- FELS & CBAE…, adaptive_regime.py — Strategy 12: Adaptive Regime (Trend-Long Stock Edition)…, BaseStrategy, _injected_symbols(), _normalise_whitelist() (+98 more)
+Cohesion: 0.03
+Nodes (101): make(), Hammer Reversal audit — baseline + filter relaxation sweep Run: python…, make_fels_short(), Short-Timeframe Mean Reversion Audit -- FELS & CBAE…, adaptive_regime.py — Strategy 12: Adaptive Regime (Trend-Long Stock Edition)…, BaseStrategy, _injected_symbols(), _normalise_whitelist() (+93 more)
 
 ### Community 663 - "RuntimeError"
 Cohesion: 0.07
@@ -3516,9 +3504,9 @@ Nodes (14): string, UCS2String, GetPT(), ProcessOptions::INI_Parser_Table, Proce
 Cohesion: 0.19
 Nodes (12): _atr(), generate_signals(), DataFrame, Series, RSI Dip Simple ============== Classification : INCUBATE Source : Pine Script…, Naked RSI(7) dip entry — no trend/ADX filter. Long only. Exit: RSI crosses…, Pre-compute RSI + ATR signals on the FULL df before the bar loop. Called once…, O(1) signal lookup — replaces per-bar analyze() call inside _simulate. Uses… (+4 more)
 
-### Community 668 - "._paint"
-Cohesion: 0.18
-Nodes (5): Draw the real scene on another canvas through a director camera. view: {"eye",…, Distance in front of the camera (same math as project())., Clip a 3D polygon to the part in front of the camera., True when a shape lies wholly past one canvas edge (no point making a Tk item)., (depth, x0, y0, x1, y1) of a 3D segment cut at the near plane, or None.
+### Community 668 - "fmt"
+Cohesion: 0.13
+Nodes (8): fmt(), Stand at Eye looking at Look at with that FOV., Selected director camera key = Eye / Look at / FOV boxes., Draw the real scene on another canvas through a director camera. view: {"eye",…, Distance in front of the camera (same math as project())., Clip a 3D polygon to the part in front of the camera., True when a shape lies wholly past one canvas edge (no point making a Tk item)., (depth, x0, y0, x1, y1) of a 3D segment cut at the near plane, or None.
 
 ### Community 669 - "Current Queue"
 Cohesion: 0.09
@@ -3561,8 +3549,8 @@ Cohesion: 0.17
 Nodes (19): futures_product_root(), Shared, explicit futures-fee calculation for the EAT and EMT mirrors., Return the configured root for a Tradovate contract or root symbol. Examples:…, Return the published all-in entry plus exit fee for filled contracts., tradovate_round_trip_fee(), Row, apply_plan(), backup_path() (+11 more)
 
 ### Community 679 - "App"
-Cohesion: 0.08
-Nodes (10): App, Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Camera director's keys, aims and lights as tree rows (while the director is…, Bends that continue off the end of e: move them rigidly so they stay attached…, Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, World-space forward (view dir), level forward, and right vectors., Two-finger trackpad scroll (Tk 9): vertical swipe zooms. (+2 more)
+Cohesion: 0.07
+Nodes (10): App, Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Camera director's keys, aims and lights as tree rows (while the director is…, Bends that continue off the end of e: move them rigidly so they stay attached…, Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Run path as __main__, capture prints, record transforms, harvest objects., World-space forward (view dir), level forward, and right vectors. (+2 more)
 
 ### Community 680 - ".do_GET"
 Cohesion: 0.09
@@ -3664,9 +3652,9 @@ Nodes (6): Boxes = where the 3D view is (or the selected director camera key)., 
 Cohesion: 0.15
 Nodes (9): OpOverloaded, truediv(self, other) is equivalent to self / other,, __truediv__(self, other) is equivalent to self / other,, comcat(self, other) is equivalent to str(self) + str(other),, __concat__(self, other) is equivalent to str(self) + str(other),, Mirror Python's operators as named methods and dunder overloads., lt(a, b) is equivalent to a < b,, __lt__(self, other) is equivalent to self < other, (+1 more)
 
-### Community 706 - "FunctionCode"
-Cohesion: 0.07
-Nodes (26): FNCODE_PRIVATE_COPY_METHOD, FNCODE_PRIVATE_DESTROY_METHOD, FilePos, UCS2, SourceInfo, col, filename, filepos (+18 more)
+### Community 706 - "PhotonShootingTask"
+Cohesion: 0.08
+Nodes (30): DBL, LightSource, PhotonMap, PhotonShootingStrategy, Ray, ViewData, CooperateFunction, DBL (+22 more)
 
 ### Community 707 - ".refresh"
 Cohesion: 0.09
@@ -3689,8 +3677,8 @@ Cohesion: 0.22
 Nodes (9): FWord, KernData_struct, left, right, value, longHorMertric, advanceWidth, lsb (+1 more)
 
 ### Community 713 - ".run_script"
-Cohesion: 0.29
-Nodes (3): cube_faces(), Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…
+Cohesion: 0.11
+Nodes (7): cube_faces(), pivot_point(), Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…, Generator: apply tf in small steps via the library, one frame per step., World position of the pivot a transform turns around., tf_text()
 
 ### Community 714 - ".get_name"
 Cohesion: 0.14
@@ -3720,9 +3708,9 @@ Nodes (55): ISO_ThreadData, IsosurfaceMaxTrace, DBL, GenericMessenger, GenericSc
 Cohesion: 0.11
 Nodes (7): matmul(self, other) is equivalent to self @ other, lshift(self, other) is equivalent to self << other, Return either the raw computed value or wrapped in the caller's class., rshift(self, other) is equivalent to self >> other, and_(self, other) is equivalent to self & other, xor(self, other) is equivalent to self ^ other, or_(self, other) is equivalent to self | other
 
-### Community 721 - "_Geometry3d"
-Cohesion: 0.06
-Nodes (16): _Geometry3d, ObjGroup3d, OpOverloaded, Rotate in place about X through pivot (default: world origin). pivot accepts…, Rotate in place about Y through pivot; see xrot for pivot options., Rotate in place about Z through pivot; see xrot for pivot options., Common in-place transforms for shapes made from Point3d objects., Return the Point3d instances that make up this geometry. (+8 more)
+### Community 721 - "Cube3d"
+Cohesion: 0.05
+Nodes (18): Cube3d, _Geometry3d, ObjGroup3d, OpOverloaded, Six rectangular boundary faces of a cube or rectangular box., Rotate in place about X through pivot (default: world origin). pivot accepts…, Rotate in place about Y through pivot; see xrot for pivot options., Rotate in place about Z through pivot; see xrot for pivot options. (+10 more)
 
 ### Community 722 - "RCRMeanReversionStrategy"
 Cohesion: 0.21
@@ -3732,9 +3720,9 @@ Nodes (10): _atr(), generate_signals(), DataFrame, Series, RCR Mean Reversion ==
 Cohesion: 0.23
 Nodes (8): assert, f1, f2, fs, normalize(), runTestSuite(), scaleVec(), subVec()
 
-### Community 724 - ".refresh"
-Cohesion: 0.18
-Nodes (4): Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, Move every object except planes by the Move-by numbers (lift the scene off the…
+### Community 724 - "Sphere"
+Cohesion: 0.11
+Nodes (30): BasicRay, BBoxDirection, BBoxScalar, BBoxVector3d, DBL, Intersection, IStack, Ray (+22 more)
 
 ### Community 726 - ".render_pov"
 Cohesion: 0.10
@@ -3749,8 +3737,8 @@ Cohesion: 0.40
 Nodes (5): hit_sphere(), func, kernel, Calculates if a ray intersects the sphere. Returns distance t (-1.0 if miss)., render()
 
 ### Community 729 - ".dir_item"
-Cohesion: 0.14
-Nodes (6): The selected director tree item (iid), or None., Animate tf on entry e (and its group), then store it under each object and…, After a panel edit of a director item: refresh Center-to and report., Boxes = where the 3D view is (or the selected director camera key)., Rotate a director item's points (same right-hand rule as the library's…, The Rotate panel's turn (type, pivot, axis) by deg; raises ValueError /…
+Cohesion: 0.13
+Nodes (7): The selected director tree item (iid), or None., Animate tf on entry e (and its group), then store it under each object and…, After a panel edit of a director item: refresh Center-to and report., Boxes = where the 3D view is (or the selected director camera key)., Selected director camera key = Eye / Look at / FOV boxes., Rotate a director item's points (same right-hand rule as the library's…, The Rotate panel's turn (type, pivot, axis) by deg; raises ValueError /…
 
 ### Community 730 - "Entry"
 Cohesion: 0.21
@@ -3794,7 +3782,7 @@ Nodes (8): Build a report graphically, Check future edits, Dates, fields, switch
 
 ### Community 741 - "Polyhedron3d"
 Cohesion: 0.04
-Nodes (15): Polyhedron3d, Shared base for solids with flat faces (octahedron, dodecahedron, ...). Every…, Find every face plane of the convex solid; corners listed counter-clockwise…, Copies of the corner points (get_faces() indexes into this list)., Each face as a tuple of corner indexes, counter-clockwise seen from outside., Each edge once, as a (corner index, corner index) pair., Resize about the center so every edge is new_len long., Circumradius: center to a corner. (+7 more)
+Nodes (16): Polyhedron3d, Accept six faces, one square, or one rectangular face plus height. Cube3d(base)…, Shared base for solids with flat faces (octahedron, dodecahedron, ...). Every…, Find every face plane of the convex solid; corners listed counter-clockwise…, Copies of the corner points (get_faces() indexes into this list)., Each face as a tuple of corner indexes, counter-clockwise seen from outside., Each edge once, as a (corner index, corner index) pair., Resize about the center so every edge is new_len long. (+8 more)
 
 ### Community 742 - "viewer3d_before_undo.py"
 Cohesion: 0.08
@@ -3880,9 +3868,9 @@ Nodes (13): build_hdr_list(), connect(), get_closed_trades(), main(), print_col_
 Cohesion: 0.14
 Nodes (5): New position = fn(old) for every point of the item; one Undo step., Put that camera key (eye + aim) where the main 3D view is looking from / at., Move the grabbed point with the mouse in the 3D view's screen plane (Shift:…, After any edit: re-sample, redraw both views, remember the shot., Write one point and keep neighbouring moves joined (start of i == end of i-1).
 
-### Community 879 - "lightsource.cpp"
-Cohesion: 0.15
-Nodes (22): Attenuate_Light(), DBL, Intersection, IStack, LightSource, ObjectPtr, Ray, TraceThreadData (+14 more)
+### Community 879 - "Ovus"
+Cohesion: 0.11
+Nodes (29): DBL, Intersection, TraceThreadData, TRANSFORM, Vector2d, Vector3d, DBL, ObjectBase (+21 more)
 
 ### Community 880 - "Type"
 Cohesion: 0.09
@@ -3909,19 +3897,19 @@ Cohesion: 0.36
 Nodes (7): assert, distanceSq(), f1, f2, fs, runTestSuite(), testLaserSentryHitQuality()
 
 ### Community 887 - "App"
-Cohesion: 0.09
-Nodes (8): App, fmt(), e plus its group mates (e first) when group mode is on, else just e., Middle of the box around the members' centers (one object: its own center)., Animate tf on entry e (and its group), then store it under each object and save., World-space forward (view dir), level forward, and right vectors., Two-finger trackpad scroll (Tk 9): vertical swipe zooms., tf_text()
+Cohesion: 0.10
+Nodes (10): App, fmt(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Bends that continue off the end of e: move them rigidly so they stay attached…, Rebuild the ObjGroup3d lists from the entries' group tags (objects get re-made…, e plus its group mates (e first) when group mode is on, else just e., Middle of the box around the members' centers (one object: its own center). (+2 more)
 
 ### Community 890 - "._ask"
-Cohesion: 0.10
-Nodes (10): Native menu bar - every toolbar/panel action, grouped. It is the reliable way…, <scene>.views.json beside the active scene - its saved camera snapshots., Snapshot the current 3D camera under a name; it is kept with the scene., Taichi menu: snapshot the PREVIEW's camera (its eye/look came just before this…, Fly the 3D camera back to a saved view., Pick a saved view from a list (used by the Taichi menu)., F1 / ? : help on whatever is selected, or a named topic. The window is reused…, Pick scope / format / scale, then save an STL or OBJ for 3D printing. (+2 more)
+Cohesion: 0.09
+Nodes (11): Native menu bar - every toolbar/panel action, grouped. It is the reliable way…, fn() as a one-step job (runs after the jobs already queued)., <scene>.views.json beside the active scene - its saved camera snapshots., Snapshot the current 3D camera under a name; it is kept with the scene., Taichi menu: snapshot the PREVIEW's camera (its eye/look came just before this…, Fly the 3D camera back to a saved view., Pick a saved view from a list (used by the Taichi menu)., F1 / ? : help on whatever is selected, or a named topic. The window is reused… (+3 more)
 
-### Community 891 - "stbi_uc"
-Cohesion: 0.11
-Nodes (27): stbi_uc, resample_row_1(), stbi__at_eof(), stbi__compute_y(), stbi__copyval(), stbi__float_postprocess(), stbi__hdr_convert(), stbi__hdr_test() (+19 more)
+### Community 891 - "TheRestOfYourLife/external/stb_image.h"
+Cohesion: 0.09
+Nodes (39): stbi_uc, load_jpeg_image(), resample_row_1(), stbi__bitcount(), stbi__bmp_load(), stbi__clamp(), stbi__cleanup_jpeg(), stbi__compute_y() (+31 more)
 
 ### Community 892 - "Director"
-Cohesion: 0.12
+Cohesion: 0.11
 Nodes (10): Director, Put the main 3D view's orbit camera where the director camera is., (iid, label, kind) rows for the main viewer's object tree., Tree picked a director item: show that key pose in the preview and the Moves…, Main 3D view = that camera key (aims: the key they belong to)., Frame index of every key pose: start of move 1, then the end of each move., (move index, camera key, aim key, fov key) that key pose j is stored in., Jump the preview to the key pose nearest the current frame and return its ref. (+2 more)
 
 ### Community 893 - "Line3d"
@@ -4017,8 +4005,8 @@ Cohesion: 0.16
 Nodes (5): Move the grabbed point with the mouse in the 3D view's screen plane (Shift:…, After any edit: re-sample, redraw both views, remember the shot., Write one point and keep neighbouring moves joined (start of i == end of i-1)., New position = fn(old) for every point of the item; one Undo step., Put that camera key (eye + aim) where the main 3D view is looking from / at.
 
 ### Community 923 - "App"
-Cohesion: 0.09
-Nodes (8): App, fmt(), main(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Move every object except planes by the Move-by numbers (lift the scene off the…, Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…
+Cohesion: 0.11
+Nodes (7): App, fmt(), main(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Animate tf on entry e, then store it under the object and save., Move every object except planes by the Move-by numbers (lift the scene off the…
 
 ### Community 924 - "._paint"
 Cohesion: 0.18
@@ -4052,9 +4040,9 @@ Nodes (58): bbox(), _box_basis(), build(), call(), center_of(), chunks3(), entry
 Cohesion: 0.13
 Nodes (19): BlockPool, Path, BlockPool, MathColour, OStream, RadiosityCache, AcquireBlockPool, blockPools (+11 more)
 
-### Community 939 - "jt"
-Cohesion: 0.04
-Nodes (6): bl, dc, jt(), mc(), pc, zl
+### Community 939 - "bl"
+Cohesion: 0.10
+Nodes (4): bl, dc, mc(), pc
 
 ### Community 940 - "Ellipsoid3d"
 Cohesion: 0.07
@@ -4088,9 +4076,9 @@ Nodes (4): cube_faces(), Run path as __main__, capture prints, record transforms
 Cohesion: 0.12
 Nodes (5): Any, add(self, other) is equivalent to self + other, invert(self) is equivalent to ~self, getitem(self, key) is equivalent to self[key], index(self, other) is equivalent to self[other] or self.index(other)
 
-### Community 950 - "PhotonSortingTask"
-Cohesion: 0.06
-Nodes (39): PhotonShootingUnit, LightSource, ObjectPtr, SceneData, shared_ptr, iterator, LightSource, mutex (+31 more)
+### Community 950 - "PhotonShootingStrategy"
+Cohesion: 0.11
+Nodes (19): PhotonShootingUnit, LightSource, ObjectPtr, SceneData, shared_ptr, iterator, mutex, ObjectPtr (+11 more)
 
 ### Community 951 - ".redraw"
 Cohesion: 0.18
@@ -4117,8 +4105,8 @@ Cohesion: 0.17
 Nodes (10): Animal, Bird, Cat, Dog, Eagle, Fish, Mammal, Penguin (+2 more)
 
 ### Community 957 - ".anim_transform"
-Cohesion: 0.14
-Nodes (10): call(), pivot_point(), Generator: apply tf in small steps via the library, one frame per step., Call a library transform. Sphere3d has no _points(), so its center moves., Two-finger trackpad scroll (Tk 9): vertical swipe zooms., Apply frac of a transform through the library's own methods., World position of the pivot a transform turns around., run_tf() (+2 more)
+Cohesion: 0.17
+Nodes (9): call(), pivot_point(), Generator: apply tf in small steps via the library, one frame per step., Call a library transform. Sphere3d has no _points(), so its center moves., Two-finger trackpad scroll (Tk 9): vertical swipe zooms., Apply frac of a transform through the library's own methods., World position of the pivot a transform turns around., run_tf() (+1 more)
 
 ### Community 958 - ".dir_item"
 Cohesion: 0.12
@@ -4136,9 +4124,9 @@ Nodes (13): main(), Manipulate_files, MyFileUtilityTool, Timed, _summary_ mainen
 Cohesion: 0.17
 Nodes (7): Mesh3d, A welded triangle mesh in world coordinates. Implements the class3d transform…, Store the vertices, triangles, name, colors and source file name., Return the border color., Return the fill color., Shift every vertex by (dx, dy, dz) and return self., Scale about the world origin by `factor` and return self.
 
-### Community 962 - "Entry"
-Cohesion: 0.12
-Nodes (12): Entry, num(), _pivot_fields(), Number -> short CSV text., One Properties window; it follows the tree selection while open., (Re)build the fields from the selected object's current geometry., Bends that continue off the end of e: move them rigidly so they stay attached…, A button in the preview's menu. Things that need typing open a Tk box in front. (+4 more)
+### Community 962 - "viewer3d_before_selpanel.py"
+Cohesion: 0.08
+Nodes (39): build(), call(), chunks3(), load_scene(), main(), make_cube(), make_square(), _n12() (+31 more)
 
 ### Community 963 - ".collect"
 Cohesion: 0.13
@@ -4177,8 +4165,8 @@ Cohesion: 0.06
 Nodes (11): App, Camera director's keys, aims and lights as tree rows (while the director is…, One Properties window; it follows the tree selection while open., base_2, base_3... (any _N already on the end is dropped first); claims it in…, Run path as __main__, capture prints, record transforms, harvest objects., Lathe tool: edits the selected lathe, or makes a new one., Select the tree row of the object under the cursor (Shift/Ctrl adds to the…, World-space forward (view dir), level forward, and right vectors. (+3 more)
 
 ### Community 972 - "viewer3d_before_director.py"
-Cohesion: 0.06
-Nodes (52): _box_basis(), build(), center_of(), chunks3(), color_of(), cube_faces(), entry_from_obj(), is_lib_plane() (+44 more)
+Cohesion: 0.07
+Nodes (46): _box_basis(), build(), center_of(), chunks3(), color_of(), cube_faces(), entry_from_obj(), is_lib_plane() (+38 more)
 
 ### Community 973 - "point"
 Cohesion: 0.06
@@ -4197,12 +4185,12 @@ Cohesion: 0.10
 Nodes (29): _box_basis(), build(), call(), chunks3(), load_scene(), main(), make_cube(), make_square() (+21 more)
 
 ### Community 977 - "viewer3d_before_mac.py"
-Cohesion: 0.10
-Nodes (29): _box_basis(), build(), call(), chunks3(), load_scene(), main(), make_cube(), make_square() (+21 more)
+Cohesion: 0.08
+Nodes (32): _box_basis(), build(), call(), chunks3(), cube_faces(), load_scene(), main(), make_cube() (+24 more)
 
 ### Community 978 - ".dir_item"
-Cohesion: 0.18
-Nodes (5): The selected director tree item (iid), or None., Animate tf on entry e (and its group), then store it under each object and…, After a panel edit of a director item: refresh Center-to and report., Rotate a director item's points (same right-hand rule as the library's…, The Rotate panel's turn (type, pivot, axis) by deg; raises ValueError /…
+Cohesion: 0.08
+Nodes (16): bbox(), entry_center(), The selected director tree item (iid), or None., Middle of the box around the members' centers (one object: its own center)., Animate tf on entry e (and its group), then store it under each object and…, After a panel edit of a director item: refresh Center-to and report., Look at it: swing the 3D view to center on the selection (any object or…, Move the 2nd, 3rd... picked objects (or groups) onto the first one picked. (+8 more)
 
 ### Community 979 - "pov_export_before_hollow.py"
 Cohesion: 0.11
@@ -4233,8 +4221,8 @@ Cohesion: 0.05
 Nodes (72): add_light_photons(), bend_pov(), block(), camera_pov(), cloud_layer_from_preset(), cloud_pov(), combine(), default_clouds() (+64 more)
 
 ### Community 987 - "configbase.h"
-Cohesion: 0.04
-Nodes (25): T, pov_isinf(), pov_isnan(), IMemStream, IStream, POV_File_Extensions, ext, DitherStrategy (+17 more)
+Cohesion: 0.05
+Nodes (24): POVMSAddress, ExtractLibraryVersion(), ValidateFrontendAddress(), T, pov_isinf(), pov_isnan(), IMemStream, IStream (+16 more)
 
 ### Community 988 - ".collect"
 Cohesion: 0.13
@@ -4288,9 +4276,9 @@ Nodes (9): Image, ImageFont, Get source frame given relative frame index within 
 Cohesion: 0.12
 Nodes (29): bend_pov(), block(), camera_pov(), default_lights(), indent(), library(), mat_rows(), material() (+21 more)
 
-### Community 1001 - "call"
-Cohesion: 0.50
-Nodes (3): call(), Call a library transform. Sphere3d has no _points(), so its center moves., Two-finger trackpad scroll (Tk 9): vertical swipe zooms.
+### Community 1001 - ".anim_transform"
+Cohesion: 0.17
+Nodes (9): call(), pivot_point(), Call a library transform. Sphere3d has no _points(), so its center moves., Generator: apply tf in small steps via the library, one frame per step., Two-finger trackpad scroll (Tk 9): vertical swipe zooms., Apply frac of a transform through the library's own methods., World position of the pivot a transform turns around., run_tf() (+1 more)
 
 ### Community 1002 - ".sel_entry"
 Cohesion: 0.14
@@ -4348,13 +4336,13 @@ Nodes (3): Parser, Exception, TurtleError
 Cohesion: 0.30
 Nodes (11): hit_ring(), hit_sphere(), pseudo_random_stars(), f32, func, kernel, Calculates if a ray cuts through the flat horizontal ring plane., Generates procedural dusty ring bands and tracks transparency. (+3 more)
 
-### Community 1018 - "Interior"
+### Community 1018 - "stbi_uc"
 Cohesion: 0.11
-Nodes (18): MathColour, shared_ptr, SNGL, Interior, Caustics, Disp_NElems, Dispersion, Fade_Colour (+10 more)
+Nodes (27): stbi_uc, resample_row_1(), stbi__at_eof(), stbi__compute_y(), stbi__copyval(), stbi__float_postprocess(), stbi__hdr_convert(), stbi__hdr_test() (+19 more)
 
 ### Community 1019 - ".run_script"
 Cohesion: 0.13
-Nodes (6): bbox(), Move the 2nd, 3rd... picked objects (or groups) onto the first one picked., Widest side of the box around every object except infinite planes., Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…, (low corner, high corner) around the entries' objects and twins.
+Nodes (7): cube_faces(), pivot_point(), World position of the pivot a transform turns around., Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…, Generator: apply tf in small steps via the library, one frame per step., tf_text()
 
 ### Community 1020 - "PyMag"
 Cohesion: 0.16
@@ -4385,8 +4373,8 @@ Cohesion: 0.26
 Nodes (11): _open_rgb(), Load an image as 8-bit RGB bytes. Returns (bytearray, width, height,…, Load an image as linear-ish float RGB in [0, 1]. Returns (list[float], width,…, stbi_load(), stbi_loadf(), _mode_for_comp(), stbi_write_bmp(), stbi_write_jpg() (+3 more)
 
 ### Community 1028 - "._switch_scene"
-Cohesion: 0.10
-Nodes (9): Note the active scene path so the next launch reopens this same file., Make `path` the active file: autosave, undo and the tree header all follow it…, <scene>.director.json beside the active scene file - where its camera work…, On scene save, keep the Camera Director's shot beside the scene so saving a…, If this scene has camera work saved beside it and the Director is open, load it., Save to a .csv of your choosing AND switch to working in it (autosave + undo…, A camera key straight from the Taichi view (sent as CMD cam just before this).…, The Camera Director, opening it if needed (its edits refresh the Taichi… (+1 more)
+Cohesion: 0.11
+Nodes (8): Note the active scene path so the next launch reopens this same file., Make `path` the active file: autosave, undo and the tree header all follow it…, <scene>.director.json beside the active scene file - where its camera work…, On scene save, keep the Camera Director's shot beside the scene so saving a…, If this scene has camera work saved beside it and the Director is open, load it., Save to a .csv of your choosing AND switch to working in it (autosave + undo…, The Camera Director, opening it if needed (its edits refresh the Taichi…, A Camera Director control driven from the Taichi menu - run it on the Director,…
 
 ### Community 1031 - "POVRayVersion"
 Cohesion: 0.27
@@ -4428,9 +4416,9 @@ Nodes (3): Put that camera key (eye + aim) where the main 3D view is looking fro
 Cohesion: 0.10
 Nodes (13): _Geometry3d, Rotate in place about X through pivot (default: world origin). pivot accepts…, Rotate in place about Y through pivot; see xrot for pivot options., Rotate in place about Z through pivot; see xrot for pivot options., Common in-place transforms for shapes made from Point3d objects., Return the Point3d instances that make up this geometry., Return the current midpoint or geometric center., Rotate about world X through pivot; radians, in place, returns self. pivot=None… (+5 more)
 
-### Community 1046 - "Cube3d"
-Cohesion: 0.12
-Nodes (3): Cube3d, Six rectangular boundary faces of a cube or rectangular box., Accept six faces, one square, or one rectangular face plus height. Cube3d(base)…
+### Community 1046 - ".run_script"
+Cohesion: 0.14
+Nodes (3): Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…, tf_text()
 
 ### Community 1047 - "Sphere3d"
 Cohesion: 0.08
@@ -4465,11 +4453,11 @@ Cohesion: 0.19
 Nodes (3): app_pov_dir(), Write this shot to <scene>.director.json (POV / Y-up, like a project file) so…, safe_name()
 
 ### Community 1059 - ".__init__"
-Cohesion: 0.22
-Nodes (4): Path, Tk, Discards unsaved edits and reloads the current scene from disk., Resets the editor to a guaranteed working POV-Ray scene and immediately renders…
+Cohesion: 0.18
+Nodes (5): Path, Tk, Reverts the last text edit action in the code editor., Discards unsaved edits and reloads the current scene from disk., Resets the editor to a guaranteed working POV-Ray scene and immediately renders…
 
 ### Community 1060 - "Frame"
-Cohesion: 0.22
+Cohesion: 0.20
 Nodes (5): Frame, Constructs the code editor area with line numbers and parse refresh., Live Preview Canvas, Error Diagnostics Banner, and 2D Spatial Overview., Constructs Scene Explorer, Interactive Object Inspector, and Insert Palettes., Allows declaring a material as a reusable global #declare at top of file.
 
 ### Community 1061 - "tui.py"
@@ -4481,8 +4469,8 @@ Cohesion: 0.12
 Nodes (7): Put the main 3D view's orbit camera where the director camera is., Tree picked a director item: show that key pose in the preview and the Moves…, Main 3D view = that camera key (aims: the key they belong to)., Frame index of every key pose: start of move 1, then the end of each move., (move index, camera key, aim key, fov key) that key pose j is stored in., Jump the preview to the key pose nearest the current frame and return its ref., Main-view mouse move: ring + hand cursor over anything draggable.
 
 ### Community 1063 - "3dViewerApp/director3d.py"
-Cohesion: 0.21
-Nodes (8): basis(), blank_key(), director3d.py - the RayTrace Camera Director, inside viewer3d. Camera moves…, Cheap re-sample while dragging (no autosave), redraw both views at most ~30x a…, right, up, fwd for a Z-up world (matches camera_path.camera_basis after the…, swap(), swap_shot(), unit()
+Cohesion: 0.17
+Nodes (9): basis(), blank_key(), director3d.py - the RayTrace Camera Director, inside viewer3d. Camera moves…, The director camera for one frame, in the form App.draw_through wants., Cheap re-sample while dragging (no autosave), redraw both views at most ~30x a…, right, up, fwd for a Z-up world (matches camera_path.camera_basis after the…, swap(), swap_shot() (+1 more)
 
 ### Community 1065 - "iff.cpp"
 Cohesion: 0.39
@@ -4497,8 +4485,8 @@ Cohesion: 0.16
 Nodes (13): DiffusionDither, maaErrorBuffer, mImageWidth, DitherStrategy, GetOffset, Filter, Image, NoDither (+5 more)
 
 ### Community 1068 - "Square3d"
-Cohesion: 0.10
-Nodes (3): Store and manipulate a 3d Square methods: get_area returns area of square…, Same as deepcopy, like Point3d.copy: a shared point would make the copy drag…, Square3d
+Cohesion: 0.09
+Nodes (4): Store and manipulate a 3d Square methods: get_area returns area of square…, Accept six faces, one square, or one rectangular face plus height. Cube3d(base)…, Same as deepcopy, like Point3d.copy: a shared point would make the copy drag…, Square3d
 
 ### Community 1069 - "taichi_preview_before_menubtn.py"
 Cohesion: 0.12
@@ -4521,8 +4509,8 @@ Cohesion: 0.25
 Nodes (4): SpectralBand, bandwidth, wavelength, SetSpectralBand
 
 ### Community 1075 - ".draw_preview"
-Cohesion: 0.11
-Nodes (8): pose_at(), The director camera for one frame, in the form App.draw_through wants., {track name: the point it turns / scales about, at rest} - the object's own…, Scene objects with their keyed motion applied for time t; rest pose restored on…, Interpolated {move, rot, scale} at time t; holds the first / last key outside…, A pose as scene transform rows (the same CSV rows an entry's own transforms…, Objects move: write one complete scene per frame (director/<name>/f<N>.pov,…, track_rows()
+Cohesion: 0.10
+Nodes (10): app_bg(), pose_at(), {track name: the point it turns / scales about, at rest} - the object's own…, Scene objects with their keyed motion applied for time t; rest pose restored on…, Interpolated {move, rot, scale} at time t; holds the first / last key outside…, A pose as scene transform rows (the same CSV rows an entry's own transforms…, Director shot-light dict -> pov_export light spec (spot / fade / shadowless)., One .pov for the whole shot: frame_number picks the camera out of arrays. (+2 more)
 
 ### Community 1077 - "taichi_preview_before_typedtf.py"
 Cohesion: 0.12
@@ -4545,8 +4533,8 @@ Cohesion: 0.19
 Nodes (14): BreakoutSignalPayload, control(), ControlPayload, get_open_positions(), health(), BaseModel, field_validator, get (+6 more)
 
 ### Community 1085 - ".refresh"
-Cohesion: 0.09
-Nodes (14): fmt(), num(), _pivot_fields(), Number -> short CSV text., Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Camera director's keys, aims and lights as tree rows (while the director is…, One Properties window; it follows the tree selection while open. (+6 more)
+Cohesion: 0.13
+Nodes (6): fmt(), Recreate e.obj from its CSV row, then replay its transforms instantly., Rebuild tree + combobox choices + grid size, then redraw., Camera director's keys, aims and lights as tree rows (while the director is…, Bends that continue off the end of e: move them rigidly so they stay attached…, Move every object except planes by the Move-by numbers (lift the scene off the…
 
 ### Community 1086 - "Claude implementation handoff — 2026-07-17"
 Cohesion: 0.22
@@ -4652,9 +4640,9 @@ Nodes (15): Vector3d, CubicWarp, UnwarpNormal, WarpNormal, WarpPoint, TRANSFORM,
 Cohesion: 0.09
 Nodes (11): The selected director tree item (iid), or None., Middle of the box around the members' centers (one object: its own center)., Animate tf on entry e (and its group), then store it under each object and save., After a panel edit of a director item: refresh Center-to and report., Move the 2nd, 3rd... picked objects (or groups) onto the first one picked., Stand at Eye looking at Look at with that FOV., Selected director camera key = Eye / Look at / FOV boxes., Rotate a director item's points (same right-hand rule as the library's… (+3 more)
 
-### Community 1116 - "test_candle_store_incremental_retention.py"
-Cohesion: 0.47
-Nodes (8): _hourly_df(), main(), _make_store(), CandleStore incremental-refresh retention test — Step 6 (Patch B data…, Two short refreshes in a row, each covering only their own recent tail, must…, test_retention_horizon_still_prunes_bars_beyond_the_window(), test_short_incremental_refresh_does_not_erase_long_history(), test_two_widely_separated_incremental_refreshes_both_survive()
+### Community 1116 - ".open_preview"
+Cohesion: 0.19
+Nodes (6): Taichi is the main window. Launch the GPU preview and minimise this Tk menu; it…, A per-process scratch dir for the Taichi handoff, so two viewers started from…, A Python that has Taichi (checked once)., Open the Taichi GPU window: at the viewer's current camera, or (play) running…, Keep the crashed preview's log (stderr holds the abort / traceback) before the…, A nonzero exit means the Taichi window died unexpectedly. The usual culprit is…
 
 ### Community 1117 - ".draw_timeline"
 Cohesion: 0.23
@@ -4665,8 +4653,8 @@ Cohesion: 0.14
 Nodes (17): Buf, load(), main(), pick(), plane_hit(), taichi_preview.py - fast GPU fly-through of the viewer3d scene (Taichi GGUI).…, Where the ray o + t*d meets the plane through p0 with normal n (None if it…, 3x3 rotation about a world axis, right-hand rule (same as the library's… (+9 more)
 
 ### Community 1119 - "test"
-Cohesion: 0.11
-Nodes (26): test(), main(), main(), _make_oscillating_df(), _make_volatile_btc_df(), BMR-357 no-live-state test — backtester parity patch step 4…, Run one backtest with core.candle_manager.candle_manager.get() monkeypatched to…, Report §5 item 2's exact test: backtest a non-BTC symbol twice with different… (+18 more)
+Cohesion: 0.15
+Nodes (21): test(), main(), _hourly_df(), main(), _make_store(), CandleStore incremental-refresh retention test — Step 6 (Patch B data…, Two short refreshes in a row, each covering only their own recent tail, must…, test_retention_horizon_still_prunes_bars_beyond_the_window() (+13 more)
 
 ### Community 1120 - "director3d_before_tracks.py"
 Cohesion: 0.14
@@ -4709,8 +4697,8 @@ Cohesion: 0.12
 Nodes (13): color_of(), (line/border color, fill color) as stored on the object., Where the camera sits (director camera when one is being drawn)., Draw the real scene on another canvas through a director camera. view: {"eye",…, Shaded tube surface for a CurvedCylinder3d or every bend of a CurvedTorus3d.…, Shaded quads of a Lathe3d. A profile can be open, so the far side shows through…, Shaded front faces of a solids3d shape; hard edges where a flat face shows,…, Distance in front of the camera (same math as project()). (+5 more)
 
 ### Community 1130 - "RadiosityCache::BlockPool::PoolUnit"
-Cohesion: 0.22
-Nodes (9): ot_block_struct, ot_node_struct, PoolUnit, AverageNearBlock, RadiosityCache::BlockPool::NewBlock(), RadiosityCache::BlockPool::PoolUnit, blocks, next (+1 more)
+Cohesion: 0.50
+Nodes (4): PoolUnit, RadiosityCache::BlockPool::PoolUnit, blocks, next
 
 ### Community 1131 - "Vehicle"
 Cohesion: 0.19
@@ -4809,8 +4797,8 @@ Cohesion: 0.44
 Nodes (11): GetDitherOffset(), POVMSType, SceneData, ViewData, ImageMessageHandler, DrawFilledRectangleSet, DrawPixelBlockSet, DrawPixelRowSet (+3 more)
 
 ### Community 1156 - "Entry"
-Cohesion: 0.18
-Nodes (4): Entry, One Properties window; it follows the tree selection while open., (Re)build the fields from the selected object's current geometry., Bends that continue off the end of e: move them rigidly so they stay attached…
+Cohesion: 0.13
+Nodes (4): Entry, One Properties window; it follows the tree selection while open., (Re)build the fields from the selected object's current geometry., World-space forward (view dir), level forward, and right vectors.
 
 ### Community 1157 - ".anim_transform"
 Cohesion: 0.25
@@ -4892,9 +4880,9 @@ Nodes (6): DitherStrategy::ColourOffset, alpha, blue, green, ColourChannel, RGBC
 Cohesion: 0.12
 Nodes (7): Put the main 3D view's orbit camera where the director camera is., Tree picked a director item: show that key pose in the preview and the Moves…, Main 3D view = that camera key (aims: the key they belong to)., Frame index of every key pose: start of move 1, then the end of each move., (move index, camera key, aim key, fov key) that key pose j is stored in., Jump the preview to the key pose nearest the current frame and return its ref., Main-view mouse move: ring + hand cursor over anything draggable.
 
-### Community 1179 - "._build_ui"
-Cohesion: 0.12
-Nodes (7): call(), Call a library transform. Sphere3d has no _points(), so its center moves., Boxes = where the 3D view is (or the selected director camera key)., World-space forward (view dir), level forward, and right vectors., Two-finger trackpad scroll (Tk 9): vertical swipe zooms., Move the camera toward/away from the target (lens stays the same, no…, Redraw for camera moves. A full redraw of a big scene takes over a second;…
+### Community 1179 - "viewer3d_before_sky.py"
+Cohesion: 0.07
+Nodes (45): build(), call(), chunks3(), load_scene(), main(), make_cube(), make_square(), _n12() (+37 more)
 
 ### Community 1180 - "ISO_ThreadData"
 Cohesion: 0.12
@@ -4908,9 +4896,9 @@ Nodes (5): Buf, load(), main(), taichi_preview.py - fast GPU fly-through of the 
 Cohesion: 0.12
 Nodes (16): BlackHoleWarp, Center, Inverse_Radius, Inverted, Power, Radius, Radius_Squared, Repeat (+8 more)
 
-### Community 1183 - "jn"
-Cohesion: 0.12
-Nodes (8): cn, dn, fn, hn, jn(), on, pn, un
+### Community 1183 - "T"
+Cohesion: 0.23
+Nodes (7): T, Ref, ptr, RefClearContainer, RefClearDefault, RefPool, pool
 
 ### Community 1184 - ".draw_timeline"
 Cohesion: 0.23
@@ -5080,9 +5068,9 @@ Nodes (10): basis(), blank_key(), default_shot(), director3d.py - the RayTrace C
 Cohesion: 0.47
 Nodes (5): complex_sqr(), main(), paint(), func, kernel
 
-### Community 1234 - "BSPProgress"
-Cohesion: 0.21
-Nodes (11): BSPProgress, frontendAddress, lastProgressTime, sceneId, timer, POV_LONG, POVMSAddress, Progress (+3 more)
+### Community 1234 - "boundingtask.cpp"
+Cohesion: 0.07
+Nodes (30): BoundingTask, AppendObject, BoundingTask::BoundingTask(), boundingThreshold, Run, sceneData, SendFatalError, Stopped (+22 more)
 
 ### Community 1235 - "ensure_yearly_db_exists"
 Cohesion: 0.53
@@ -5096,21 +5084,25 @@ Nodes (5): Deployed, Durable Event Identity Patch — Status (2026-07-17), Expli
 Cohesion: 0.60
 Nodes (5): send_prompt(), set_state(), run_pipeline.sh script, usage(), wait_for_both()
 
-### Community 1238 - ".frame_text"
+### Community 1238 - "Display"
 Cohesion: 0.29
-Nodes (3): app_bg(), Director shot-light dict -> pov_export light spec (spot / fade / shadowless)., One .pov for the whole shot: frame_number picks the camera out of arrays.
+Nodes (12): RGBA8, Display, Clear, DrawFilledRectangle, DrawPixel, DrawPixelBlock, DrawRectangleFrame, GetHeight (+4 more)
+
+### Community 1239 - ".changed"
+Cohesion: 0.14
+Nodes (3): default_shot(), After any edit: re-sample, redraw both views, remember the shot., An arc sweeping round the front of whatever the viewer is looking at.
 
 ### Community 1241 - "TracePixel::FocalBlurData::FocalBlurData"
 Cohesion: 0.18
 Nodes (14): SeedableDoubleGeneratorPtr, GetRandomDoubleGenerator(), GetSubRandom2dGenerator(), GetSubRandomOnDiscGenerator(), Camera, CooperateFunctor, MediaFunctor, RadiosityFunctor (+6 more)
 
-### Community 1243 - "run_tf"
-Cohesion: 0.17
-Nodes (9): call(), pivot_point(), Call a library transform. Sphere3d has no _points(), so its center moves., Apply frac of a transform through the library's own methods., World position of the pivot a transform turns around., Generator: apply tf in small steps via the library, one frame per step., Two-finger trackpad scroll (Tk 9): vertical swipe zooms., run_tf() (+1 more)
+### Community 1243 - "test_bmr357_no_live_state.py"
+Cohesion: 0.22
+Nodes (13): main(), _make_oscillating_df(), _make_volatile_btc_df(), BMR-357 no-live-state test — backtester parity patch step 4…, Run one backtest with core.candle_manager.candle_manager.get() monkeypatched to…, Report §5 item 2's exact test: backtest a non-BTC symbol twice with different…, Backtesting BTC/USD itself with bmr_357 must still work (uses its own candles…, Repeating sharp-crash / slow-recovery cycles so price repeatedly breaches… (+5 more)
 
 ### Community 1244 - "ColourOffset"
-Cohesion: 0.14
-Nodes (17): ColourOffset, DiffusionDither1D, GetOffset, lastErr, SetError, FloydSteinbergDither, GetOffset, imageWidth (+9 more)
+Cohesion: 0.21
+Nodes (11): ColourOffset, DiffusionDither1D, GetOffset, lastErr, SetError, ColourOffset, SierraLiteDither, GetOffset (+3 more)
 
 ### Community 1245 - ".truth"
 Cohesion: 0.25
@@ -5121,12 +5113,12 @@ Cohesion: 0.29
 Nodes (7): T, T1, T2, T3, SafeSignedProduct(), SafeUnsignedProduct(), T4
 
 ### Community 1247 - "stbi__malloc"
-Cohesion: 0.16
-Nodes (25): stbi__png, stbi__pngchunk, stbi__uint32, stbi__compute_transparency(), stbi__convert_format(), stbi__create_png_image(), stbi__create_png_image_raw(), stbi__de_iphone() (+17 more)
+Cohesion: 0.19
+Nodes (20): stbi__png, stbi__pngchunk, stbi__uint32, stbi__compute_transparency(), stbi__convert_format(), stbi__create_png_image(), stbi__create_png_image_raw(), stbi__de_iphone() (+12 more)
 
-### Community 1248 - "HybridNumberGenerator"
-Cohesion: 0.10
-Nodes (24): HaltonDoubleGenerator, Vector3d, Halton2dBasedGenerator, generatorA, generatorB, operator[], HaltonCosWeightedDirectionGenerator, operator[] (+16 more)
+### Community 1248 - "Halton2dBasedGenerator"
+Cohesion: 0.12
+Nodes (24): HaltonDoubleGenerator, CosWeighted3dOnHemisphere(), SequentialDoubleGeneratorPtr, Vector2d, Vector3d, GetSubRandomDoubleGenerator(), Halton2dBasedGenerator, generatorA (+16 more)
 
 ### Community 1249 - "Dog"
 Cohesion: 0.31
@@ -5134,7 +5126,7 @@ Nodes (4): Bulldog, Dachshund, Dog, JackRussellTerrier
 
 ### Community 1251 - "mac_before_sync_20261102/viewer3d.py"
 Cohesion: 0.03
-Nodes (122): queue, add_nums(), bbox(), _bend_samples(), bool_need(), bool_scene(), _box_basis(), build() (+114 more)
+Nodes (114): queue, add_nums(), _bend_samples(), bool_need(), bool_scene(), _box_basis(), build(), call() (+106 more)
 
 ### Community 1252 - "project/package.json"
 Cohesion: 0.14
@@ -5152,9 +5144,9 @@ Nodes (7): pose_at(), Interpolated {move, rot, scale} at time t; holds the first
 Cohesion: 0.27
 Nodes (11): directions(), grid_layer(), hash2(), noise3(), Builds cloud-free surround panoramas into pov/ (equirectangular, so Render…, Cheap value noise on direction vectors (trilinear on a hashed lattice)., Unit vector per pixel, z up; the picture's centre column faces +x, matching…, Panel plane: dark metal tiles, thin seams, glowing cyan seams every… (+3 more)
 
-### Community 1256 - "Project_Tree_Node_Struct"
-Cohesion: 0.22
-Nodes (9): PROJECT, PROJECT_TREE_NODE, BBOX_TREE, Project_Tree_Node_Struct, Entries, Entry, is_leaf, Node (+1 more)
+### Community 1256 - "mr_03_fbs_strategy.py"
+Cohesion: 0.20
+Nodes (10): _atr(), generate_signals(), _get_market_sentiment(), MR03Params, DataFrame, Series, MR-03 v5 False Breakout Snap ================================ Hypothesis: When…, Time stop: primary exit after max_bars (TP/SL are emergency guards only). (+2 more)
 
 ### Community 1258 - ".truth"
 Cohesion: 0.25
@@ -5195,6 +5187,10 @@ Nodes (9): _adx(), _cmo(), DataFrame, Series, tema_crossover.py ================
 ### Community 1269 - ".draw_in_viewer"
 Cohesion: 0.25
 Nodes (3): Point slots an item covers: (move index, key) or ("light", index)., A camera key's center is its eye (so it turns in place); the whole shot uses…, Called by App._paint: path, handles, lights and the current camera frustum.
+
+### Community 1271 - "num"
+Cohesion: 0.18
+Nodes (8): num(), _pivot_fields(), Number -> short CSV text., One Properties window; it follows the tree selection while open., (Re)build the fields from the selected object's current geometry., Lathe tool: edits the selected lathe, or makes a new one., save_scene(), tf_to_row()
 
 ### Community 1272 - "TheNextWeek/external/stb_image.h"
 Cohesion: 0.09
@@ -5313,7 +5309,7 @@ Cohesion: 0.33
 Nodes (4): indexOf(self, other) is equivalent to self.index(other),, __indexOf__(self, other) is equivalent to self.index(other),, index(self, other) is equivalent to self[other],, __index__(self, other) is equivalent to self[other],
 
 ### Community 1350 - ".transform_item"
-Cohesion: 0.22
+Cohesion: 0.25
 Nodes (4): Point slots an item covers: (move index, key) or ("light", index)., A camera key's center is its eye (so it turns in place); the whole shot uses…, New position = fn(old) for every point of the item; one Undo step., Called by App._paint: path, handles, lights and the current camera frustum.
 
 ### Community 1351 - ".index"
@@ -5340,9 +5336,9 @@ Nodes (4): classify(), kinds = classify(sys.argv[1:]) kinds == {int} # all ints 
 Cohesion: 0.40
 Nodes (3): ge(a, b) is equivalent to a >= b,, __ge__(self, other) is equivalent to self >= other,, abs(self) is equivalent to self if self >= 0 else -self,
 
-### Community 1363 - "._paint"
-Cohesion: 0.29
-Nodes (3): Draw the real scene on another canvas through a director camera. view: {"eye",…, Distance in front of the camera (same math as project())., Clip a 3D polygon to the part in front of the camera.
+### Community 1363 - "WT_AVG"
+Cohesion: 0.18
+Nodes (11): WT_AVG, Brilliance, Current_Error_Bound, Good_Count, N, P, Pass, TileId (+3 more)
 
 ### Community 1364 - ".anim_transform"
 Cohesion: 0.14
@@ -5412,9 +5408,9 @@ Nodes (3): 2026-06-24 - Alpaca Cash Split-Brain, 2026-06-24 - Stock Scan Overlap
 Cohesion: 0.67
 Nodes (3): InitialiseCrackleCubeTable(), InitializeBinomialCoefficients(), InitializePatternGenerators()
 
-### Community 1422 - ".run_script"
-Cohesion: 0.22
-Nodes (3): cube_faces(), Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…
+### Community 1422 - "ObjectDebugHelper"
+Cohesion: 0.29
+Nodes (6): string, ObjectDebugHelper, Index, IsCopy, ObjectIndex, Tag
 
 ### Community 1427 - "GenericWarp"
 Cohesion: 0.22
@@ -5449,8 +5445,8 @@ Cohesion: 0.25
 Nodes (3): Point slots an item covers: (move index, key) or ("light", index)., A camera key's center is its eye (so it turns in place); the whole shot uses…, Called by App._paint: path, handles, lights and the current camera frustum.
 
 ### Community 1549 - "bbox"
-Cohesion: 0.25
-Nodes (6): bbox(), measure_text(), Move the 2nd, 3rd... picked objects (or groups) onto the first one picked., Write entries to a printable mesh file. Pure (no GUI) so a headless / MCP…, (low corner, high corner) around the entries' objects and twins., Plain-text measurements: one set of entries = its box size; two = how far apart…
+Cohesion: 0.10
+Nodes (17): bbox(), bool_need(), bool_scene(), measure_text(), obj_facets(), Chop entry e at the plane through c with normal nd: the half the normal points…, Closed solid of entry e (twin unioned, hollow subtracted) in world coordinates., Make entry e the plain mesh3d of manifold man (position, name, colors, group… (+9 more)
 
 ### Community 1550 - "SphericalWarp"
 Cohesion: 0.25
@@ -5460,9 +5456,9 @@ Nodes (6): SphericalWarp, DistExp, Orientation_Vector, UnwarpNormal, WarpNormal,
 Cohesion: 0.08
 Nodes (17): TimeWaster, TimeWaster2, cache(), CountCalls, debug(), Sleep given amount of seconds before calling the function, Make a class a Singleton class (only one instance), Keep a cache of previous function calls (+9 more)
 
-### Community 1580 - "configparser.h"
-Cohesion: 0.25
-Nodes (5): TOKEN, Reserved_Word_Struct, sinceVersion, Token_Name, Token_Number
+### Community 1580 - "FloydSteinbergDither"
+Cohesion: 0.33
+Nodes (6): FloydSteinbergDither, GetOffset, imageWidth, maErr, mErrX, SetError
 
 ### Community 1581 - "vfepovms.h"
 Cohesion: 0.25
@@ -5492,10 +5488,6 @@ Nodes (4): pivot_point(), Generator: apply tf in small steps via the library, on
 Cohesion: 0.29
 Nodes (3): cube_faces(), Run path as __main__, capture prints, record transforms, harvest objects., Hide objects that are building blocks (same instance) of another harvested…
 
-### Community 1589 - "ViewThreadData"
-Cohesion: 0.33
-Nodes (6): TraceThreadData, ViewData, ViewThreadData, GetHeight, GetWidth, viewData
-
 ### Community 1590 - "Noise"
 Cohesion: 0.29
 Nodes (7): DBL, Noise(), f_hetero_mf(), f_noise3d(), f_noise_generator(), f_ridge(), f_ridged_mf()
@@ -5520,10 +5512,6 @@ Nodes (5): num(), _pivot_fields(), Number -> short CSV text., save_scene(), tf_t
 Cohesion: 0.33
 Nodes (4): bbox(), Move the 2nd, 3rd... picked objects (or groups) onto the first one picked., Widest side of the box around every object except infinite planes., (low corner, high corner) around the entries' objects and twins.
 
-### Community 1599 - ".analyze"
-Cohesion: 0.47
-Nodes (5): _calc_adx(), _calc_vwap(), DataFrame, Intraday VWAP from available bars. Returns current value or None., ADX value from pandas_ta. Returns current value or None.
-
 ### Community 1602 - "_bend_tris"
 Cohesion: 0.40
 Nodes (3): _bend_tris(), One CurvedCylinder3d piece as a solid rod: sweep a radius-r ring along the…, Rotate by angle_rad about the line given by a vector object, around `pivot`.
@@ -5531,10 +5519,6 @@ Nodes (3): _bend_tris(), One CurvedCylinder3d piece as a solid rod: sweep a radi
 ### Community 1603 - "AVXFMA4Noise"
 Cohesion: 0.50
 Nodes (4): AVXFMA4DNoise(), AVXFMA4Noise(), DBL, Vector3d
-
-### Community 1604 - "Project_Struct"
-Cohesion: 0.40
-Nodes (5): Project_Struct, x1, x2, y1, y2
 
 ### Community 1605 - "cos_density.cc"
 Cohesion: 0.70
@@ -5583,14 +5567,14 @@ Nodes (128): calculate_net_pnl(), pair_contracts(), Calculates gross profit/loss
 ## Knowledge Gaps
 - **4593 isolated node(s):** `start_astral.sh script`, `fs`, `vm`, `html`, `seg` (+4588 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **340 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **339 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `OpOverloaded` connect `OpOverloaded` to `._xyz`, `Point3d`, `class3d.py`, `Sphere3d`, `Circle3d`, `Torus3d`, `.get_name`, `Point3d`, `_Geometry3d`, `Cube3d`, `Sphere3d`, `Torus3d`, `CurvedCylinder3d`, `Sphere3d`, `Vector3d`, `CurvedCylinder3d`, `Ellipsoid3d`, `Square3d`, `.get_x`, `CurvedCylinder3d`, `Vector3d`, `Square3d`, `._xyz`, `Sphere3d`, `TruncatedPrism3d`, `.__init__`, `CurvedTorus3d`, `Prism3d`, `.get_radius`, `Plane3d`, `Plane3d`, `CurvedCylinder3d`, `Plane3d`, `Point3d`, `.get_name`, `Ellipsoid3d`, `_Geometry3d`, `Vector3d`, `Plane3d`, `ColoredPixel`, `ColoredPixel`, `Prism3d`, `ColoredPixel`, `Prism3d`, `Polyhedron3d`, `Torus3d`, `Torus3d`, `Vector3d`, `Torus3d`, `Circle3d`, `_Geometry3d`, `Point3d`, `ObjGroup3d`, `ColoredPixel`, `Point3d`, `Prism3d`?**
+- **Why does `OpOverloaded` connect `OpOverloaded` to `._xyz`, `Point3d`, `class3d.py`, `Sphere3d`, `Circle3d`, `Torus3d`, `.get_name`, `Point3d`, `_Geometry3d`, `Sphere3d`, `Torus3d`, `CurvedCylinder3d`, `Sphere3d`, `_Geometry3d`, `CurvedCylinder3d`, `Ellipsoid3d`, `Square3d`, `.get_x`, `CurvedCylinder3d`, `Vector3d`, `Square3d`, `._xyz`, `Sphere3d`, `TruncatedPrism3d`, `.__init__`, `CurvedTorus3d`, `Prism3d`, `SphericalCap3d`, `Plane3d`, `Plane3d`, `CurvedCylinder3d`, `Plane3d`, `Point3d`, `.get_name`, `Ellipsoid3d`, `Cube3d`, `Vector3d`, `Plane3d`, `ColoredPixel`, `ColoredPixel`, `Prism3d`, `ColoredPixel`, `Prism3d`, `Polyhedron3d`, `Torus3d`, `Torus3d`, `Vector3d`, `Torus3d`, `Circle3d`, `_Geometry3d`, `Point3d`, `ObjGroup3d`, `ColoredPixel`, `Point3d`, `Prism3d`?**
   _High betweenness centrality (0.032) - this node is a cross-community bridge._
-- **Why does `TradeSignal` connect `TradeSignal` to `test_lifecycle_correctness_patch.py`, `ORBBreakout`, `CBAEStrategy`, `ema_ribbon_breakout.py`, `vdmr_strategy.py`, `.analyze`, `VwapConfirmedOrb`, `BTCV6ChandelierStrategy`, `RSIDipSpikeV4Strategy`, `log_trade_result`, `VBMStrategy`, `RSIDipSimpleStrategy`, `StrategyEngine`, `VTMRStrategy`, `PLLCycleStrategy`, `mr_04_fvg_strategy.py`, `BMR357Strategy`, `ecb_strategy.py`, `.analyze`, `traderdev_gridbot_adx15.py`, `kds_mean_reversion.py`, `RCRMeanReversionStrategy`, `traderdev_day_trader_v3.py`, `map_strategy.py`, `tema_crossover.py`, `AdaptiveRegime`?**
+- **Why does `TradeSignal` connect `TradeSignal` to `test_lifecycle_correctness_patch.py`, `ORBBreakout`, `CBAEStrategy`, `ema_ribbon_breakout.py`, `vdmr_strategy.py`, `.analyze`, `VwapConfirmedOrb`, `BTCV6ChandelierStrategy`, `RSIDipSpikeV4Strategy`, `log_trade_result`, `VBMStrategy`, `RSIDipSimpleStrategy`, `StrategyEngine`, `VTMRStrategy`, `PLLCycleStrategy`, `mr_04_fvg_strategy.py`, `BMR357Strategy`, `ecb_strategy.py`, `traderdev_gridbot_adx15.py`, `kds_mean_reversion.py`, `RCRMeanReversionStrategy`, `traderdev_day_trader_v3.py`, `mr_03_fbs_strategy.py`, `map_strategy.py`, `tema_crossover.py`, `AdaptiveRegime`?**
   _High betweenness centrality (0.025) - this node is a cross-community bridge._
 - **Why does `App` connect `App` to `.anim_transform`, `.collect`, `._paint`, `Point3d`, `viewer3d_before_pickfix.py`, `.run_script`, `fmt`, `.refresh`?**
   _High betweenness centrality (0.024) - this node is a cross-community bridge._
